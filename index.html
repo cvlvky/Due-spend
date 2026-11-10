@@ -61,13 +61,13 @@ a{color:var(--pri);font-weight:700}
 <nav><div id="nav"></div></nav>
 <div id="over"></div><div id="view"></div><div id="toast"></div>
 <script>
-const $=s=>document.querySelector(s),K="due-and-spend.v1";
+const $=s=>document.querySelector(s),K="due-and-spend.v1",DEFRATE=26;
 let S={dates:[],tx:[]},tab="home";
 try{const r=localStorage.getItem(K);if(r)S=JSON.parse(r)}catch(e){}
-S.inv=S.inv||[];
+S.inv=S.inv||[];S.cfg=S.cfg||{rate:DEFRATE,view:"INR"};
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const inr=n=>"₹"+Number(n||0).toLocaleString("en-IN");
+const inr=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
 const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
 const today=()=>iso(new Date());
 let mon=today().slice(0,7);
@@ -85,23 +85,23 @@ function sheet(h){$("#over").innerHTML=h?`<div class="back" data-act="close"><di
 const sorted=()=>[...S.dates].sort((a,b)=>a.date.localeCompare(b.date));
 function dRow(i){const n=dl(i.date);return `<div class="row ${cls(n)}" data-act="editDate" data-id="${i.id}"><div><b>${esc(i.name)}</b><small>${TYPES[i.type]} · ${fmt(i.date)}${i.rep!="none"?" · "+REP[i.rep][0].toLowerCase():""}${i.no?" · "+esc(i.no):""}${i.att?.length?" · "+i.att.length+(i.att.length==1?" file":" files"):""}</small></div><div class="r"><span class="chip">${when(n)}</span>${i.amt?`<b>${inr(i.amt)}</b>`:""}<button class="btn sm" data-act="paid" data-id="${i.id}">${i.type=="fd"?"Received":"Paid"}</button></div></div>`}
 const mlab=m=>new Date(m+"-01T00:00:00").toLocaleDateString("en-IN",{month:"short"});
-const tsum=(t,k)=>t.filter(x=>x.kind==k).reduce((a,x)=>a+x.amt,0);
+const tsum=(t,k)=>t.filter(x=>x.kind==k).reduce((a,x)=>a+ca(x),0);
 const sh=n=>n>=1e5?(n/1e5).toFixed(1)+"L":n>=1e3?Math.round(n/1e3)+"k":String(Math.round(n));
 function bars(data,ks,cols){const W=320,H=130,mx=Math.max(1,...data.flatMap(d=>ks.map(k=>d[k]||0))),gw=(W-10)/data.length,bw=Math.min(18,(gw-8)/ks.length);
  let s=`<svg viewBox="0 0 ${W} ${H+24}" width="100%" role="img">`;
  data.forEach((d,i)=>{const x0=5+i*gw+(gw-bw*ks.length)/2;ks.forEach((k,j)=>{const v=d[k]||0,h=v/mx*(H-16);s+=`<rect x="${x0+j*bw}" y="${H-h}" width="${bw-2}" height="${v?Math.max(h,2):0}" rx="3" fill="${cols[j]}"/>`;if(ks.length==1&&v)s+=`<text x="${x0+j*bw+bw/2-1}" y="${H-h-4}" text-anchor="middle" font-size="10" fill="var(--mute)">${sh(v)}</text>`});s+=`<text x="${5+i*gw+gw/2}" y="${H+15}" text-anchor="middle" font-size="11" fill="var(--mute)">${d.l}</text>`});
  return s+"</svg>"}
-function hbars(items){const mx=Math.max(1,...items.map(i=>i[1]));return items.map(([n,v])=>`<div class="hb"><div class="hbl"><span>${esc(n)}</span><b>${inr(v)}</b></div><div class="hbt"><i style="width:${v/mx*100}%;background:var(--pri)"></i></div></div>`).join("")}
+function hbars(items,ff=inr){const mx=Math.max(1,...items.map(i=>i[1]));return items.map(([n,v])=>`<div class="hb"><div class="hbl"><span>${esc(n)}</span><b>${ff(v)}</b></div><div class="hbt"><i style="width:${v/mx*100}%;background:var(--pri)"></i></div></div>`).join("")}
 const LEG='<div class="leg"><span><i style="background:var(--late)"></i>Spent</span><span><i style="background:var(--pri)"></i>Income</span><span><i style="background:var(--soon)"></i>Saved</span></div>';
 function chart6(){if(!S.tx.length)return `<p class="note">Add spending entries to see this chart.</p>`;const o=[],c=today().slice(0,7);for(let i=5;i>=0;i--){const k=addM(c+"-01",-i).slice(0,7),t=S.tx.filter(x=>x.date.startsWith(k));o.push({l:mlab(k),out:tsum(t,"out"),in:tsum(t,"in"),save:tsum(t,"save")})}return bars(o,["out","in","save"],["var(--late)","var(--pri)","var(--soon)"])+LEG}
 function dueMonths(){const c=today().slice(0,7),ms=[...Array(6)].map((_,j)=>addM(c+"-01",j).slice(0,7)),v=ms.map(()=>0);
  S.dates.forEach(i=>{const st=REP[i.rep][1],a=+i.amt||0;if(i.type=="fd"||!a)return;let d=i.date;for(let k=0;k<80;k++){const m=d.slice(0,7);if(m<c){if(k==0)v[0]+=a}else{const ix=ms.indexOf(m);if(ix>=0)v[ix]+=a}if(!st||m>ms[5])break;d=addM(d,st)}});
  return ms.map((m,j)=>({l:mlab(m),v:v[j]}))}
 function dueChart(){const d=dueMonths();return d.some(x=>x.v)?bars(d,["v"],["var(--pri)"]):`<p class="note">Add premiums or EMIs with an amount to see what is coming each month.</p>`}
-const catData=t=>{const by={};t.filter(x=>x.kind=="out").forEach(x=>{const c=x.cat||"Other";by[c]=(by[c]||0)+x.amt});const tot=Object.values(by).reduce((a,b)=>a+b,0)||1;return Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([c,v])=>[`${c} (${Math.round(v/tot*100)}%)`,v])};
-function catChart(t){const d=catData(t);return d.length?hbars(d):`<p class="note">No spending recorded for this month.</p>`}
-function spendDetail(t){if(!t.length)return "";const o=t.filter(x=>x.kind=="out"),sp=tsum(t,"out"),inc=tsum(t,"in"),sv=tsum(t,"save"),cur=mon==today().slice(0,7),days=cur?new Date().getDate():new Date(+mon.slice(0,4),+mon.slice(5),0).getDate(),big=[...o].sort((a,b)=>b.amt-a.amt)[0];
- return `<div class="stats" style="grid-template-columns:1fr 1fr"><div class="stat"><small>Daily average spend</small><b>${inr(sp/days)}</b></div><div class="stat"><small>Savings rate</small><b>${inc?Math.round(sv/inc*100)+"% of income":"Add income"}</b></div><div class="stat"><small>Left over</small><b>${inr(inc-sp-sv)}</b></div><div class="stat"><small>Biggest spend</small><b>${big?inr(big.amt):"None"}</b>${big?`<small>${esc(big.cat||"Other")}</small>`:""}</div></div><h2>Where it went</h2><div class="card">${catChart(t)}</div>`}
+const catData=t=>{const by={};t.filter(x=>x.kind=="out").forEach(x=>{const c=x.cat||"Other";by[c]=(by[c]||0)+ca(x)});const tot=Object.values(by).reduce((a,b)=>a+b,0)||1;return Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([c,v])=>[`${c} (${Math.round(v/tot*100)}%)`,v])};
+function catChart(t){const d=catData(t);return d.length?hbars(d,fm):`<p class="note">No spending recorded for this month.</p>`}
+function spendDetail(t){if(!t.length)return "";const o=t.filter(x=>x.kind=="out"),sp=tsum(t,"out"),inc=tsum(t,"in"),sv=tsum(t,"save"),cur=mon==today().slice(0,7),days=cur?new Date().getDate():new Date(+mon.slice(0,4),+mon.slice(5),0).getDate(),big=[...o].sort((a,b)=>ca(b)-ca(a))[0];
+ return `<div class="stats" style="grid-template-columns:1fr 1fr"><div class="stat"><small>Daily average spend</small><b>${fm(sp/days)}</b></div><div class="stat"><small>Savings rate</small><b>${inc?Math.round(sv/inc*100)+"% of income":"Add income"}</b></div><div class="stat"><small>Left over</small><b>${fm(inc-sp-sv)}</b></div><div class="stat"><small>Biggest spend</small><b>${big?fm(ca(big)):"None"}</b>${big?`<small>${esc(big.cat||"Other")}</small>`:""}</div></div><h2>Where it went</h2><div class="card">${catChart(t)}</div>`}
 function dateSummary(){if(!S.dates.length)return "";const by={};let yr=0,fd=0;
  S.dates.forEach(i=>{const st=REP[i.rep][1],a=+i.amt||0,y=st?a*12/st:a;if(i.type=="fd")fd+=a;else{yr+=y;by[TYPES[i.type]]=(by[TYPES[i.type]]||0)+y}});
  const late=S.dates.filter(i=>dl(i.date)<0).length,e=Object.entries(by).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
@@ -127,15 +127,19 @@ async function addFiles(fs){try{navigator.storage&&navigator.storage.persist&&na
 function attDone(saved){const keep=saved?pend.map(a=>a.id):orig;[...added,...orig].forEach(id=>{if(!keep.includes(id))fdel(id)});pend=[];added=[];orig=[]}
 async function viewAtt(id){const m=pend.find(a=>a.id==id);try{const b=await fget(id);if(!b)throw 0;const u=URL.createObjectURL(b),im=(m.type||"").startsWith("image/");
  $("#view").innerHTML=`<div class="back" data-act="vclose" style="z-index:40"><div class="sheet">${im?`<img src="${u}" style="width:100%;border-radius:12px" alt="${esc(m.name)}">`:`<iframe src="${u}" style="width:100%;height:60vh;border:0;border-radius:12px"></iframe>`}<p><a href="${u}" target="_blank" rel="noopener">Open in new tab</a></p><div class="acts"><button class="btn" data-act="vclose">Close</button></div></div></div>`}catch(e){toast("Couldn’t open that file")}}
+const fx=()=>+S.cfg.rate||DEFRATE;
+const ca=x=>{const to=S.cfg.view,c=x.cur||"INR";if(c==to)return x.amt;const r=+x.fx||fx();return to=="INR"?x.amt*r:x.amt/r};
+const fmx=(n,c)=>c=="QAR"?"QAR "+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2}):inr(n);
+const fm=n=>fmx(n,S.cfg.view);
 function render(){
  $("#nav").innerHTML=[["home","Home"],["dates","Due dates"],["invest","Invest"],["spend","Spending"]].map(([k,l])=>`<button class="${tab==k?"on":""}" data-act="tab" data-id="${k}">${l}</button>`).join("");
  let h="";
  if(tab=="home"){
   const ds=sorted(),late=ds.filter(i=>dl(i.date)<0),w30=ds.filter(i=>dl(i.date)<=30),sum=w30.reduce((a,i)=>a+(+i.amt||0),0);
-  const m=today().slice(0,7),t=S.tx.filter(x=>x.date.startsWith(m)),f=k=>t.filter(x=>x.kind==k).reduce((a,x)=>a+x.amt,0);
+  const m=today().slice(0,7),t=S.tx.filter(x=>x.date.startsWith(m)),f=k=>t.filter(x=>x.kind==k).reduce((a,x)=>a+ca(x),0);
   h=`<h1>Due &amp; Spend</h1><p class="sub">Everything coming up, in one place.</p>
   <div class="hero"><small>Due in the next 30 days</small><div class="big">${inr(sum)}</div><small>${w30.length?`${w30.length} ${w30.length==1?"item":"items"}${late.length?`, ${late.length} overdue`:""}`:"Nothing due soon"}</small></div>
-  <div class="stats"><div class="stat"><small>Spent</small><b>${inr(f("out"))}</b></div><div class="stat"><small>Income</small><b>${inr(f("in"))}</b></div><div class="stat"><small>Saved</small><b>${inr(f("save"))}</b></div></div>
+  <div class="stats"><div class="stat"><small>Spent</small><b>${fm(f("out"))}</b></div><div class="stat"><small>Income</small><b>${fm(f("in"))}</b></div><div class="stat"><small>Saved</small><b>${fm(f("save"))}</b></div></div>
   <h2>Up next</h2>${ds.length?ds.slice(0,6).map(dRow).join(""):`<div class="empty">No dates yet. Add your LIC premium, FD maturity or EMI.</div>`}
   <h2>Last 6 months</h2><div class="card">${chart6()}</div><h2>Dues, next 6 months</h2><div class="card">${dueChart()}</div><h2>Spending this month</h2><div class="card">${catChart(t)}</div>${S.inv.length?`<h2>Investments</h2><div class="card"><b>${inr(S.inv.reduce((a,x)=>a+(+x.val||+x.inv||0),0))}</b> current value across ${S.inv.length} ${S.inv.length==1?"item":"items"}</div>`:""}
   <p style="text-align:center"><button class="btn ghost sm" data-act="backup">Backup or restore data</button></p>
@@ -143,12 +147,12 @@ function render(){
  }
  if(tab=="dates"){const ds=sorted();h=`<h1>Due dates</h1><p class="sub">Premiums, FD maturities, EMIs and renewals. Tap an item to edit.</p>${dateSummary()}${ds.length?ds.map(dRow).join(""):`<div class="empty">Nothing here yet. Tap + Add due date.</div>`}<button class="btn fab" data-act="addDate">+ Add due date</button>`}
  if(tab=="spend"){
-  const t=S.tx.filter(x=>x.date.startsWith(mon)).sort((a,b)=>b.date.localeCompare(a.date)),f=k=>t.filter(x=>x.kind==k).reduce((a,x)=>a+x.amt,0);
+  const t=S.tx.filter(x=>x.date.startsWith(mon)).sort((a,b)=>b.date.localeCompare(a.date)),f=k=>t.filter(x=>x.kind==k).reduce((a,x)=>a+ca(x),0);
   const ml=new Date(mon+"-01T00:00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"});
   const nm={out:"Spent",in:"Income",save:"Saved"};
-  h=`<h1>Spending</h1><div class="mon"><button class="btn ghost sm" data-act="mon" data-id="-1">Previous</button><b>${ml}</b><button class="btn ghost sm" data-act="mon" data-id="1">Next</button></div>
-  <div class="stats"><div class="stat"><small>Spent</small><b>${inr(f("out"))}</b></div><div class="stat"><small>Income</small><b>${inr(f("in"))}</b></div><div class="stat"><small>Saved</small><b>${inr(f("save"))}</b></div></div>
-  ${spendDetail(t)}<h2>Month by month</h2><div class="card">${chart6()}</div><h2>Entries</h2>${t.length?t.map(x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><div><b>${esc(x.cat||nm[x.kind])}</b><small>${fmt(x.date)}${x.note?" · "+esc(x.note):""}</small></div><b>${x.kind=="out"?"−":"+"}${inr(x.amt)}</b></div>`).join(""):`<div class="empty">No entries this month. Tap + Add entry.</div>`}
+  h=`<h1>Spending</h1><div class="card" style="margin:6px 0 12px"><div class="seg"><button class="btn ${S.cfg.view=="INR"?"":"ghost"}" data-act="view" data-id="INR">Show in INR</button><button class="btn ${S.cfg.view=="QAR"?"":"ghost"}" data-act="view" data-id="QAR">Show in QAR</button></div><label>Exchange rate: 1 QAR = ₹</label><input type="number" inputmode="decimal" step="0.01" value="${fx()}" data-rate="1"><p class="note" style="margin-top:6px">Set this to your own rate. Each entry remembers the rate from when you added it.</p></div><div class="mon"><button class="btn ghost sm" data-act="mon" data-id="-1">Previous</button><b>${ml}</b><button class="btn ghost sm" data-act="mon" data-id="1">Next</button></div>
+  <div class="stats"><div class="stat"><small>Spent</small><b>${fm(f("out"))}</b></div><div class="stat"><small>Income</small><b>${fm(f("in"))}</b></div><div class="stat"><small>Saved</small><b>${fm(f("save"))}</b></div></div>
+  ${spendDetail(t)}<h2>Month by month</h2><div class="card">${chart6()}</div><h2>Entries</h2>${t.length?t.map(x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><div><b>${esc(x.cat||nm[x.kind])}</b><small>${fmt(x.date)}${x.note?" · "+esc(x.note):""}</small></div><div class="r"><b>${x.kind=="out"?"−":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=S.cfg.view?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`).join(""):`<div class="empty">No entries this month. Tap + Add entry.</div>`}
   <button class="btn fab" data-act="addTx">+ Add entry</button>`;
  }
  if(tab=="invest"){const L=S.inv,ti=L.reduce((a,x)=>a+(+x.inv||0),0),tv=L.reduce((a,x)=>a+(+x.val||+x.inv||0),0),g=tv-ti,by={};L.forEach(x=>{by[IK[x.kind]]=(by[IK[x.kind]]||0)+(+x.val||+x.inv||0)});
@@ -162,8 +166,8 @@ function dForm(i){attInit(i?.att);const o=(m,v)=>Object.entries(m).map(([k,x])=>
  <label>Policy or account number (optional)</label><input id="f_no" value="${esc(i?.no)}">${attHtml()}<div class="acts"><button class="btn" data-act="saveDate" data-id="${i?.id||""}">Save</button>${i?`<button class="btn ghost" data-act="cal" data-id="${i.id}">Add to calendar</button><button class="btn del" data-act="delDate" data-id="${i.id}">Delete</button>`:""}</div>`)}
 function tForm(x){const k=x?.kind||"out";
  sheet(`<h2 style="margin-top:0">${x?"Edit entry":"New entry"}</h2><div class="seg" id="f_kind">${[["out","Spent"],["in","Income"],["save","Saved"]].map(([v,l])=>`<button class="btn ${k==v?"":"ghost"}" data-act="kind" data-id="${v}">${l}</button>`).join("")}</div><input type="hidden" id="f_k" value="${k}">
- <div class="two"><div><label>Amount (₹)</label><input id="f_amt" type="number" inputmode="decimal" value="${x?.amt||""}"></div><div><label>Date</label><input id="f_date" type="date" value="${x?.date||today()}"></div></div>
- <label>Category</label><input id="f_cat" list="cats" placeholder="Food, Bills, Salary…" value="${esc(x?.cat)}"><datalist id="cats">${CATS.map(c=>`<option>${c}</option>`).join("")}</datalist>
+ <div class="two"><div><label>Amount</label><input id="f_amt" type="number" inputmode="decimal" value="${x?.amt||""}"></div><div><label>Currency</label><select id="f_cur"><option value="INR" ${(x?.cur||"INR")=="INR"?"selected":""}>INR (₹)</option><option value="QAR" ${x?.cur=="QAR"?"selected":""}>QAR</option></select></div></div><div class="two"><div><label>Date</label><input id="f_date" type="date" value="${x?.date||today()}"></div></div>
+ <p class="note">1 QAR = ₹${fx()} (change it on the Spending tab). Totals convert automatically.</p><label>Category</label><input id="f_cat" list="cats" placeholder="Food, Bills, Salary…" value="${esc(x?.cat)}"><datalist id="cats">${CATS.map(c=>`<option>${c}</option>`).join("")}</datalist>
  <label>Note (optional)</label><input id="f_note" value="${esc(x?.note)}">
  <div class="acts"><button class="btn" data-act="saveTx" data-id="${x?.id||""}">Save</button>${x?`<button class="btn del" data-act="delTx" data-id="${x.id}">Delete</button>`:""}</div>`)}
 document.addEventListener("click",e=>{
@@ -192,19 +196,20 @@ document.addEventListener("click",e=>{
  if(a=="cal"){const i=S.dates.find(d=>d.id==id),s=i.date.replace(/-/g,""),e2=addM(i.date,0),nx=iso(new Date(new Date(i.date+"T00:00:00").getTime()+864e5)).replace(/-/g,"");
   const r=i.rep=="none"?"":"&recur="+encodeURIComponent(i.rep=="yearly"?"RRULE:FREQ=YEARLY":`RRULE:FREQ=MONTHLY;INTERVAL=${REP[i.rep][1]}`);
   window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(i.name+" ("+TYPES[i.type]+")")}&dates=${s}/${nx}${r}`,"_blank")}
+ if(a=="view"){S.cfg.view=id;save();render()}
  if(a=="addTx")tForm();
  if(a=="editTx")tForm(S.tx.find(x=>x.id==id));
  if(a=="kind"){$("#f_k").value=id;document.querySelectorAll("#f_kind .btn").forEach(b=>b.classList.toggle("ghost",b.dataset.id!=id))}
  if(a=="saveTx"){const m=+v("f_amt");if(!m||!v("f_date")){toast("Add an amount and a date");return}
-  const o={id:id||uid(),kind:v("f_k"),amt:m,date:v("f_date"),cat:v("f_cat").trim(),note:v("f_note").trim()};
+  const old=S.tx.find(y=>y.id==id),cu=v("f_cur"),o={id:id||uid(),kind:v("f_k"),amt:m,cur:cu,fx:(old&&old.cur==cu&&old.fx)?old.fx:fx(),date:v("f_date"),cat:v("f_cat").trim(),note:v("f_note").trim()};
   S.tx=id?S.tx.map(x=>x.id==id?o:x):[...S.tx,o];mon=o.date.slice(0,7);save();sheet("");render()}
  if(a=="delTx"){S.tx=S.tx.filter(x=>x.id!=id);save();sheet("");render()}
  if(a=="mon"){mon=addM(mon+"-01",+id).slice(0,7);render()}
  if(a=="backup")sheet(`<h2 style="margin-top:0">Backup or restore</h2><p class="sub">Your data stays on this device and browser. Copy this text somewhere safe. Attached files are not included in this copy. To restore, paste a saved copy and tap Restore.</p><textarea id="f_bk" rows="7">${esc(JSON.stringify(S))}</textarea><div class="acts"><button class="btn" data-act="copy">Copy</button><button class="btn ghost" data-act="restore">Restore</button></div>`);
  if(a=="copy"){const b=$("#f_bk");b.select();try{navigator.clipboard.writeText(b.value)}catch(e){document.execCommand("copy")}toast("Copied")}
- if(a=="restore"){try{const o=JSON.parse($("#f_bk").value);if(!Array.isArray(o.dates)||!Array.isArray(o.tx))throw 0;o.inv=o.inv||[];S=o;save();sheet("");render();toast("Restored")}catch(e){toast("That text isn’t a valid backup")}}
+ if(a=="restore"){try{const o=JSON.parse($("#f_bk").value);if(!Array.isArray(o.dates)||!Array.isArray(o.tx))throw 0;o.inv=o.inv||[];o.cfg=o.cfg||{rate:DEFRATE,view:"INR"};S=o;save();sheet("");render();toast("Restored")}catch(e){toast("That text isn’t a valid backup")}}
 });
-document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.file){const fs=[...e.target.files];e.target.value="";addFiles(fs)}});
+document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.rate){const r=+e.target.value;if(r>0){S.cfg.rate=r;save();render()}return}if(e.target.dataset&&e.target.dataset.file){const fs=[...e.target.files];e.target.value="";addFiles(fs)}});
 render();
 if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 </script></body></html>
