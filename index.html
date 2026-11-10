@@ -42,7 +42,7 @@ h2{font-size:18px;font-weight:600;margin:22px 0 8px}
 .empty{color:var(--mute);text-align:center;padding:26px 10px;border:1px dashed var(--line);border-radius:14px}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
 nav div{display:flex;width:100%;max-width:560px}
-nav button{flex:1;border:0;background:none;color:var(--mute);font:inherit;font-weight:700;padding:14px 4px;cursor:pointer}
+nav button{flex:1;border:0;background:none;color:var(--mute);font:inherit;font-weight:700;padding:14px 2px;font-size:13.5px;cursor:pointer}
 nav button.on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
 .fab{position:fixed;right:18px;bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:6;border-radius:99px;padding:14px 20px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
@@ -64,7 +64,7 @@ a{color:var(--pri);font-weight:700}
 const $=s=>document.querySelector(s),K="due-and-spend.v1",DEFRATE=26;
 let S={dates:[],tx:[]},tab="home";
 try{const r=localStorage.getItem(K);if(r)S=JSON.parse(r)}catch(e){}
-S.inv=S.inv||[];S.cfg=S.cfg||{rate:DEFRATE,view:"INR"};
+S.inv=S.inv||[];S.cfg=S.cfg||{rate:DEFRATE,view:"INR"};mig();
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const inr=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
@@ -131,8 +131,20 @@ const fx=()=>+S.cfg.rate||DEFRATE;
 const ca=x=>{const to=S.cfg.view,c=x.cur||"INR";if(c==to)return x.amt;const r=+x.fx||fx();return to=="INR"?x.amt*r:x.amt/r};
 const fmx=(n,c)=>c=="QAR"?"QAR "+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2}):inr(n);
 const fm=n=>fmx(n,S.cfg.view);
+const ATYPE={bank:"Bank account",cash:"Cash",wallet:"Wallet",card:"Credit card"};
+function mig(){S.tr=S.tr||[];S.acc=S.acc||[];S.tx.forEach(x=>{if(!x.acc){const c=x.cur||"INR";let k=S.acc.find(q=>q.id=="def_"+c);if(!k){k={id:"def_"+c,name:c=="INR"?"Cash / Main":"Cash (QAR)",type:"cash",cur:c,open:0};S.acc.push(k)}x.acc=k.id;x.cur=c}});if(!S.acc.length)S.acc.push({id:"def_INR",name:"Cash / Main",type:"cash",cur:"INR",open:0})}
+const ac=id=>S.acc.find(k=>k.id==id)||{name:"Unknown",cur:"INR"},an=id=>ac(id).name;
+const bal=k=>{let b=+k.open||0;S.tx.forEach(x=>{if(x.acc===k.id)b+=(x.kind=="in"||x.kind=="adj")?x.amt:-x.amt});S.tr.forEach(t=>{if(t.from==k.id)b-=t.amt+(+t.fee||0);if(t.to==k.id)b+=t.got});return b};
+const tot=to=>S.acc.reduce((s,k)=>s+(k.cur==to?bal(k):to=="INR"?bal(k)*fx():bal(k)/fx()),0);
+const accOpts=s=>S.acc.map(k=>`<option value="${k.id}" ${k.id==s?"selected":""}>${esc(k.name)} (${k.cur})</option>`).join("");
+function accForm(k){const used=k&&(S.tx.some(x=>x.acc==k.id)||S.tr.some(t=>t.from==k.id||t.to==k.id));
+ sheet(`<h2 style="margin-top:0">${k?"Edit account":"New account"}</h2><label>Name</label><input id="f_name" placeholder="SBI Savings, QNB Salary" value="${esc(k?.name)}"><div class="two"><div><label>Type</label><select id="f_type">${Object.entries(ATYPE).map(([q,l])=>`<option value="${q}" ${q==(k?.type||"bank")?"selected":""}>${l}</option>`).join("")}</select></div><div><label>Currency</label><select id="f_cur" ${used?"disabled":""}><option ${k?.cur=="QAR"?"":"selected"}>INR</option><option ${k?.cur=="QAR"?"selected":""}>QAR</option></select></div></div><label>Opening balance</label><input id="f_open" type="number" inputmode="decimal" value="${k?.open??""}">${used?`<p class="note">Currency can’t change once the account has entries.</p>`:""}<div class="acts"><button class="btn" data-act="saveAcc" data-id="${k?.id||""}">Save</button>${k&&S.acc.length>1?`<button class="btn del" data-act="delAcc" data-id="${k.id}">Delete</button>`:""}</div>`)}
+function trForm(t){const p=t||{},f=p.from||S.cfg.last||S.acc[0].id,to=p.to||(S.acc.find(k=>k.id!=f)||{}).id;
+ sheet(`<h2 style="margin-top:0">${t?"Edit transfer":"Transfer money"}</h2><div class="two"><div><label>From</label><select id="f_from" data-trs="1">${accOpts(f)}</select></div><div><label>To</label><select id="f_to" data-trs="1">${accOpts(to)}</select></div></div><div class="two"><div><label id="l_amt">Amount sent</label><input id="f_amt" type="number" inputmode="decimal" data-trs="1" value="${p.amt||""}"></div><div><label id="l_got">Amount received</label><input id="f_got" type="number" inputmode="decimal" value="${p.got||""}"></div></div><div class="two"><div><label>Fee (optional)</label><input id="f_fee" type="number" inputmode="decimal" value="${p.fee||""}"></div><div><label>Date</label><input id="f_date" type="date" value="${p.date||today()}"></div></div><label>Note (optional)</label><input id="f_note" value="${esc(p.note)}"><p class="note" id="trn"></p><div class="acts"><button class="btn" data-act="saveTr" data-id="${t?.id||""}">Save</button>${t?`<button class="btn del" data-act="delTr" data-id="${t.id}">Delete</button>`:""}</div>`);trSync(!!t)}
+function trSync(keep){const A=ac($("#f_from").value),B=ac($("#f_to").value),s=+$("#f_amt").value||0,g=$("#f_got");$("#l_amt").textContent="Amount sent ("+A.cur+")";$("#l_got").textContent="Amount received ("+B.cur+")";
+ if(A.cur==B.cur){g.value=s||"";g.readOnly=true;$("#trn").textContent=""}else{g.readOnly=false;if(!keep&&s)g.value=(A.cur=="INR"?s/fx():s*fx()).toFixed(2);$("#trn").textContent="Change the received amount to the real figure from your bank."}}
 function render(){
- $("#nav").innerHTML=[["home","Home"],["dates","Due dates"],["invest","Invest"],["spend","Spending"]].map(([k,l])=>`<button class="${tab==k?"on":""}" data-act="tab" data-id="${k}">${l}</button>`).join("");
+ $("#nav").innerHTML=[["home","Home"],["dates","Dues"],["invest","Invest"],["acc","Accounts"],["spend","Spend"]].map(([k,l])=>`<button class="${tab==k?"on":""}" data-act="tab" data-id="${k}">${l}</button>`).join("");
  let h="";
  if(tab=="home"){
   const ds=sorted(),late=ds.filter(i=>dl(i.date)<0),w30=ds.filter(i=>dl(i.date)<=30),sum=w30.reduce((a,i)=>a+(+i.amt||0),0);
@@ -141,39 +153,40 @@ function render(){
   <div class="hero"><small>Due in the next 30 days</small><div class="big">${inr(sum)}</div><small>${w30.length?`${w30.length} ${w30.length==1?"item":"items"}${late.length?`, ${late.length} overdue`:""}`:"Nothing due soon"}</small></div>
   <div class="stats"><div class="stat"><small>Spent</small><b>${fm(f("out"))}</b></div><div class="stat"><small>Income</small><b>${fm(f("in"))}</b></div><div class="stat"><small>Saved</small><b>${fm(f("save"))}</b></div></div>
   <h2>Up next</h2>${ds.length?ds.slice(0,6).map(dRow).join(""):`<div class="empty">No dates yet. Add your LIC premium, FD maturity or EMI.</div>`}
-  <h2>Last 6 months</h2><div class="card">${chart6()}</div><h2>Dues, next 6 months</h2><div class="card">${dueChart()}</div><h2>Spending this month</h2><div class="card">${catChart(t)}</div>${S.inv.length?`<h2>Investments</h2><div class="card"><b>${inr(S.inv.reduce((a,x)=>a+(+x.val||+x.inv||0),0))}</b> current value across ${S.inv.length} ${S.inv.length==1?"item":"items"}</div>`:""}
-  <p style="text-align:center"><button class="btn ghost sm" data-act="backup">Backup or restore data</button></p>
+  <h2>Last 6 months</h2><div class="card">${chart6()}</div><h2>Dues, next 6 months</h2><div class="card">${dueChart()}</div><h2>Spending this month</h2><div class="card">${catChart(t)}</div><h2>Accounts</h2><div class="card"><b>${fm(tot(S.cfg.view))}</b> across ${S.acc.length} ${S.acc.length==1?"account":"accounts"}</div>${S.inv.length?`<h2>Investments</h2><div class="card"><b>${inr(S.inv.reduce((a,x)=>a+(+x.val||+x.inv||0),0))}</b> current value across ${S.inv.length} ${S.inv.length==1?"item":"items"}</div>`:""}
+  <p style="text-align:center"><button class="btn ghost sm" data-act="backup">Backup or restore data</button></p><p class="note" style="text-align:center">Version 4 · Accounts</p>
   <button class="btn fab" data-act="addDate">+ Add due date</button>`;
  }
  if(tab=="dates"){const ds=sorted();h=`<h1>Due dates</h1><p class="sub">Premiums, FD maturities, EMIs and renewals. Tap an item to edit.</p>${dateSummary()}${ds.length?ds.map(dRow).join(""):`<div class="empty">Nothing here yet. Tap + Add due date.</div>`}<button class="btn fab" data-act="addDate">+ Add due date</button>`}
  if(tab=="spend"){
-  const t=S.tx.filter(x=>x.date.startsWith(mon)).sort((a,b)=>b.date.localeCompare(a.date)),f=k=>t.filter(x=>x.kind==k).reduce((a,x)=>a+ca(x),0);
+  const t=S.tx.filter(x=>x.date.startsWith(mon)&&(!S.cfg.fa||x.acc==S.cfg.fa)).sort((a,b)=>b.date.localeCompare(a.date)),f=k=>t.filter(x=>x.kind==k).reduce((a,x)=>a+ca(x),0);
   const ml=new Date(mon+"-01T00:00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"});
   const nm={out:"Spent",in:"Income",save:"Saved"};
-  h=`<h1>Spending</h1><div class="card" style="margin:6px 0 12px"><div class="seg"><button class="btn ${S.cfg.view=="INR"?"":"ghost"}" data-act="view" data-id="INR">Show in INR</button><button class="btn ${S.cfg.view=="QAR"?"":"ghost"}" data-act="view" data-id="QAR">Show in QAR</button></div><label>Exchange rate: 1 QAR = ₹</label><input type="number" inputmode="decimal" step="0.01" value="${fx()}" data-rate="1"><p class="note" style="margin-top:6px">Set this to your own rate. Each entry remembers the rate from when you added it.</p></div><div class="mon"><button class="btn ghost sm" data-act="mon" data-id="-1">Previous</button><b>${ml}</b><button class="btn ghost sm" data-act="mon" data-id="1">Next</button></div>
+  h=`<h1>Spending</h1><div class="card" style="margin:6px 0 12px"><div class="seg"><button class="btn ${S.cfg.view=="INR"?"":"ghost"}" data-act="view" data-id="INR">Show in INR</button><button class="btn ${S.cfg.view=="QAR"?"":"ghost"}" data-act="view" data-id="QAR">Show in QAR</button></div><label>Account</label><select data-fa="1"><option value="">All accounts</option>${S.acc.map(a=>`<option value="${a.id}" ${S.cfg.fa==a.id?"selected":""}>${esc(a.name)}</option>`).join("")}</select><label>Exchange rate: 1 QAR = ₹</label><input type="number" inputmode="decimal" step="0.01" value="${fx()}" data-rate="1"><p class="note" style="margin-top:6px">Set this to your own rate. Each entry remembers the rate from when you added it.</p></div><div class="mon"><button class="btn ghost sm" data-act="mon" data-id="-1">Previous</button><b>${ml}</b><button class="btn ghost sm" data-act="mon" data-id="1">Next</button></div>
   <div class="stats"><div class="stat"><small>Spent</small><b>${fm(f("out"))}</b></div><div class="stat"><small>Income</small><b>${fm(f("in"))}</b></div><div class="stat"><small>Saved</small><b>${fm(f("save"))}</b></div></div>
-  ${spendDetail(t)}<h2>Month by month</h2><div class="card">${chart6()}</div><h2>Entries</h2>${t.length?t.map(x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><div><b>${esc(x.cat||nm[x.kind])}</b><small>${fmt(x.date)}${x.note?" · "+esc(x.note):""}</small></div><div class="r"><b>${x.kind=="out"?"−":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=S.cfg.view?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`).join(""):`<div class="empty">No entries this month. Tap + Add entry.</div>`}
+  ${spendDetail(t)}<h2>Month by month</h2><div class="card">${chart6()}</div><h2>Entries</h2>${t.length?t.filter(x=>x.kind!="adj").map(x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><div><b>${esc(x.cat||nm[x.kind])}</b><small>${fmt(x.date)} · ${esc(an(x.acc))}${x.note?" · "+esc(x.note):""}</small></div><div class="r"><b>${x.kind=="out"?"−":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=S.cfg.view?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`).join(""):`<div class="empty">No entries this month. Tap + Add entry.</div>`}
   <button class="btn fab" data-act="addTx">+ Add entry</button>`;
  }
  if(tab=="invest"){const L=S.inv,ti=L.reduce((a,x)=>a+(+x.inv||0),0),tv=L.reduce((a,x)=>a+(+x.val||+x.inv||0),0),g=tv-ti,by={};L.forEach(x=>{by[IK[x.kind]]=(by[IK[x.kind]]||0)+(+x.val||+x.inv||0)});
   h=`<h1>Investments</h1><p class="sub">FDs, funds, PPF, gold and more. Tap an item to edit it or attach documents.</p>`+(L.length?`<div class="hero"><small>Current value</small><div class="big">${inr(tv)}</div><small>${g>=0?"Gain":"Loss"} of ${inr(Math.abs(g))}${ti?` (${(g/ti*100).toFixed(1)}%)`:""} on ${inr(ti)} invested</small></div><h2>Where it is invested</h2><div class="card">${hbars(Object.entries(by).sort((a,b)=>b[1]-a[1]))}</div><h2>All investments</h2>`+L.map(iRow).join(""):`<div class="empty">No investments yet. Tap + Add investment.</div>`)+`<button class="btn fab" data-act="addInv">+ Add investment</button>`}
+ if(tab=="acc"){h=`<h1>Accounts</h1><p class="sub">Bank accounts, cash and wallets. Tap a name to edit it.</p><div class="hero"><small>Total across accounts</small><div class="big">${fm(tot(S.cfg.view))}</div><small>${S.acc.length} ${S.acc.length==1?"account":"accounts"} · QAR converted at ₹${fx()}</small></div><div class="acts"><button class="btn" data-act="trf">Transfer money</button></div>`+S.acc.map(k=>{const b=bal(k);return `<div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;cursor:pointer" data-act="editAcc" data-id="${k.id}"><div><b>${esc(k.name)}</b><small style="display:block;color:var(--mute)">${ATYPE[k.type]} · ${k.cur}</small></div><b style="font-size:20px;color:${b<0?"var(--late)":"inherit"}">${fmx(b,k.cur)}</b></div><div class="acts"><button class="btn sm" data-act="addMoney" data-id="${k.id}">Add money</button><button class="btn sm ghost" data-act="fixBal" data-id="${k.id}">Correct balance</button></div></div>`}).join("")+`<h2>Transfers</h2>`+(S.tr.length?[...S.tr].sort((x,y)=>y.date.localeCompare(x.date)).slice(0,10).map(t=>`<div class="row" data-act="editTr" data-id="${t.id}"><div><b>${esc(an(t.from))} → ${esc(an(t.to))}</b><small>${fmt(t.date)}${t.note?" · "+esc(t.note):""}</small></div><div class="r"><b>${fmx(t.amt,ac(t.from).cur)}</b>${ac(t.from).cur!=ac(t.to).cur?`<small>→ ${fmx(t.got,ac(t.to).cur)}</small>`:""}</div></div>`).join(""):`<div class="empty">No transfers yet.</div>`)+`<button class="btn fab" data-act="addAcc">+ Add account</button>`}
  $("#app").innerHTML=h;
 }
 function dForm(i){attInit(i?.att);const o=(m,v)=>Object.entries(m).map(([k,x])=>`<option value="${k}" ${k==v?"selected":""}>${Array.isArray(x)?x[0]:x}</option>`).join("");
  sheet(`<h2 style="margin-top:0">${i?"Edit due date":"New due date"}</h2>${i?info(i):""}<label>Name</label><input id="f_name" placeholder="LIC policy, HDFC FD, car EMI" value="${esc(i?.name)}">
  <div class="two"><div><label>Type</label><select id="f_type">${o(TYPES,i?.type||"premium")}</select></div><div><label>Due date</label><input id="f_date" type="date" value="${i?.date||today()}"></div></div>
  <div class="two"><div><label>Amount (₹)</label><input id="f_amt" type="number" inputmode="decimal" value="${i?.amt||""}"></div><div><label>Repeats</label><select id="f_rep">${o(REP,i?.rep||"none")}</select></div></div>
- <label>Policy or account number (optional)</label><input id="f_no" value="${esc(i?.no)}">${attHtml()}<div class="acts"><button class="btn" data-act="saveDate" data-id="${i?.id||""}">Save</button>${i?`<button class="btn ghost" data-act="cal" data-id="${i.id}">Add to calendar</button><button class="btn del" data-act="delDate" data-id="${i.id}">Delete</button>`:""}</div>`)}
+ <label>Policy or account number (optional)</label><input id="f_no" value="${esc(i?.no)}"><label>Pay from account (used when you tap Paid)</label><select id="f_pay"><option value="">Last used account</option>${accOpts(i?.pay)}</select>${attHtml()}<div class="acts"><button class="btn" data-act="saveDate" data-id="${i?.id||""}">Save</button>${i?`<button class="btn ghost" data-act="cal" data-id="${i.id}">Add to calendar</button><button class="btn del" data-act="delDate" data-id="${i.id}">Delete</button>`:""}</div>`)}
 function tForm(x){const k=x?.kind||"out";
- sheet(`<h2 style="margin-top:0">${x?"Edit entry":"New entry"}</h2><div class="seg" id="f_kind">${[["out","Spent"],["in","Income"],["save","Saved"]].map(([v,l])=>`<button class="btn ${k==v?"":"ghost"}" data-act="kind" data-id="${v}">${l}</button>`).join("")}</div><input type="hidden" id="f_k" value="${k}">
- <div class="two"><div><label>Amount</label><input id="f_amt" type="number" inputmode="decimal" value="${x?.amt||""}"></div><div><label>Currency</label><select id="f_cur"><option value="INR" ${(x?.cur||"INR")=="INR"?"selected":""}>INR (₹)</option><option value="QAR" ${x?.cur=="QAR"?"selected":""}>QAR</option></select></div></div><div class="two"><div><label>Date</label><input id="f_date" type="date" value="${x?.date||today()}"></div></div>
+ sheet(`<h2 style="margin-top:0">${x?.id?"Edit entry":"New entry"}</h2><div class="seg" id="f_kind">${[["out","Spent"],["in","Income"],["save","Saved"]].map(([v,l])=>`<button class="btn ${k==v?"":"ghost"}" data-act="kind" data-id="${v}">${l}</button>`).join("")}</div><input type="hidden" id="f_k" value="${k}">
+ <div class="two"><div><label>Amount (account currency)</label><input id="f_amt" type="number" inputmode="decimal" value="${x?.amt||""}"></div><div><label>Account</label><select id="f_acc">${accOpts(x?.acc||S.cfg.last)}</select></div></div><div class="two"><div><label>Date</label><input id="f_date" type="date" value="${x?.date||today()}"></div></div>
  <p class="note">1 QAR = ₹${fx()} (change it on the Spending tab). Totals convert automatically.</p><label>Category</label><input id="f_cat" list="cats" placeholder="Food, Bills, Salary…" value="${esc(x?.cat)}"><datalist id="cats">${CATS.map(c=>`<option>${c}</option>`).join("")}</datalist>
  <label>Note (optional)</label><input id="f_note" value="${esc(x?.note)}">
- <div class="acts"><button class="btn" data-act="saveTx" data-id="${x?.id||""}">Save</button>${x?`<button class="btn del" data-act="delTx" data-id="${x.id}">Delete</button>`:""}</div>`)}
+ <div class="acts"><button class="btn" data-act="saveTx" data-id="${x?.id||""}">Save</button>${x?.id?`<button class="btn del" data-act="delTx" data-id="${x.id}">Delete</button>`:""}</div>`)}
 document.addEventListener("click",e=>{
  const t=e.target.closest("[data-act]");if(!t)return;const a=t.dataset.act,id=t.dataset.id,v=s=>$("#"+s).value;
  if(a=="paid"){e.stopPropagation();const i=S.dates.find(d=>d.id==id);if(!i)return;
-  if(+i.amt)S.tx.push({id:uid(),kind:"out",amt:+i.amt,cat:TYPES[i.type],note:i.name,date:today()});
+  if(+i.amt){const pa=S.acc.find(q=>q.id==(i.pay||S.cfg.last))||S.acc.find(q=>q.cur=="INR")||S.acc[0];S.tx.push({id:uid(),kind:i.type=="fd"?"in":"out",acc:pa.id,amt:pa.cur=="INR"?+i.amt:+i.amt/fx(),cur:pa.cur,fx:fx(),cat:TYPES[i.type],note:i.name,date:today()})}
   const n=REP[i.rep][1];if(n){let d=addM(i.date,n);while(dl(d)<0&&dl(d)<-400)d=addM(d,n);i.date=d;toast(`${i.name}: next due ${fmt(d)}`)}else{(i.att||[]).forEach(a2=>fdel(a2.id));S.dates=S.dates.filter(d=>d.id!=id);toast("Marked done")}
   save();render();return}
  if(a=="tab"){tab=id;render();scrollTo(0,0)}
@@ -190,26 +203,40 @@ document.addEventListener("click",e=>{
  if(a=="addDate")dForm();
  if(a=="editDate")dForm(S.dates.find(d=>d.id==id));
  if(a=="saveDate"){const n=v("f_name").trim();if(!n||!v("f_date")){toast("Add a name and a date");return}
-  const o={id:id||uid(),name:n,type:v("f_type"),date:v("f_date"),amt:+v("f_amt")||0,rep:v("f_rep"),no:v("f_no").trim(),att:[...pend]};
+  const o={id:id||uid(),name:n,type:v("f_type"),date:v("f_date"),amt:+v("f_amt")||0,rep:v("f_rep"),no:v("f_no").trim(),pay:v("f_pay"),att:[...pend]};
   S.dates=id?S.dates.map(d=>d.id==id?o:d):[...S.dates,o];attDone(true);save();sheet("");render()}
  if(a=="delDate"){const x=S.dates.find(d=>d.id==id);(x?.att||[]).forEach(a2=>fdel(a2.id));attDone(false);S.dates=S.dates.filter(d=>d.id!=id);save();sheet("");render()}
  if(a=="cal"){const i=S.dates.find(d=>d.id==id),s=i.date.replace(/-/g,""),e2=addM(i.date,0),nx=iso(new Date(new Date(i.date+"T00:00:00").getTime()+864e5)).replace(/-/g,"");
   const r=i.rep=="none"?"":"&recur="+encodeURIComponent(i.rep=="yearly"?"RRULE:FREQ=YEARLY":`RRULE:FREQ=MONTHLY;INTERVAL=${REP[i.rep][1]}`);
   window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(i.name+" ("+TYPES[i.type]+")")}&dates=${s}/${nx}${r}`,"_blank")}
  if(a=="view"){S.cfg.view=id;save();render()}
+ if(a=="addAcc")accForm();
+ if(a=="editAcc")accForm(ac(id));
+ if(a=="saveAcc"){const n=v("f_name").trim();if(!n){toast("Add a name");return}const old=S.acc.find(q=>q.id==id),used=id&&(S.tx.some(x=>x.acc==id)||S.tr.some(t=>t.from==id||t.to==id));
+  const o={id:id||uid(),name:n,type:v("f_type"),cur:used?old.cur:v("f_cur"),open:+v("f_open")||0};S.acc=id?S.acc.map(q=>q.id==id?o:q):[...S.acc,o];save();sheet("");render()}
+ if(a=="delAcc"){if(S.tx.some(x=>x.acc==id)||S.tr.some(t=>t.from==id||t.to==id)){toast("Delete or move this account’s entries first");return}S.acc=S.acc.filter(q=>q.id!=id);save();sheet("");render()}
+ if(a=="addMoney")tForm({kind:"in",acc:id,cat:"Deposit"});
+ if(a=="fixBal"){const k=ac(id);sheet(`<h2 style="margin-top:0">Correct balance</h2><p class="sub">${esc(k.name)}: the app shows ${fmx(bal(k),k.cur)}. Enter what your bank shows now.</p><label>Actual balance (${k.cur})</label><input id="f_bal" type="number" inputmode="decimal"><div class="acts"><button class="btn" data-act="saveFix" data-id="${id}">Save</button></div>`)}
+ if(a=="saveFix"){if(v("f_bal")===""){toast("Enter the balance");return}const k=ac(id),d=+v("f_bal")-bal(k);if(Math.abs(d)>=.005)S.tx.push({id:uid(),kind:"adj",acc:id,amt:d,cur:k.cur,fx:fx(),date:today(),cat:"Balance correction",note:""});save();sheet("");render()}
+ if(a=="trf")trForm();
+ if(a=="editTr")trForm(S.tr.find(x=>x.id==id));
+ if(a=="saveTr"){trSync(true);const o={id:id||uid(),from:v("f_from"),to:v("f_to"),amt:+v("f_amt")||0,got:+v("f_got")||0,fee:+v("f_fee")||0,date:v("f_date"),note:v("f_note").trim()};
+  if(o.from==o.to){toast("Choose two different accounts");return}if(!o.amt||!o.got){toast("Add the amounts");return}
+  S.tr=id?S.tr.map(x=>x.id==id?o:x):[...S.tr,o];save();sheet("");render();if(bal(ac(o.from))<0)toast(ac(o.from).name+" balance is now below zero")}
+ if(a=="delTr"){S.tr=S.tr.filter(x=>x.id!=id);save();sheet("");render()}
  if(a=="addTx")tForm();
  if(a=="editTx")tForm(S.tx.find(x=>x.id==id));
  if(a=="kind"){$("#f_k").value=id;document.querySelectorAll("#f_kind .btn").forEach(b=>b.classList.toggle("ghost",b.dataset.id!=id))}
  if(a=="saveTx"){const m=+v("f_amt");if(!m||!v("f_date")){toast("Add an amount and a date");return}
-  const old=S.tx.find(y=>y.id==id),cu=v("f_cur"),o={id:id||uid(),kind:v("f_k"),amt:m,cur:cu,fx:(old&&old.cur==cu&&old.fx)?old.fx:fx(),date:v("f_date"),cat:v("f_cat").trim(),note:v("f_note").trim()};
-  S.tx=id?S.tx.map(x=>x.id==id?o:x):[...S.tx,o];mon=o.date.slice(0,7);save();sheet("");render()}
+  const old=S.tx.find(y=>y.id==id),acc=v("f_acc"),cu=ac(acc).cur,o={id:id||uid(),kind:v("f_k"),acc:acc,amt:m,cur:cu,fx:(old&&old.cur==cu&&old.fx)?old.fx:fx(),date:v("f_date"),cat:v("f_cat").trim(),note:v("f_note").trim()};
+  S.tx=id?S.tx.map(x=>x.id==id?o:x):[...S.tx,o];mon=o.date.slice(0,7);S.cfg.last=acc;save();sheet("");render();if(o.kind!="in"&&bal(ac(acc))<0)toast(ac(acc).name+" balance is now below zero")}
  if(a=="delTx"){S.tx=S.tx.filter(x=>x.id!=id);save();sheet("");render()}
  if(a=="mon"){mon=addM(mon+"-01",+id).slice(0,7);render()}
  if(a=="backup")sheet(`<h2 style="margin-top:0">Backup or restore</h2><p class="sub">Your data stays on this device and browser. Copy this text somewhere safe. Attached files are not included in this copy. To restore, paste a saved copy and tap Restore.</p><textarea id="f_bk" rows="7">${esc(JSON.stringify(S))}</textarea><div class="acts"><button class="btn" data-act="copy">Copy</button><button class="btn ghost" data-act="restore">Restore</button></div>`);
  if(a=="copy"){const b=$("#f_bk");b.select();try{navigator.clipboard.writeText(b.value)}catch(e){document.execCommand("copy")}toast("Copied")}
- if(a=="restore"){try{const o=JSON.parse($("#f_bk").value);if(!Array.isArray(o.dates)||!Array.isArray(o.tx))throw 0;o.inv=o.inv||[];o.cfg=o.cfg||{rate:DEFRATE,view:"INR"};S=o;save();sheet("");render();toast("Restored")}catch(e){toast("That text isn’t a valid backup")}}
+ if(a=="restore"){try{const o=JSON.parse($("#f_bk").value);if(!Array.isArray(o.dates)||!Array.isArray(o.tx))throw 0;o.inv=o.inv||[];o.tr=o.tr||[];o.cfg=o.cfg||{rate:DEFRATE,view:"INR"};S=o;mig();save();sheet("");render();toast("Restored")}catch(e){toast("That text isn’t a valid backup")}}
 });
-document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.rate){const r=+e.target.value;if(r>0){S.cfg.rate=r;save();render()}return}if(e.target.dataset&&e.target.dataset.file){const fs=[...e.target.files];e.target.value="";addFiles(fs)}});
+document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.trs){trSync(false);return}if(e.target.dataset&&e.target.dataset.fa){S.cfg.fa=e.target.value;save();render();return}if(e.target.dataset&&e.target.dataset.rate){const r=+e.target.value;if(r>0){S.cfg.rate=r;save();render()}return}if(e.target.dataset&&e.target.dataset.file){const fs=[...e.target.files];e.target.value="";addFiles(fs)}});
 render();
 if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 </script></body></html>
