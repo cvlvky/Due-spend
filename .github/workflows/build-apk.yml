@@ -5,7 +5,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ['index.html', '.github/workflows/build-apk.yml']
+    paths: ['index.html', 'native_setup.py', '.github/workflows/build-apk.yml']
 permissions:
   contents: write
 jobs:
@@ -35,6 +35,10 @@ jobs:
           npx cap init "Due and Spend" com.duespend.app --web-dir www
           npx cap add android
           npx cap sync android
+      - name: Add the widget, shortcuts, SMS reading, fingerprint and app icon
+        run: |
+          pip install pillow || true
+          python3 native_setup.py build/android icon-512.png
       - name: Build
         run: cd build/android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - name: Publish the APK as a release
