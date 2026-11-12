@@ -1,7 +1,7 @@
 {
  "name": "Due & Spend",
  "short_name": "Due & Spend",
- "description": "Track premiums, FD maturities, EMIs, investments and spending.",
+ "description": "Track dues, premiums, FD maturities, EMIs, accounts, investments and spending in INR and QAR.",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
@@ -47,5 +47,13 @@
     }
    ]
   }
- ]
+ ],
+ "share_target": {
+  "action": "./",
+  "method": "GET",
+  "params": {
+   "title": "title",
+   "text": "text"
+  }
+ }
 }
