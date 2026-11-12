@@ -1,15 +1,15 @@
-DUE & SPEND (version 11)
+DUE & SPEND (version 12)
 
 UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
-     index.html, manifest.json, sw.js, icon-192.png, icon-512.png, native_setup.py
+     index.html, manifest.json, sw.js, icon-192.png, icon-512.png
 2. Open .github/workflows/build-apk.yml in the repo, tap the pencil (Edit),
    delete everything, paste the whole of the new build-apk.yml, and commit.
 3. Actions tab > "Build Android app" > wait for the green tick (5-10 minutes).
    If it does not start by itself, tap Run workflow.
 4. Releases page > download due-and-spend.apk > open it > Update.
    Your data stays, because the app is signed with the same key.
-5. Open the app once. Home should end with "Version 11".
+5. Open the app once. Home should end with "Version 12".
 If the build shows a red cross, open it and send Claude the red error lines.
 
 WHAT IS NEW IN THE PHONE APP
@@ -27,4 +27,4 @@ WHAT IS NEW IN THE PHONE APP
 - The phone's back button closes the open form.
 
 WEB APP (browser install) still works the same from index.html.
-GOOGLE SYNC (optional): see SETUP-SYNC.txt.
+SYNC BETWEEN PHONES (optional): see SETUP-SYNC.txt. In the phone app you sign in with email and password.

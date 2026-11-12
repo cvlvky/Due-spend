@@ -1,33 +1,41 @@
-GOOGLE SYNC SETUP (one time, about 10 minutes, free plan)
+SYNC SETUP (one time, about 10 minutes on a computer, free plan)
 
-Sync works only in the installed/GitHub-hosted app, not the Claude link.
-
-1. Go to console.firebase.google.com and sign in with Google. Add project. Turn Analytics off.
-2. Build > Authentication > Get started > Sign-in method > Google > Enable > Save.
-3. Authentication > Settings > Authorized domains > Add domain: YOURNAME.github.io
-4. Build > Firestore Database > Create database > Production mode > pick a nearby location.
-5. Firestore > Rules tab > replace everything with the text below > Publish:
+1. Go to console.firebase.google.com and sign in. Add project. Turn Analytics off.
+2. Build > Authentication > Get started > Sign-in method > Email/Password > Enable > Save.
+   (For the browser web app you can also enable Google, and add YOURNAME.github.io
+   under Authentication > Settings > Authorized domains.)
+3. Build > Firestore Database > Create database > Production mode > pick a nearby location.
+4. Firestore > Rules tab > replace everything with the text below > Publish:
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
     match /spaces/{id} {
-      allow read, update, delete: if request.auth != null && request.auth.token.email in resource.data.members;
-      allow create: if request.auth != null && request.auth.token.email in request.resource.data.members;
+      allow read, update, delete: if request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email in resource.data.members;
+      allow create: if request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email in request.resource.data.members;
     }
   }
 }
 
-6. Project settings (gear icon) > General > Your apps > Web (</>) > register app.
+5. Project settings (gear icon) > General > Your apps > Web (</>) > register app.
    Copy the lines inside firebaseConfig (apiKey, authDomain, projectId, ...).
-7. In the app: Home > Backup, export and lock > Google sync.
-   Paste the config, choose a Space ID (for example: home-family), tap Save settings,
-   then Sign in with Google. The first phone to connect becomes the owner.
-8. To share: on the owner's phone add each person's Google email under "Invite someone".
-   On their phone repeat step 7 with the SAME config and Space ID, and sign in with that email.
+   Send them to your phone (for example, email them to yourself).
 
-Notes
-- Changes appear live on other phones. Offline edits sync when you are back online.
-- If two people edit the same item at once, the latest sync wins for that item.
-- Attached files are not synced. They stay on the phone they were added on.
-- Only emails in the member list can read the data. Keep your Firebase config and rules as above.
+IN THE APP (needs internet)
+6. Home > Settings and backup > Google sync. Paste the config lines, keep or type a
+   Space ID (for example home-family), tap Save settings.
+7. Enter your email and a password of 8 or more characters > Create account.
+8. Open the email from Firebase and tap the link to confirm your address
+   (check the spam folder). Back in the app tap "I've confirmed my email".
+   The first phone to connect uploads its data and becomes the first member.
+9. To share: on that phone, type the other person's email under "Invite someone" > Add person.
+   On their phone repeat steps 6 to 8 with the SAME config and Space ID, using that email.
+
+NOTES
+- Only confirmed emails on the member list can read the data. Keep the rules exactly as above.
+- Changes appear on the other phones within seconds. Offline edits sync later.
+- Restoring a backup on one phone replaces the data on all of them.
+- Attached files and the recycle bin are not synced.
+- Update the app on every phone before syncing.

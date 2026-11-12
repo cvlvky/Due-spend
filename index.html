@@ -102,7 +102,7 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="11";
+const K="due-and-spend.v1",DEFRATE=26,VER="12";
 const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec"],LOCAL=["cfg","nw","bin","del"];
 const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],bin:[],del:[],nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
@@ -971,7 +971,7 @@ function syncMark(){if(SY.on&&!SY.applying){SY.dirty=true;syv();clearTimeout(pus
 function loadFB(){return new Promise((res,rej)=>{if(window.firebase)return res();const u=["app","auth","firestore"].map(n=>`https://www.gstatic.com/firebasejs/10.12.2/firebase-${n}-compat.js`);let i=0;(function nx(){if(i>=u.length)return res();const s=document.createElement("script");s.src=u[i++];s.onload=nx;s.onerror=()=>rej(new Error("load"));document.head.appendChild(s)})()})}
 async function syncStart(){if(started||!SY.cfg||!SY.space)return;
   try{await loadFB();if(!firebase.apps.length)firebase.initializeApp(SY.cfg);fdb=firebase.firestore();started=true;
-    firebase.auth().onAuthStateChanged(u=>{me=u;if(u){sset("Signed in as "+u.email);listen()}else sset("Not signed in")})}
+    firebase.auth().onAuthStateChanged(u=>{me=u;if(!u)return sset("Not signed in");if(!u.emailVerified)return sset("Signed in as "+u.email+", but the email isn’t confirmed yet. Open the link in the email from Firebase, then tap I’ve confirmed.");sset("Signed in as "+u.email);listen()})}
   catch(e){sset("Sync unavailable here")}}
 function takeRemote(R,gen,known,dirty){/* a higher generation means someone restored a backup: take their copy whole */
   if(known!=null&&(gen||0)>known){R=normR(R);COLLS.forEach(c=>{if(Array.isArray(R[c]))S[c]=R[c]});S.del=R.del||[];mig()}
@@ -980,7 +980,7 @@ function listen(){if(unsub)unsub();const ref=fdb.collection("spaces").doc(SY.spa
   unsub=ref.onSnapshot(sn=>{if(!sn.exists){SY.owner=true;syv();pushNow();return}if(sn.metadata.hasPendingWrites)return;const d=sn.data();SY.members=d.members||SY.members;SY.applying=true;
     try{if(!SY.force){takeRemote(JSON.parse(d.data||"{}"),d.gen,SY.gen,!!SY.dirty);SY.gen=d.gen||0}syv();persist();render()}catch(e){console.warn(e)}SY.applying=false;
     sset("Synced "+hhmm()+(d.by&&me&&d.by!==me.email?" · last edit by "+d.by:""));if(SY.dirty||SY.force)pushNow()},err=>sset("Sync error: "+(err.code||"check your rules")))}
-async function pushNow(){if(!fdb||!me||!SY.space)return;
+async function pushNow(){if(!fdb||!me||!me.emailVerified||!SY.space)return;
   try{const ref=fdb.collection("spaces").doc(SY.space);let merged,gen;
     await fdb.runTransaction(async t=>{const sn=await t.get(ref),d=sn.exists?sn.data():null;gen=Math.max(d&&d.gen||0,SY.gen||0)+(SY.force?1:0);
       merged=SY.force||!d?{...Object.fromEntries(COLLS.map(c=>[c,S[c]])),del:S.del}:mergeCalc(JSON.parse(d.data||"{}"),true);
@@ -988,8 +988,19 @@ async function pushNow(){if(!fdb||!me||!SY.space)return;
     SY.applying=true;COLLS.forEach(c=>S[c]=merged[c]);S.del=merged.del;mig();SY.gen=gen;SY.force=false;SY.dirty=false;syv();persist();SY.applying=false;sset("Synced "+hhmm());render()}
   catch(e){SY.applying=false;sset("Sync error: "+(e.code||e.message))}}
 function syncForm(){sheet(`<h2>Google sync</h2><p class="sub">Shares your data live with people you invite. It works in the installed app. See SETUP-SYNC.txt for the one-time setup.</p><label for="f_cfg">Firebase config (paste the lines with apiKey, projectId and so on)</label><textarea id="f_cfg" rows="4" placeholder='apiKey: "...", authDomain: "...", projectId: "..."'>${esc(SY.cfg?Object.entries(SY.cfg).map(([k,x])=>k+': "'+x+'"').join(",\n"):"")}</textarea>${F("f_sp","Space ID (same on every phone)",SY.space||"home-"+uid().slice(0,5))}<div class="acts"><button class="btn" data-act="syncSave">Save settings</button></div><p class="note" id="sstat">${esc(sstat)}</p>`+
-  (SY.on?`<div class="acts"><button class="btn" data-act="syncIn">Sign in with Google</button><button class="btn ghost" data-act="syncNow">Sync now</button></div>${F("f_em","Invite someone (their Google email)","","email",'placeholder="name@gmail.com"')}<div class="acts"><button class="btn ghost" data-act="addMember">Add person</button><button class="btn del" data-act="syncOff">Turn off</button></div><p class="note">${(SY.members||[]).map(esc).join(", ")}</p><p class="note">Attached files and the recycle bin are not synced. Update the app on every phone before syncing.</p>`:""))}
+  (SY.on?`<h3>Sign in</h3>${F("f_se","Email",me&&me.email||SY.email||"","email",'autocomplete="username"')}${F("f_sp2","Password (8 or more characters)","","password",'autocomplete="current-password"')}<div class="acts"><button class="btn" data-act="syncEmailIn">Sign in</button><button class="btn ghost" data-act="syncEmailNew">Create account</button></div><div class="acts"><button class="btn ghost sm" data-act="syncVerified">I’ve confirmed my email</button><button class="btn ghost sm" data-act="syncReset">Forgot password</button></div>${isApp()?"":`<div class="acts"><button class="btn ghost" data-act="syncIn">Sign in with Google</button></div>`}<div class="acts"><button class="btn ghost" data-act="syncNow">Sync now</button></div>${F("f_em","Invite someone (their Google email)","","email",'placeholder="name@gmail.com"')}<div class="acts"><button class="btn ghost" data-act="addMember">Add person</button><button class="btn del" data-act="syncOff">Turn off</button></div><p class="note">${(SY.members||[]).map(esc).join(", ")}</p><p class="note">Attached files and the recycle bin are not synced. Update the app on every phone before syncing.</p>`:""))}
 
+const authMsg=e=>({"auth/invalid-email":"That email address isn’t valid","auth/email-already-in-use":"That email already has an account. Tap Sign in","auth/weak-password":"Use a longer password","auth/wrong-password":"Wrong email or password","auth/invalid-credential":"Wrong email or password","auth/user-not-found":"No account with that email. Tap Create account","auth/network-request-failed":"No internet connection","auth/too-many-requests":"Too many tries. Wait a few minutes","auth/operation-not-allowed":"Turn on Email/Password sign-in in your Firebase project first"})[e&&e.code]||"Sign-in failed: "+(e&&(e.code||e.message)||e);
+async function fbAuth(){await loadFB();if(!firebase.apps.length)firebase.initializeApp(SY.cfg);await syncStart();return firebase.auth()}
+Object.assign(ACT,{
+  async syncEmailIn(){const em=v("f_se").trim(),pw=v("f_sp2");if(!em||!pw)return toast("Enter your email and password");
+    try{const a=await fbAuth();await a.signInWithEmailAndPassword(em,pw);SY.email=em;syv();syncForm();toast(a.currentUser&&a.currentUser.emailVerified?"Signed in":"Now confirm your email")}catch(e){toast(e&&e.message=="load"?"Sync needs an internet connection":authMsg(e))}},
+  async syncEmailNew(){const em=v("f_se").trim(),pw=v("f_sp2");if(!em||pw.length<8)return toast("Enter your email and a password of 8 or more characters");
+    try{const a=await fbAuth();await a.createUserWithEmailAndPassword(em,pw);SY.email=em;syv();try{await a.currentUser.sendEmailVerification()}catch(e){}syncForm();toast("Account created. Open the link in the email we sent you")}catch(e){toast(e&&e.message=="load"?"Sync needs an internet connection":authMsg(e))}},
+  async syncVerified(){try{const a=await fbAuth(),u=a.currentUser;if(!u)return toast("Sign in first");await u.reload();if(!a.currentUser.emailVerified){try{await a.currentUser.sendEmailVerification()}catch(e){}return toast("Not confirmed yet. We sent the email again")}
+    await a.currentUser.getIdToken(true);me=a.currentUser;sset("Signed in as "+me.email);listen();syncForm();toast("Email confirmed. Sync is starting")}catch(e){toast(authMsg(e))}},
+  async syncReset(){const em=v("f_se").trim();if(!em)return toast("Enter your email first");try{const a=await fbAuth();await a.sendPasswordResetEmail(em);toast("Password reset email sent")}catch(e){toast(authMsg(e))}}
+});
 /* ----- copy in the viewer's Claude account: Claude link only, opt-in ----- */
 const inClaude=()=>{try{return !!(window.claude&&typeof window.claude.use=="function")}catch(e){return false}};
 const CLK="ds-cloud";let CLS={};try{CLS=JSON.parse(localStorage.getItem(CLK)||"{}")||{}}catch(e){}
