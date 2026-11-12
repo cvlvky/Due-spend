@@ -82,6 +82,18 @@ details>summary{cursor:pointer;color:var(--pri);font-weight:700;margin:12px 0 6p
 input[type=file]{padding:8px}
 a.btn{display:inline-block}
 body.hide main .tbl td{filter:blur(8px)}
+nav button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;padding:8px 1px 9px}
+nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on span{font-weight:800}
+.fab2{position:fixed;right:18px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:6;width:58px;height:58px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--pri),#14b8a6);color:var(--onpri);font-size:30px;line-height:1;cursor:pointer;box-shadow:0 8px 22px rgba(15,107,92,.4)}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+.ft{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:16px;padding:14px 4px;font:inherit;font-weight:700;font-size:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px}.ft span{font-size:26px}
+.ci{flex:0 0 38px;width:38px;height:38px;border-radius:12px;background:var(--ok);display:flex;align-items:center;justify-content:center;font-size:19px}
+.row .ci+div{flex:1;min-width:0}
+.dh{display:flex;justify-content:space-between;color:var(--mute);font-size:13px;font-weight:700;margin:14px 2px 6px}
+.strip{display:flex;gap:10px;overflow-x:auto;padding:2px 0 10px;margin:8px 0 0;scrollbar-width:none}.strip::-webkit-scrollbar{display:none}
+.sc{flex:0 0 auto;min-width:142px;background:color-mix(in srgb,var(--card) 80%,transparent);border:1px solid var(--line);border-radius:16px;padding:12px 14px;cursor:pointer}.sc small{display:block;color:var(--mute);font-size:12px;margin-bottom:2px}.sc.add{border-style:dashed}
+.cal i{cursor:default;background:var(--ok)}.cal i.has{background:var(--pri);color:var(--onpri);font-weight:700;cursor:pointer}.cal i.late{background:var(--late);color:#fff;font-weight:700;cursor:pointer}.cal i.tod{outline:2px solid var(--ink)}
+.cal i:nth-child(-n+7),.cal i:empty{background:none}
 </style></head><body>
 <main id="app"><p class="sub">Opening your data…</p></main>
 <nav><div id="nav"></div></nav>
@@ -90,7 +102,7 @@ body.hide main .tbl td{filter:blur(8px)}
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="9";
+const K="due-and-spend.v1",DEFRATE=26,VER="11";
 const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec"],LOCAL=["cfg","nw","bin","del"];
 const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],bin:[],del:[],nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
@@ -485,10 +497,10 @@ function countUp(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: re
   $$(".hero .big").forEach(e=>{const t=e.textContent,m=t.match(/[\d,]+(\.\d+)?/);if(!m)return;const n=parseFloat(m[0].replace(/,/g,"")),pre=t.slice(0,m.index),suf=t.slice(m.index+m[0].length),dec=(m[1]||"").length;if(!isFinite(n)||n<1)return;const t0=performance.now();
     (function f(now){const p=Math.min(1,(now-t0)/600),val=n*(1-Math.pow(1-p,3));e.textContent=pre+val.toLocaleString("en-IN",{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;if(p<1)requestAnimationFrame(f)})(t0)})}
 function render(){
-  $("#nav").innerHTML=TABS.map(([k,l])=>`<button class="${tab==k?"on":""}" data-act="tab" data-id="${k}">${l}</button>`).join("");
+  $("#nav").innerHTML=navHtml();
   let h;try{h=({home:vHome,dates:vDates,invest:vWealth,acc:vAcc,spend:vSpend,rep:vRep})[tab]()}
   catch(e){console.error(e);h=`<h1>Due &amp; Spend</h1><div class="card"><b>This page couldn’t be shown.</b><p class="note">${esc(e&&e.message||e)}</p><p class="note">Your data is still saved. Open Settings and backup from Home to export it.</p></div>`}
-  $("#app").innerHTML=h;applyUI();try{countUp()}catch(e){}}
+  $("#app").innerHTML=h+FABBTN;applyUI();try{countUp()}catch(e){}}
 
 const tile=(l,val,key,sub)=>`<div class="stat"${key?` data-act="explain" data-id="${esc(key)}"`:""}><small>${l}</small><b>${val}</b>${sub?`<small>${sub}</small>`:""}</div>`;
 const monNav=()=>`<div class="mon"><button class="btn ghost sm" data-act="mon" data-id="-1">Previous</button><b>${mlong(mon)}</b><button class="btn ghost sm" data-act="mon" data-id="1">Next</button></div>`;
@@ -505,22 +517,22 @@ function alerts(){const A=[],t=today();
   return A.length?`<div class="card" style="border-color:var(--soon);background:var(--soonbg);margin:0 0 12px"><b>Needs attention</b>${A.sort((a,b)=>a[0]-b[0]).slice(0,8).map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px"><span>${esc(a[1])}</span><b>${a[2]}</b></div>`).join("")}</div>`:""}
 
 function dRow(i){const n=dl(i.date);return `<div class="row ${i.done?"":cls(n)}" data-act="editDate" data-id="${i.id}"><div><b>${esc(i.name)}</b><small>${TYPES[i.type]} · ${fmt(i.date)}${i.rep!="none"?" · "+REP[i.rep][0].toLowerCase():""}${i.no?" · "+esc(i.no):""}${i.att&&i.att.length?" · "+i.att.length+(i.att.length==1?" file":" files"):""}</small></div><div class="r"><span class="chip">${i.done?"Done":when(n)}</span>${+i.amt?`<b>${fmx(i.amt,i.cur)}</b>`:""}${i.done?"":`<button class="btn sm" data-act="paid" data-id="${i.id}">${i.type=="fd"?"Received":"Paid"}</button>`}</div></div>`}
-const txRow=x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><div><b>${esc(x.cat||KIND[x.kind])}${x.sub?" › "+esc(x.sub):""}</b><small>${fmt(x.date)} · ${esc(an(x.acc))}${x.payee?" · "+esc(x.payee):""}${(x.tags||[]).map(t=>" #"+esc(t)).join("")}${x.note?" · "+esc(x.note):""}</small></div><div class="r"><b>${x.kind=="out"?"−":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=V()?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`;
+const txRow=x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><span class="ci">${catIcon(x)}</span><div><b>${esc(x.cat||KIND[x.kind])}${x.sub?" › "+esc(x.sub):""}</b><small>${fmt(x.date)} · ${esc(an(x.acc))}${x.payee?" · "+esc(x.payee):""}${(x.tags||[]).map(t=>" #"+esc(t)).join("")}${x.note?" · "+esc(x.note):""}</small></div><div class="r"><b>${x.kind=="out"?"−":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=V()?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`;
 const trRow=t=>`<div class="row" data-act="editTx" data-id="${t.id}"><div><b>${esc(an(t.acc))} → ${esc(an(t.to))}</b><small>${fmt(t.date)}${t.note?" · "+esc(t.note):""}</small></div><div class="r"><b>${fmx(t.amt,ac(t.acc).cur)}</b>${ac(t.acc).cur!=ac(t.to).cur?`<small>→ ${fmx(t.got,ac(t.to).cur)}</small>`:""}</div></div>`;
 
 /* ---------- Home ---------- */
 function vHome(){const t=today(),cm=t.slice(0,7),U=upcoming(t,plus(30),true).filter(u=>u.t=="due"||u.t=="emi"),sum=U.reduce((s,u)=>s+iv(u.a,u.c),0),late=U.filter(u=>u.d<t).length,ds=activeDues(),sf=safeSpend();
-  return `<h1>Due &amp; Spend</h1><p class="sub">Everything coming up, in one place.</p>${ctl()}${cloudCard()}${alerts()}
+  return `<h1>Due &amp; Spend</h1><p class="sub">Everything coming up, in one place.</p>${ctl()}${searchBox()}${smsCard()}${startCard()}${cloudCard()}${alerts()}
   <div class="hero" data-act="explain" data-id="due30" style="cursor:pointer"><small>Due in the next 30 days</small><div class="big">${fm(sum)}</div><small>${U.length?`${U.length} ${U.length==1?"item":"items"}${late?`, ${late} overdue`:""}`:"Nothing due soon"}</small></div>
   <div class="stats">${tile("Spent",fm(mSum(cm,"out")),"m:out:"+cm)}${tile("Income",fm(mSum(cm,"in")),"m:in:"+cm)}${tile("Saved",fm(mSum(cm,"save")),"m:save:"+cm)}</div>
   <div class="card" style="margin-top:8px;cursor:pointer" data-act="explain" data-id="safe"><small style="color:var(--mute)">Safe to spend, next 30 days</small><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:22px;color:${sf.safe<0?"var(--late)":"inherit"}">${sf.safe<0?"Short by "+fmr(-sf.safe):fmr(sf.safe)}</b><span class="note">${sf.safe>0?"about "+fmr(sf.safe/30)+" a day":""}</span></div></div>
   ${summaryCard(cm,2)}
-  <h2>Up next</h2>${ds.length?ds.slice(0,6).map(dRow).join(""):`<div class="empty">No dates yet. Add your LIC premium, FD maturity or EMI.</div>`}
+  <h2>Accounts</h2>${accStrip()}<h2>Up next</h2>${ds.length?ds.slice(0,6).map(dRow).join(""):`<div class="empty">No dates yet. Add your LIC premium, FD maturity or EMI.</div>`}
   ${timeline()}
   <h2>Money</h2><div class="stats" style="grid-template-columns:1fr 1fr">${tile("In accounts",fm(tot(V())),"")}${tile("Net worth",fm(nwv(V())),"nw")}</div>
   <div class="acts"><button class="btn ghost" data-act="tab" data-id="rep">Open reports</button><button class="btn ghost" data-act="settings">Settings and backup</button></div>
   <p class="note" style="text-align:center;margin-top:14px">Version ${VER} · ${storeLabel()}${sstat!="Sync off"?" · "+esc(sstat):""}</p>
-  <button class="btn fab" data-act="addDate">+ Add due date</button>`}
+  `}
 
 /* ---------- Dues ---------- */
 function dueMonths(){const t=today(),cm=t.slice(0,7);return [...Array(6)].map((_,j)=>{const m=addMon(cm,j);return {l:mlab(m),v:upcoming(j?m+"-01":t,mEnd(m),j==0).filter(u=>u.t=="due"||u.t=="emi").reduce((s,u)=>s+iv(u.a,u.c),0)}})}
@@ -530,7 +542,7 @@ function dateSummary(){const ds=activeDues();if(!ds.length)return "";const by={}
   const late=ds.filter(i=>dl(i.date)<0).length,e=Object.entries(by).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
   return `<div class="stats">${tile("Yearly outflow",fm(yr))}${tile("FDs maturing",fm(fd))}${tile("Overdue",late)}</div><h2>Dues and EMIs, next 6 months</h2><div class="card">${dueChart()}</div>${e.length?`<h2>Yearly cost by type</h2><div class="card">${hbars(e)}</div>`:""}<h2>All items</h2>`}
 function vDates(){const ds=activeDues(),dn=S.dates.filter(i=>i.done);
-  return `<h1>Due dates</h1><p class="sub">Premiums, FD maturities, EMIs and renewals. Tap an item to edit.</p>${viewSeg()}<div style="height:10px"></div>${dateSummary()}${ds.length?ds.map(dRow).join(""):`<div class="empty">Nothing here yet. Tap + Add due date.</div>`}${dn.length?`<details><summary>Completed (${dn.length})</summary>${dn.map(dRow).join("")}</details>`:""}<button class="btn fab" data-act="addDate">+ Add due date</button>`}
+  return `<h1>Due dates</h1><p class="sub">Premiums, FD maturities, EMIs and renewals. Tap an item to edit.</p>${viewSeg()}<div class="acts" style="margin:10px 0 12px"><button class="btn" data-act="addDate">+ Add due date</button></div>${dueCal()}${dateSummary()}${ds.length?ds.map(dRow).join(""):`<div class="empty">Nothing here yet. Tap + Add due date.</div>`}${dn.length?`<details><summary>Completed (${dn.length})</summary>${dn.map(dRow).join("")}</details>`:""}`}
 
 /* ---------- Wealth ---------- */
 function nwCard(){const k=Object.keys(S.nw).sort().slice(-30),d=k.map(x=>({l:+x.slice(8)+" "+mlab(x.slice(0,7)),v:iv(S.nw[x],"INR")}));
@@ -551,9 +563,9 @@ function vWealth(){const L=S.inv.filter(x=>!x.closed),cl=S.inv.filter(x=>x.close
 function remitCard(R){if(!R.length)return "";const q=R.reduce((s,r)=>s+r.qar,0),n=R.reduce((s,r)=>s+r.inr,0),fee=R.reduce((s,r)=>s+cv(+r.x.fee||0,ac(r.x.acc).cur,"INR"),0),rs=R.map(r=>r.rate);
   return `<h2>QAR ↔ INR transfers this year</h2><div class="card"><div class="stats" style="grid-template-columns:1fr 1fr;margin:0 0 8px">${tile("QAR moved","QAR "+nf(q))}${tile("INR moved",inr(n))}${tile("Average rate","₹"+(n/q).toFixed(2))}${tile("Best / worst","₹"+Math.max(...rs).toFixed(2)+" / ₹"+Math.min(...rs).toFixed(2))}</div><p class="note">${R.length} ${R.length==1?"transfer":"transfers"} · fees about ${inr(Math.round(fee))}. More in Reports.</p></div>`}
 function vAcc(){const y=today().slice(0,4),T=S.tx.filter(x=>x.kind=="tr").sort((a,b)=>b.date.localeCompare(a.date));
-  return `<h1>Accounts</h1><p class="sub">Bank accounts, cash and wallets. Tap a name to edit it.</p><div class="hero"><small>Total across accounts</small><div class="big">${fm(tot(V()))}</div><small>${S.acc.length} ${S.acc.length==1?"account":"accounts"} · 1 QAR = ₹${fx()}</small></div><div class="acts"><button class="btn" data-act="trf">Transfer money</button></div>`+
+  return `<h1>Accounts</h1><p class="sub">Bank accounts, cash and wallets. Tap a name to edit it.</p><div class="hero"><small>Total across accounts</small><div class="big">${fm(tot(V()))}</div><small>${S.acc.length} ${S.acc.length==1?"account":"accounts"} · 1 QAR = ₹${fx()}</small></div><div class="acts"><button class="btn" data-act="trf">Transfer money</button><button class="btn ghost" data-act="addAcc">+ Add account</button></div>`+
   S.acc.map(k=>{const b=bal(k);return `<div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;cursor:pointer" data-act="editAcc" data-id="${k.id}"><div><b>${esc(k.name)}</b><small style="display:block;color:var(--mute)">${ATYPE[k.type]||"Account"} · ${k.cur}</small></div><b style="font-size:20px;color:${b<0?"var(--late)":"inherit"}">${fmx(b,k.cur)}</b></div><div class="acts"><button class="btn sm" data-act="addMoney" data-id="${k.id}">Add money</button><button class="btn sm ghost" data-act="fixBal" data-id="${k.id}">Correct</button><button class="btn sm ghost" data-act="stmt" data-id="${k.id}">Statement</button></div></div>`}).join("")+
-  remitCard(remits().filter(r=>r.x.date.startsWith(y)))+`<h2>Transfers</h2>`+(T.length?T.slice(0,10).map(trRow).join(""):`<div class="empty">No transfers yet.</div>`)+`<button class="btn fab" data-act="addAcc">+ Add account</button>`}
+  remitCard(remits().filter(r=>r.x.date.startsWith(y)))+`<h2>Transfers</h2>`+(T.length?T.slice(0,10).map(trRow).join(""):`<div class="empty">No transfers yet.</div>`)+``}
 
 /* ---------- Spend ---------- */
 function catDonut(t){const by={};t.filter(x=>x.kind=="out").forEach(x=>{const c=x.cat||"Uncategorised";by[c]=(by[c]||0)+ca(x)});const d=Object.entries(by).sort((a,b)=>b[1]-a[1]);
@@ -569,8 +581,8 @@ function vSpend(){if(S.cfg.fa&&!S.acc.some(a=>a.id==S.cfg.fa))S.cfg.fa="";
   return `<h1>Spending</h1><div class="card" style="margin:6px 0 12px">${viewSeg()}${SEL("f_fa","Account",[["","All accounts"],...S.acc.map(a=>[a.id,a.name])],S.cfg.fa||"",'data-fa="1"')}<label for="f_rate">Exchange rate: 1 QAR = ₹</label><input id="f_rate" type="number" inputmode="decimal" step="0.01" value="${fx()}" data-rate="1"><p class="note" style="margin-top:6px">Set this to your own rate. Each entry remembers the rate from when you added it.</p></div>${monNav()}
   <div class="stats">${tile("Spent",fm(f("out")),key("out"))}${tile("Income",fm(f("in")),key("in"))}${tile("Saved",fm(f("save")),key("save"))}</div>${spendDetail(all)}
   <h2>Where it went</h2><div class="card">${catDonut(all)}</div><h2>Daily heatmap</h2><div class="card">${heat(all)}</div>${budHtml()}${recHtml()}
-  <h2>Entries</h2><input data-q="1" type="search" placeholder="Search category, payee, tag or note" value="${esc(qs)}" style="margin-bottom:8px" aria-label="Search entries">${t.length?t.map(txRow).join(""):`<div class="empty">${q?"Nothing matches that search.":"No entries this month. Tap + Add entry."}</div>`}
-  <button class="btn fab" data-act="quick">+ Add entry</button>`}
+  <h2>Entries</h2><input data-q="1" type="search" placeholder="Search category, payee, tag or note" value="${esc(qs)}" style="margin-bottom:8px" aria-label="Search entries">${t.length?dayGroups(t):`<div class="empty">${q?"Nothing matches that search.":"No entries this month. Tap + Add entry."}</div>`}
+  `}
 
 /* ---------- Reports ---------- */
 function chart6(){const c=today().slice(0,7),o=[];for(let i=5;i>=0;i--){const k=addMon(c,-i);o.push({l:mlab(k),out:mSum(k,"out"),in:mSum(k,"in"),save:mSum(k,"save")})}
@@ -692,10 +704,10 @@ function moreFields(x,fold){x=x||{};const rec=S.tx.slice(-150).reverse();
 function tForm(x){const k=x.kind;
   sheet(`<h2>Edit entry</h2>${kindSeg(k)}<div class="two"><div>${F("f_amt","Amount (account currency)",x.amt||"","number")}</div><div>${SEL("f_acc","Account",ACCS(),x.acc)}</div></div>
   <div class="two"><div>${F("f_date","Date",x.date,"date")}</div><div>${F("f_cat","Category",x.cat,"text",'list="cats"')}</div></div>${CATL()}${moreFields(x)}
-  ${x.link?`<p class="note">Linked to ${linkName(x.link)}. Deleting this entry also takes the payment back there.</p>`:""}${x.rec?`<p class="note">Added by a recurring entry.</p>`:""}${stampNote(x)}${btns("saveTx",x.id,"delTx")}`)}
+  ${x.link?`<p class="note">Linked to ${linkName(x.link)}. Deleting this entry also takes the payment back there.</p>`:""}${x.rec?`<p class="note">Added by a recurring entry.</p>`:""}${stampNote(x)}${btns("saveTx",x.id,"delTx")}<div class="acts"><button class="btn ghost" data-act="repeatTx" data-id="${x.id}">Add again today</button></div>`)}
 function qForm(k0,pre){const k=k0||"out",rc=[...new Set([...S.tx.filter(x=>x.kind==k&&x.cat&&!x.link).slice(-40).reverse().map(x=>x.cat),...CATS])].slice(0,8),a0=(pre&&pre.acc)||(S.cfg.last&&ac(S.cfg.last).id)||S.acc[0].id;
   sheet(`${kindSeg(k)}<input id="f_amt" class="amtbig" type="number" inputmode="decimal" step="any" placeholder="0" aria-label="Amount" value="${pre&&pre.amt||""}" style="margin:12px 0 6px;border:0;background:transparent">
-  <div class="chips" id="q_c">${rc.map(c=>`<button data-act="qc" data-id="${esc(c)}">${esc(c)}</button>`).join("")}</div><input id="f_cat" list="cats" placeholder="or type a category" aria-label="Category" value="${esc(pre&&pre.cat||"")}">${CATL()}
+  ${freqHtml(k)}<div class="chips" id="q_c">${rc.map(c=>`<button data-act="qc" data-id="${esc(c)}">${esc(c)}</button>`).join("")}</div><input id="f_cat" list="cats" placeholder="or type a category" aria-label="Category" value="${esc(pre&&pre.cat||"")}">${CATL()}
   <div class="two" style="margin-top:8px"><div>${SEL("f_acc","Account",ACCS(),a0)}</div><div>${F("f_date","Date",pre&&pre.date||today(),"date")}</div></div>${moreFields(pre||null,true)}
   <div class="acts"><button class="btn ghost sm" data-act="smsOpen">Paste bank SMS</button>${SMART.img?`<label class="btn ghost sm" style="text-align:center;cursor:pointer">📷 Receipt photo<input type="file" accept="image/*" hidden data-receipt="1"></label>`:""}</div>
   <div class="acts">${canVoice()?`<button class="btn ghost" data-act="voice">🎤 Voice</button>`:""}<button class="btn" data-act="saveTx" data-id="">Save</button></div>`);
@@ -718,6 +730,7 @@ function settings(){const cl=inClaude();
   <div class="acts"><button class="btn ghost" data-act="snaps">Automatic backups</button><button class="btn ghost" data-act="bin">Recycle bin (${S.bin.length})</button></div>
   <h3>Export</h3><div class="acts">${cl?"":`<button class="btn ghost" data-act="ics">Calendar file</button>`}<button class="btn ghost" data-act="csv">Spending CSV</button></div>${cl?`<p class="note">For calendar reminders here, open a due date and tap Add to calendar. A calendar file for all dates is available in the installed app.</p>`:""}
   <h3>Security and sharing</h3><div class="acts"><button class="btn ghost" data-act="lock">App lock${META.enc?" (on)":""}</button>${cl?`<button class="btn ghost" data-act="cloudOpen">Claude account copy${CLS.on?" (on)":""}</button>`:`<button class="btn ghost" data-act="syncOpen">Google sync</button>`}</div>
+  ${isApp()?`<h3>Phone app</h3><div class="acts"><button class="btn ghost" data-act="smsAuto">Read bank SMS automatically: ${S.cfg.smsAuto?"On":"Off"}</button></div><p class="note">When on, new bank messages wait on Home for you to approve. A backup file is saved to Downloads every week while app lock is off. To bring data from the web app, share its backup file to this app.</p>`:""}
   <h3>Reports</h3>${F("f_fixed","Fixed-cost categories (comma separated)",S.cfg.fixedCats)}<div class="acts"><button class="btn" data-act="saveCfg">Save settings</button></div>
   <p class="note">Backup files are not encrypted. Keep them somewhere safe.</p>`)}
 /* hand a generated file to the person: Claude's download prompt, then the share sheet, then a browser download */
@@ -741,9 +754,9 @@ function csv(){const r=[["Date","Type","Account","To account","Currency","Amount
 let lockMode="";
 function lockForm(){const pf=t=>F("f_pin",t,"","password",'inputmode="numeric" maxlength="12" autocomplete="off"');
   if(useLS)return sheet(`<h2>App lock</h2><p class="sub">App lock needs the phone database, which isn’t available in this browser view.</p>`);
-  sheet(`<h2>App lock</h2>`+(META.enc?`<p class="sub">App lock is on. Your data on this device is encrypted with your PIN, and the app locks when you come back after 30 seconds away.</p>${pf("Enter your PIN to change settings")}<div class="acts">${inClaude()||!window.PublicKeyCredential?"":`<button class="btn ghost" data-act="fpOn">Use fingerprint</button>`}<button class="btn del" data-act="pinOff">Turn off</button></div><p class="note">Fingerprint works when you return to the app. After the app is fully closed, enter the PIN.</p>`
+  sheet(`<h2>App lock</h2>`+(META.enc?`<p class="sub">App lock is on. Your data on this device is encrypted with your PIN, and the app locks when you come back after 30 seconds away.</p>${pf("Enter your PIN to change settings")}<div class="acts">${isApp()||(!inClaude()&&window.PublicKeyCredential)?`<button class="btn ghost" data-act="fpOn">Use fingerprint</button>`:""}<button class="btn del" data-act="pinOff">Turn off</button></div><p class="note">Fingerprint works when you return to the app. After the app is fully closed, enter the PIN.</p>`
   :`<p class="sub">Choose a PIN of 4 to 12 digits. Your data and attached files on this device are then encrypted with it. A forgotten PIN can’t be recovered, so keep a backup file. A longer PIN is harder to guess.</p>${pf("New PIN")}${btns("pinSet")}`))}
-function showLock(mode){lockMode=mode;$("#lock").innerHTML=`<div class="lockscr"><div><h1>Due &amp; Spend</h1><p class="sub">Enter your PIN</p><input id="f_lp" type="password" inputmode="numeric" maxlength="12" autocomplete="off" aria-label="PIN"><div class="acts"><button class="btn" data-act="unlock">Unlock</button>${mode=="resume"&&S.cfg.cred?`<button class="btn ghost" data-act="fpIn">Fingerprint</button>`:""}</div><p class="note" id="lockmsg"></p></div></div>`;setTimeout(()=>{const e=$("#f_lp");e&&e.focus()},60)}
+function showLock(mode){lockMode=mode;$("#lock").innerHTML=`<div class="lockscr"><div><h1>Due &amp; Spend</h1><p class="sub">Enter your PIN</p><input id="f_lp" type="password" inputmode="numeric" maxlength="12" autocomplete="off" aria-label="PIN"><div class="acts"><button class="btn" data-act="unlock">Unlock</button>${(mode=="resume"&&S.cfg.cred)||nfp()?`<button class="btn ghost" data-act="fpIn">Fingerprint</button>`:""}</div><p class="note" id="lockmsg"></p></div></div>`;setTimeout(()=>{const e=$("#f_lp");e&&e.focus()},60);if(nfp())ACT.fpIn().catch(()=>{})}
 const hideLock=()=>{$("#lock").innerHTML="";lockMode=""};
 const b64s=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
 async function enrollFP(){try{const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:"Due & Spend"},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:"owner",displayName:"Owner"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required"},timeout:60000}});S.cfg.cred=b64s(c.rawId);save();sheet("");toast("Fingerprint enabled")}catch(e){toast("Fingerprint isn’t available here")}}
@@ -1129,18 +1142,6 @@ function planHtml(){const G=goalPlan(),C=coverView();let h=`<h2>What if</h2><div
   if(C.lifeYr||C.healthYr||C.cover||C.ppf||C.home)h+=`<h2>Cover and yearly totals</h2><div class="card"><div class="stats" style="grid-template-columns:1fr 1fr;margin:0 0 8px">${tile("Life cover",fmr(C.cover),"",C.times?C.times.toFixed(1)+" times yearly income":"Add sum assured on premiums")}${tile("Life premiums a year",fmr(C.lifeYr))}${tile("Health premiums a year",fmr(C.healthYr))}${tile("PPF / EPF paid in",fmr(C.ppf),"","since "+fmt(C.fy))}${C.home?tile("Home loan EMIs paid",fmr(C.home),"","since "+fmt(C.fy)):""}</div><p class="note">These totals are often needed at tax time. The app does not work out tax, and rules change, so check the current rules or ask a tax adviser. A common rule of thumb for life cover is around 10 times yearly income.</p></div>`;
   return h}
 
-/* ---------- reminders in the Android app build ---------- */
-let nnT=null;
-const nPlug=()=>{try{const C=window.Capacitor;return C&&C.Plugins&&C.Plugins.LocalNotifications||null}catch(e){return null}};
-const isApp=()=>{try{return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())}catch(e){return false}};
-function nativeNotifyLater(){if(!isApp())return;clearTimeout(nnT);nnT=setTimeout(nativeNotify,3000)}
-async function nativeNotify(){const P=nPlug();if(!P)return;
-  try{let p=await P.checkPermissions();if(p.display!="granted")p=await P.requestPermissions();if(p.display!="granted")return;
-    const pend=await P.getPending();if(pend&&pend.notifications&&pend.notifications.length)await P.cancel({notifications:pend.notifications.map(n=>({id:n.id}))});
-    const U=upcoming(today(),plus(90),false).filter(u=>u.t=="due"||u.t=="emi"||u.t=="fd"&&u.a).slice(0,30),N=[],now=Date.now();let id=1;
-    U.forEach(u=>[[2,"in 2 days"],[0,"today"]].forEach(([b,w])=>{const at=D(u.d);at.setDate(at.getDate()-b);at.setHours(9,0,0,0);if(at.getTime()>now)N.push({id:id++,title:u.n+" is due "+w,body:(u.a?fmx(u.a,u.c)+" · ":"")+fmt(u.d),schedule:{at,allowWhileIdle:true}})}));
-    if(N.length)await P.schedule({notifications:N.slice(0,60)})}catch(e){console.warn("reminders",e)}}
-
 Object.assign(ACT,{
   smsOpen(){smsForm()},
   smsRead(){smsOpen(v("f_sms"))},
@@ -1162,6 +1163,112 @@ document.addEventListener("change",async e=>{const t=e.target,has=k=>t.getAttrib
     if(has("data-csv")){const f=t.files[0];if(!f)return;csvPend=csvParse(await f.text(),v("f_acc"));csvShow()}
   }catch(err){console.error(err);const o=$("#csvout");if(o)o.innerHTML=`<p class="note" style="color:var(--late)">${esc(err&&err.message||err)}</p>`;else toast(String(err&&err.message||err))}});
 
+/* ===== interface: icons, one add button, search, calendar, shortcuts ===== */
+const NAVI={home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',dates:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',invest:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',acc:'<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l12-4v4M17 13.5h2"/>',spend:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>',rep:'<path d="M5 20V10M12 20V4M19 20v-7"/>'};
+const navHtml=()=>TABS.map(([k,l])=>`<button class="${tab==k?"on":""}" data-act="tab" data-id="${k}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAVI[k]}</svg><span>${l}</span></button>`).join("");
+const FABBTN='<button class="fab2" data-act="fab" aria-label="Add something">+</button>';
+const CICON=[[/food|grocer|restaurant|dining|lulu|carrefour|cafe|tea|snack/i,"🍽️"],[/rent|house|home|villa|flat/i,"🏠"],[/travel|flight|taxi|uber|karwa|fuel|petrol|metro|bus/i,"🚕"],[/bill|electric|water|kahramaa|recharge|mobile|internet|ooredoo|vodafone/i,"💡"],[/shop|cloth|amazon|mall/i,"🛍️"],[/health|medic|doctor|pharma|hospital/i,"🩺"],[/salary|income|bonus|deposit/i,"💼"],[/emi|loan/i,"🏦"],[/premium|insur|lic/i,"🛡️"],[/invest|sip|fund|gold|goal|saving/i,"🌱"],[/family|remit|parents|school|fee|education/i,"👪"],[/subscri|netflix|spotify|prime/i,"📺"],[/gift|charity|zakat|donat/i,"🎁"]];
+const catIcon=x=>{const t=(x.cat||"")+" "+(x.sub||"");for(const [re,ic] of CICON)if(re.test(t))return ic;return x.kind=="in"?"💼":x.kind=="save"?"🌱":"🧾"};
+function dayGroups(t){const by=new Map();t.forEach(x=>{if(!by.has(x.date))by.set(x.date,[]);by.get(x.date).push(x)});
+  return [...by].map(([d,L])=>{const n=dl(d),o=sumV(L.filter(x=>x.kind=="out"));return `<div class="dh"><span>${n==0?"Today":n==-1?"Yesterday":fmt(d)}</span><span>${o?"−"+fm(o):""}</span></div>`+L.map(txRow).join("")}).join("")}
+/* Home pieces */
+const searchBox=()=>`<input data-gs="1" type="search" placeholder="Search everything" aria-label="Search everything" style="margin:0 0 12px">`;
+const accStrip=()=>`<div class="strip">${S.acc.map(k=>{const b=bal(k);return `<div class="sc" data-act="stmt" data-id="${k.id}"><small>${esc(k.name)}</small><b style="color:${b<0?"var(--late)":"inherit"}">${fmx(Math.round(b),k.cur)}</b></div>`}).join("")}<div class="sc add" data-act="addAcc"><small>New</small><b>+ Account</b></div></div>`;
+function startCard(){if(S.cfg.gs)return "";const st=[["Add your bank accounts",S.acc.length>1||S.acc.some(a=>a.ut),"addAcc"],["Add a due date (premium, EMI, FD)",S.dates.length>0,"addDate"],["Add your first entry",S.tx.some(x=>x.kind!="adj"),"quick"],["Add salary or rent as a recurring entry",S.rec.length>0,"addRec"],["Export a backup file",!!S.cfg.lastBk,"settings"]],left=st.filter(s=>!s[1]).length;if(!left)return "";
+  return `<div class="card" style="margin:0 0 12px"><div class="hbl"><b>Get set up</b><span class="note">${st.length-left} of ${st.length} done</span></div>${st.map(s=>`<div class="hrow" ${s[1]?"":`data-act="${s[2]}" style="cursor:pointer"`}><span class="dot ${s[1]?"good":""}"></span><div><b style="font-weight:${s[1]?400:700};${s[1]?"text-decoration:line-through;color:var(--mute)":""}">${s[0]}</b></div></div>`).join("")}<div class="acts"><button class="btn ghost sm" data-act="gsHide">Hide this</button></div></div>`}
+function searchAll(q){q=String(q||"").trim().toLowerCase();if(q.length<2)return;const hit=(...a)=>a.join(" ").toLowerCase().includes(q),R=[];
+  S.acc.forEach(k=>{if(hit(k.name))R.push(`<div class="row" data-act="stmt" data-id="${k.id}"><div><b>${esc(k.name)}</b><small>Account</small></div><b>${fmx(bal(k),k.cur)}</b></div>`)});
+  S.dates.forEach(i=>{if(hit(i.name,i.no,i.nom,TYPES[i.type]))R.push(dRow(i))});
+  S.inv.forEach(x=>{if(hit(x.name,x.no,IK[x.kind]))R.push(iRow(x))});
+  S.loans.forEach(l=>{if(hit(l.name))R.push(`<div class="row" data-act="editLoan" data-id="${l.id}"><div><b>${esc(l.name)}</b><small>Loan · ${loanLeft(l)} EMIs left</small></div><b>${fmx(Math.round(loanOut(l)),l.cur)}</b></div>`)});
+  S.goals.forEach(g=>{if(hit(g.name))R.push(`<div class="row" data-act="editGoal" data-id="${g.id}"><div><b>${esc(g.name)}</b><small>Goal</small></div><b>${fmx(g.saved,g.cur)}</b></div>`)});
+  const T=S.tx.filter(x=>x.kind!="tr"&&x.kind!="adj"&&hit(x.cat,x.sub,x.payee,x.note,(x.tags||[]).join(" "),an(x.acc),x.amt,x.date)).sort((a,b)=>b.date.localeCompare(a.date));
+  sheet(`<h2>Results for “${esc(q)}”</h2>${R.join("")}${T.length?`<p class="note">${T.length} ${T.length==1?"entry":"entries"}, ${fm(sumV(T.filter(x=>x.kind=="out")))} spent</p>`+T.slice(0,80).map(txRow).join(""):""}${R.length||T.length?"":`<div class="empty">Nothing matches.</div>`}`)}
+/* month calendar of what is due */
+let dmon="";
+function dueCal(){if(!dmon)dmon=today().slice(0,7);const t=today(),U=upcoming(dmon+"-01",mEnd(dmon),false),by={};U.filter(u=>u.t!="rec"&&u.t!="recin").forEach(u=>{(by[+u.d.slice(8)]=by[+u.d.slice(8)]||[]).push(u)});
+  activeDues().forEach(i=>{if(i.date<t&&i.date.startsWith(dmon)){const d=+i.date.slice(8);if(!(by[d]||[]).some(u=>u.id==i.id))(by[d]=by[d]||[]).push({d:i.date,n:i.name,a:+i.amt||0,c:i.cur,t:"due",late:1})}});
+  const off=(new Date(+dmon.slice(0,4),+dmon.slice(5)-1,1).getDay()+6)%7,tot=Object.values(by).flat().filter(u=>u.t!="fd").reduce((s,u)=>s+iv(u.a,u.c),0);
+  return `<div class="card" style="margin-bottom:12px"><div class="mon" style="margin:0 0 8px"><button class="btn ghost sm" data-act="dmon" data-id="-1" aria-label="Previous month">‹</button><b>${mlong(dmon)} · ${fmr(tot)}</b><button class="btn ghost sm" data-act="dmon" data-id="1" aria-label="Next month">›</button></div><div class="hm cal">${"MTWTFSS".split("").map(c=>`<i>${c}</i>`).join("")}${Array(off).fill("<i></i>").join("")}${Array.from({length:dim(dmon)},(_,k)=>{const d=k+1,L=by[d],iso_=dmon+"-"+p2(d);return `<i class="${L?(L.some(u=>u.late||u.d<t)?"late":"has"):""}${iso_==t?" tod":""}" ${L?tip(L.map(u=>u.n+(u.a?" "+fmx(u.a,u.c):"")).join(" · ")):""}>${d}</i>`}).join("")}</div><p class="note" style="margin-top:6px">Tap a marked day to see what is due.</p></div>`}
+/* frequent entries, one tap */
+let FREQ=[];
+function freqHtml(k){const m=new Map();S.tx.filter(x=>x.kind==k&&!x.link&&!x.rec&&(x.payee||x.cat)).slice(-300).forEach(x=>{const key=[x.acc,x.cat,x.payee,x.amt].join("|"),o=m.get(key)||{n:0,x};o.n++;o.x=x;m.set(key,o)});
+  FREQ=[...m.values()].filter(o=>o.n>=2).sort((a,b)=>b.n-a.n).slice(0,4).map(o=>o.x);
+  return FREQ.length?`<div class="chips">${FREQ.map((x,i)=>`<button data-act="qf" data-id="${i}" style="border-style:dashed">${esc(x.payee||x.cat)} ${fmx(x.amt,x.cur)}</button>`).join("")}</div>`:""}
+const fabTile=(act,ic,l)=>`<button class="ft" data-act="${act}"><span>${ic}</span>${l}</button>`;
+Object.assign(ACT,{
+  fab(){sheet(`<h2>Add</h2><div class="fgrid">${fabTile("qOut","🧾","Expense")}${fabTile("qIn","💼","Income")}${fabTile("trf","🔁","Transfer")}${fabTile("addDate","📅","Due date")}${fabTile("smsOpen","💬","Bank SMS")}${fabTile("addInv","🌱","Investment")}${fabTile("addGoal","🎯","Goal")}${fabTile("addLoan","🏦","Loan")}${fabTile("addAcc","👛","Account")}</div>`)},
+  qOut(){qForm("out")},qIn(){qForm("in")},
+  qf(id){const x=FREQ[+id];if(!x)return;$("#f_amt").value=x.amt;$("#f_cat").value=x.cat||"";$("#f_acc").value=x.acc;const p=$("#f_payee");if(p)p.value=x.payee||"";const s=$("#f_sub");if(s)s.value=x.sub||""},
+  repeatTx(id){const x=S.tx.find(q=>q.id==id);if(!x)return;const n=addTx({kind:x.kind,acc:x.acc,amt:x.amt,cur:x.cur,date:today(),cat:x.cat,sub:x.sub,payee:x.payee,tags:[...(x.tags||[])],note:x.note});mon=today().slice(0,7);done();undoDel(n.id,"Added again for today");},
+  dmon(id){dmon=addMon(dmon||today().slice(0,7),+id);render()},
+  gsHide(){S.cfg.gs=true;save();render()}
+});
+document.addEventListener("change",e=>{const t=e.target;if(t.getAttribute&&t.getAttribute("data-gs")){const q=t.value;t.value="";try{searchAll(q)}catch(x){console.error(x)}}});
+
+/* ===== the Android app build: widget, reminders, bank SMS, fingerprint, backups ===== */
+const isApp=()=>{try{return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.nativePromise)}catch(e){return false}};
+const NP=(plugin,method,opts)=>window.Capacitor.nativePromise(plugin,method,opts||{});
+const nfp=()=>{try{return isApp()&&localStorage.getItem("ds-nfp")=="1"}catch(e){return false}};
+let nnT=null,nActs=false;
+function nativeNotifyLater(){if(!isApp())return;clearTimeout(nnT);nnT=setTimeout(()=>{nativeNotify();nativeWidget()},2500)}
+/* reminders: 2 days before and on the day at 9am (with Mark paid), plus a 9pm summary for the next 7 days */
+async function nativeNotify(){
+  try{let p=await NP("LocalNotifications","checkPermissions");if(p.display!="granted")p=await NP("LocalNotifications","requestPermissions");if(p.display!="granted")return;
+    if(!nActs){nActs=true;await NP("LocalNotifications","registerActionTypes",{types:[{id:"DUE",actions:[{id:"paid",title:"Mark paid"}]}]}).catch(()=>{})}
+    const pend=await NP("LocalNotifications","getPending");if(pend&&pend.notifications&&pend.notifications.length)await NP("LocalNotifications","cancel",{notifications:pend.notifications.map(n=>({id:n.id}))});
+    const t=today(),now=Date.now(),N=[],secret=!!META.enc;let id=1;
+    upcoming(t,plus(90),false).filter(u=>u.t=="due"||u.t=="emi"||(u.t=="fd"&&u.a)).slice(0,25).forEach(u=>[[2,"in 2 days"],[0,"today"]].forEach(([b,w])=>{const at=D(u.d);at.setDate(at.getDate()-b);at.setHours(9,0,0,0);
+      if(at.getTime()>now){const n={id:id++,title:u.n+" is due "+w,body:(u.a&&!secret?fmx(u.a,u.c)+" · ":"")+fmt(u.d),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{due:u.t=="due"||u.t=="fd"?u.id:"",loan:u.t=="emi"?u.id:""}};if(u.t!="fd")n.actionTypeId="DUE";N.push(n)}}));
+    for(let j=0;j<7;j++){const at=D(plus(j));at.setHours(21,0,0,0);if(at.getTime()<=now)continue;const tm=plus(j+1),du=upcoming(tm,tm,false).filter(u=>u.t=="due"||u.t=="emi").map(u=>u.n).slice(0,3),sp=j==0?sumV(S.tx.filter(x=>x.kind=="out"&&x.date==t)):0;
+      N.push({id:9000+j,title:"Today’s summary",body:(j==0&&sp&&!secret?"Spent today: "+fm(sp)+". ":"Add today’s spending. ")+(du.length?"Due tomorrow: "+du.join(", ")+".":"Nothing is due tomorrow."),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{add:"out"}})}
+    const cm=t.slice(0,7);let seen={};try{seen=JSON.parse(localStorage.getItem("ds-balert")||"{}")}catch(e){}
+    budUse(cm).forEach((u,i)=>{const k=cm+":"+u.b.id;if(u.p>=90&&!seen[k]){seen[k]=1;N.push({id:8000+i,title:"Budget: "+u.b.cat+" is at "+u.p+"%",body:fmx(u.s,u.b.cur)+" of "+fmx(u.b.lim,u.b.cur)+" used this month",schedule:{at:new Date(now+3000).toISOString()}})}});
+    try{localStorage.setItem("ds-balert",JSON.stringify(seen))}catch(e){}
+    if(N.length)await NP("LocalNotifications","schedule",{notifications:N.slice(0,60)})}catch(e){console.warn("reminders",e)}}
+function nativeWidget(){if(!isApp())return;try{const t=today(),U=upcoming(t,plus(30),true).filter(u=>u.t=="due"||u.t=="emi"),u=U[0],sf=safeSpend(),secret=!!META.enc||!!S.cfg.hide;
+  NP("DueNative","setWidget",{line1:u?u.n+" · "+when(dl(u.d))+(u.a&&!secret?" · "+fmx(u.a,u.c):""):"Nothing due in the next 30 days",line2:secret?U.length+" due in 30 days":"Safe to spend "+(sf.safe<0?"short by "+fmr(-sf.safe):fmr(sf.safe))}).catch(()=>{})}catch(e){}}
+/* what the app was opened with: a widget or shortcut button, shared text, or a shared backup file */
+async function nativeLaunch(n){if(!isApp())return;n=n||0;if($("#lock").innerHTML){if(n<40)setTimeout(()=>nativeLaunch(n+1),1500);return}
+  try{const r=await NP("DueNative","getLaunch"),raw=r&&r.data;if(!raw)return;const o=JSON.parse(raw),txt=o.file||o.text||"";
+    if(txt&&/^\s*\{/.test(txt)&&txt.includes('"due-and-spend"')){window.__dsFile=txt;sheet(`<h2>Restore this backup?</h2><p class="sub">You shared a Due &amp; Spend backup file. Restoring replaces what is in this app now. A copy of the current data is kept under Automatic backups.</p><div class="acts"><button class="btn" data-act="fileRestore">Restore</button></div>`);return}
+    if(o.text){if(!smsOpen(o.text))qForm();return}
+    if(o.add=="sms")smsForm();else if(o.add)qForm(o.add=="in"?"in":"out")}catch(e){console.warn("launch",e)}}
+window.__dsLaunch=()=>nativeLaunch();
+/* phone back button: close what is open, then go Home, then leave the app */
+window.__dsBack=()=>{try{if($("#lock").innerHTML)return false;if($("#view").innerHTML){$("#view").innerHTML="";return true}if($("#over").innerHTML){ACT.closeX();return true}if(tab!="home"){tab="home";render();return true}}catch(e){}return false};
+/* bank SMS waiting for approval */
+const SMSRE=/debited|credited|spent|withdrawn|received|purchase|paid|payment|deposited|refund/i;
+async function smsScan(ask){if(!isApp()||!S.cfg.smsAuto)return;
+  try{const since=S.cfg.smsAt||Date.now()-3*864e5,r=await NP("DueNative","readSms",{since:String(since)}),L=(r&&r.messages)||[];if(!L.length)return;let mx=since;const q=S.cfg.smsq=S.cfg.smsq||[];
+    L.forEach(m=>{mx=Math.max(mx,+m.date||0);if(!SMSRE.test(m.body||"")||/otp|one time password/i.test(m.body))return;const p=parseSms(m.body);if(!p||q.some(x=>x.id==m.id))return;
+      if(!p.date||Math.abs(dl(p.date))>3)p.date=iso(new Date(+m.date));q.push({id:m.id,from:m.address||"",body:String(m.body).slice(0,300),p})});
+    S.cfg.smsq=q.slice(-40);S.cfg.smsAt=mx;save();if(tab=="home")render()}
+  catch(e){if(ask)toast("Couldn’t read messages. Allow the SMS permission in phone settings.");if(ask){S.cfg.smsAuto=false;save();render()}}}
+const smsCard=()=>{const q=S.cfg.smsq||[];return q.length?`<div class="card" style="margin:0 0 12px;cursor:pointer" data-act="smsReview"><div class="hbl"><b>${q.length} bank ${q.length==1?"message":"messages"} to review</b><span class="chip">Review</span></div></div>`:""};
+function smsReview(){const q=S.cfg.smsq||[];sheet(`<h2>Bank messages</h2><p class="sub">Tap Add to check and save an entry, or Skip to ignore the message.</p>${q.length?q.map(m=>{const A=ac(m.p.acc),dup=S.tx.some(x=>x.date==m.p.date&&Math.abs(x.amt-m.p.amt)<.005&&x.kind==m.p.kind);return `<div class="card" style="margin-bottom:8px"><div class="hbl"><b>${m.p.kind=="in"?"+":"−"}${fmx(m.p.amt,m.p.cur||A.cur)}${m.p.payee?" · "+esc(m.p.payee):""}</b><span class="note">${fmt(m.p.date)}</span></div><small style="color:var(--mute)">${esc(m.body)}</small>${dup?`<p class="note" style="color:var(--soon)">An entry with this date and amount already exists.</p>`:""}<div class="acts"><button class="btn sm" data-act="smsAdd" data-id="${esc(m.id)}">Add</button><button class="btn sm ghost" data-act="smsSkip" data-id="${esc(m.id)}">Skip</button></div></div>`}).join("")+`<div class="acts"><button class="btn ghost" data-act="smsSkipAll">Skip all</button></div>`:`<div class="empty">No messages waiting.</div>`}`)}
+async function nativeBackup(){if(!isApp()||META.enc||!hasData()||(S.cfg.autoBk&&dl(S.cfg.autoBk)>-7))return;
+  try{await NP("DueNative","saveDownload",{name:"due-and-spend-backup-"+today()+".json",text:bk()});S.cfg.autoBk=today();S.cfg.lastBk=today();save()}catch(e){}}
+function nativeStart(){if(!isApp())return;
+  try{window.Capacitor.addListener("LocalNotifications","localNotificationActionPerformed",ev=>{try{const x=(ev.notification&&ev.notification.extra)||{};
+    if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}}
+    else if(x.add&&!$("#lock").innerHTML)qForm("out")}catch(e){console.warn(e)}})}catch(e){}
+  nativeNotifyLater();nativeLaunch();smsScan();nativeBackup()}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&isApp()){nativeLaunch();smsScan()}});
+{const oldFpOn=ACT.fpOn,oldFpIn=ACT.fpIn,oldPinOff=ACT.pinOff;
+Object.assign(ACT,{
+  async fpOn(){if(!isApp())return oldFpOn();const pin=v("f_pin");if(!(await tryPin(pin)))return toast("Enter your PIN first");
+    try{const c=await NP("DueNative","canAuth");if(!c.ok)return toast("Set up a fingerprint in your phone settings first");await NP("DueNative","auth",{});await NP("DueNative","setPin",{pin});localStorage.setItem("ds-nfp","1");sheet("");toast("Fingerprint unlock is on")}catch(e){toast("Fingerprint wasn’t confirmed")}},
+  async fpIn(){if(!nfp())return oldFpIn();try{const r=await NP("DueNative","auth",{});if(r&&r.pin){const e=$("#f_lp");if(e){e.value=r.pin;await ACT.unlock()}}}catch(e){}},
+  async pinOff(){await oldPinOff();if(isApp()&&!META.enc){try{await NP("DueNative","setPin",{pin:""});localStorage.removeItem("ds-nfp")}catch(e){}}},
+  async smsAuto(){S.cfg.smsAuto=!S.cfg.smsAuto;if(S.cfg.smsAuto&&!S.cfg.smsAt)S.cfg.smsAt=Date.now()-3*864e5;save();settings();if(S.cfg.smsAuto){await smsScan(true);if(S.cfg.smsAuto)toast("New bank messages will wait on Home")}},
+  smsReview(){smsReview()},
+  smsAdd(id){const q=S.cfg.smsq||[],m=q.find(x=>String(x.id)==id);if(!m)return;S.cfg.smsq=q.filter(x=>x!==m);save();render();qForm(m.p.kind,{...m.p,cat:m.p.cat||catFor(m.p.payee)})},
+  smsSkip(id){S.cfg.smsq=(S.cfg.smsq||[]).filter(x=>String(x.id)!=id);save();render();smsReview()},
+  smsSkipAll(){S.cfg.smsq=[];save();sheet("");render()},
+  async fileRestore(){const t=window.__dsFile;window.__dsFile="";if(!t)return;await restoreFrom(t);sheet("");render();toast("Restored")}
+})}
+
 /* ===== start ===== */
 let pq=null,pshare="";try{const U=new URLSearchParams(location.search);pq=U.get("add");pshare=[U.get("title"),U.get("text")].filter(Boolean).join(" ")}catch(e){}
 const openPending=()=>{if(pshare){const t=pshare;pshare="";if(!smsOpen(t))qForm()}else if(pq){qForm(pq=="in"?"in":"out");pq=null}};
@@ -1169,7 +1276,7 @@ function start(){mon=today().slice(0,7);let ch=false;try{ch=purgeBin()}catch(e){
   render();snapDaily();openPending();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}catch(e){}
   if(SY.on&&!inClaude())syncStart();
-  cloudProbe();smartProbe();nativeNotifyLater()}
+  cloudProbe();smartProbe();nativeStart()}
 async function boot(){mon=today().slice(0,7);let st="ready";
   try{st=await loadAll()}catch(e){console.warn(e);useLS=true;try{const ls=JSON.parse(localStorage.getItem(K)||"null");if(ls)adopt(ls)}catch(x){}mig()}
   if(st=="locked")return showLock("cold");
