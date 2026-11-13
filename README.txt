@@ -1,4 +1,4 @@
-DUE & SPEND (version 12)
+DUE & SPEND (version 14)
 
 UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
@@ -9,7 +9,7 @@ UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
    If it does not start by itself, tap Run workflow.
 4. Releases page > download due-and-spend.apk > open it > Update.
    Your data stays, because the app is signed with the same key.
-5. Open the app once. Home should end with "Version 12".
+5. Open the app once. Home should end with "Version 14".
 If the build shows a red cross, open it and send Claude the red error lines.
 
 WHAT IS NEW IN THE PHONE APP
@@ -25,6 +25,16 @@ WHAT IS NEW IN THE PHONE APP
   enter the PIN > Use fingerprint.
 - A backup file is saved every week to Downloads/DueAndSpend while app lock is off.
 - The phone's back button closes the open form.
+
+NEW IN VERSION 14
+- Payment alerts: Settings and backup > "Read payment alerts (Gmail, Outlook, banks)".
+  Allow notification access when asked (if Android says it is restricted: phone Settings >
+  Apps > Due & Spend > three dots > Allow restricted settings). Payments from Gmail, Outlook,
+  bank apps and SMS then wait on Home to Add or Skip. Only alerts that arrive after this is on.
+- Setup code: Google sync shows a code and QR square. Paste it on another phone (or after
+  reinstalling) to connect in one step. Settings such as the QAR rate now sync too.
+- Data safety check: Settings and backup > Data safety check shows what would come back.
+- A full backup with attached files is saved to Downloads/DueAndSpend each month.
 
 WEB APP (browser install) still works the same from index.html.
 SYNC BETWEEN PHONES (optional): see SETUP-SYNC.txt. In the phone app you sign in with email and password.

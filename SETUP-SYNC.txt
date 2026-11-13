@@ -11,7 +11,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
     match /spaces/{id} {
-      allow read, update, delete: if request.auth != null && request.auth.token.email_verified == true
+      allow read: if request.auth != null && request.auth.token.email_verified == true
+        && (resource == null || request.auth.token.email in resource.data.members);
+      allow update, delete: if request.auth != null && request.auth.token.email_verified == true
         && request.auth.token.email in resource.data.members;
       allow create: if request.auth != null && request.auth.token.email_verified == true
         && request.auth.token.email in request.resource.data.members;
@@ -32,6 +34,11 @@ IN THE APP (needs internet)
    The first phone to connect uploads its data and becomes the first member.
 9. To share: on that phone, type the other person's email under "Invite someone" > Add person.
    On their phone repeat steps 6 to 8 with the SAME config and Space ID, using that email.
+
+SECOND PHONE OR AFTER REINSTALLING (quicker)
+- On a synced phone: Google sync > "Set up another phone" > Copy setup code (or show the QR square).
+- On the new phone: Google sync > paste the code > Use setup code > sign in with the email and password.
+  Your records and settings (QAR rate, fixed-cost categories, savings challenge) come back.
 
 NOTES
 - Only confirmed emails on the member list can read the data. Keep the rules exactly as above.
