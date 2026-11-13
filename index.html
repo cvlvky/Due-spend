@@ -104,7 +104,7 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="15";
+const K="due-and-spend.v1",DEFRATE=26,VER="16";
 const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs"],LOCAL=["cfg","nw","bin","del"];
 const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],bin:[],del:[],nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
@@ -411,8 +411,8 @@ function summary(m){const R=rep(m),L=[],sp=R.out.cur,inc=R.in.cur,cm=today().sli
   if(!sp&&!inc&&!R.save.cur)return ["No entries for "+mlong(m)+" yet. Add spending or income to see a summary."];
   if(inc>0){const left=inc-sp;L.push(left>=0?`You received ${fmr(inc)} and spent ${fmr(sp)}, keeping ${fmr(left)} (${Math.round(left/inc*100)}% of income).`:`You spent ${fmr(sp)}, which is ${fmr(-left)} more than the ${fmr(inc)} you received.`)}
   else L.push(`You spent ${fmr(sp)}. No income is recorded for this month.`);
-  if(R.out.prev>0&&sp>0){if(part&&td>=7){const proj=fixed+(sp-fixed)/td*dim(m),d=Math.round((proj/R.out.prev-1)*100);L.push(`At this pace the month ends near ${fmr(proj)}, ${Math.abs(d)}% ${d>=0?"above":"below"} last month.`)}
-    else if(!part){const d=Math.round((sp/R.out.prev-1)*100);L.push(`Spending was ${Math.abs(d)}% ${d>=0?"higher":"lower"} than the month before.`)}}
+  if(R.out.prev>0&&sp>0){if(part&&td>=7){const proj=fixed+(sp-fixed)/td*dim(m),d=Math.round((proj/R.out.prev-1)*100);L.push(Math.abs(d)>200?`At this pace the month ends near ${fmr(proj)}, against ${fmr(R.out.prev)} last month.`:`At this pace the month ends near ${fmr(proj)}, ${Math.abs(d)}% ${d>=0?"above":"below"} last month.`)}
+    else if(!part){const d=Math.round((sp/R.out.prev-1)*100);L.push(Math.abs(d)>200?`Spending was ${fmr(sp)}, against ${fmr(R.out.prev)} the month before.`:`Spending was ${Math.abs(d)}% ${d>=0?"higher":"lower"} than the month before.`)}}
   const C=catTotals(m);
   if(C.length&&sp>0){L.push(`${esc(C[0][0])} was the largest category at ${fmr(C[0][1])} (${Math.round(C[0][1]/sp*100)}% of spending).`);
     if(!part||td>=20){const pm=Object.fromEntries(catTotals(addMon(m,-1)));let best=null;C.forEach(([c,a])=>{const b=pm[c]||0;if(b>0&&a-b>(best?best[1]:0))best=[c,a-b]});if(best&&best[0]!=C[0][0])L.push(`${esc(best[0])} rose the most, up ${fmr(best[1])} on the month before.`)}}
@@ -497,7 +497,7 @@ function explainData(key){const p=key.split(":"),a=p[0],t=today();
 /* ===== views: one function per tab ===== */
 function applyUI(){try{const r=document.documentElement;if(S.cfg.theme)r.setAttribute("data-theme",S.cfg.theme);else r.removeAttribute("data-theme");document.body.classList.toggle("hide",!!S.cfg.hide)}catch(e){}}
 function countUp(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;
-  $$(".hero .big").forEach(e=>{const t=e.textContent,m=t.match(/[\d,]+(\.\d+)?/);if(!m)return;const n=parseFloat(m[0].replace(/,/g,"")),pre=t.slice(0,m.index),suf=t.slice(m.index+m[0].length),dec=(m[1]||"").length;if(!isFinite(n)||n<1)return;const t0=performance.now();
+  $$(".hero .big").forEach(e=>{const t=e.textContent,m=t.match(/[\d,]+(\.\d+)?/);if(!m)return;const n=parseFloat(m[0].replace(/,/g,"")),pre=t.slice(0,m.index),suf=t.slice(m.index+m[0].length),dec=m[1]?m[1].length-1:0;if(!isFinite(n)||n<1)return;const t0=performance.now();
     (function f(now){const p=Math.min(1,(now-t0)/600),val=n*(1-Math.pow(1-p,3));e.textContent=pre+val.toLocaleString("en-IN",{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;if(p<1)requestAnimationFrame(f)})(t0)})}
 function render(){
   $("#nav").innerHTML=navHtml();
@@ -915,7 +915,7 @@ const ACT={
   async syncSave(){const cfg={};[...v("f_cfg").matchAll(/(\w+)\s*:\s*["']([^"']+)["']/g)].forEach(m=>cfg[m[1]]=m[2]);const sp=v("f_sp").trim().replace(/[^\w-]/g,"");if(!cfg.apiKey||!cfg.projectId||!sp)return toast("Paste your Firebase config and a space ID");
     SY={...SY,cfg,space:sp,on:true,members:SY.members||[]};syv();toast("Saved. Now sign in with Google.");await syncStart();syncForm()},
   async syncIn(){try{await loadFB();if(!firebase.apps.length)firebase.initializeApp(SY.cfg);const pr=new firebase.auth.GoogleAuthProvider();try{await firebase.auth().signInWithPopup(pr)}catch(e){await firebase.auth().signInWithRedirect(pr)}}catch(e){toast("Sign-in isn’t available here")}},
-  syncNow(){SY.dirty=true;pushNow();toast("Syncing…")},
+  syncNow(){SY.dirty=true;try{if(me&&me.emailVerified)listen()}catch(e){}pushNow();toast("Syncing…")},
   syncOff(){if(unsub)unsub();try{firebase.auth().signOut()}catch(e){}SY={};syv();sset("Sync off");sheet("");render();toast("Sync is off. Your data stays on this device.")},
   async addMember(){const em=v("f_em").trim().toLowerCase();if(!/^\S+@\S+\.\S+$/.test(em))return toast("Enter an email address");
     try{await fdb.collection("spaces").doc(SY.space).set({members:firebase.firestore.FieldValue.arrayUnion(em)},{merge:true});SY.members=[...new Set([...(SY.members||[]),em])];syv();syncForm();toast("Added "+em)}catch(e){toast("Couldn’t add. Sign in first; only members can invite.")}},
@@ -1276,7 +1276,7 @@ function nativeStart(){if(!isApp())return;
   try{window.Capacitor.addListener("LocalNotifications","localNotificationActionPerformed",ev=>{try{const x=(ev.notification&&ev.notification.extra)||{};
     if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}else if(x.sub){const r=renewSub(x.sub);if(r){save();render();toast(r.x.name+" renewal recorded")}}}
     else if(x.add&&!$("#lock").innerHTML)qForm("out")}catch(e){console.warn(e)}})}catch(e){}
-  nativeNotifyLater();nativeLaunch();smsScan();notifScan();nativeBackup().then(nativeFullBackup)}
+  nativeNotifyLater();nativeLaunch();smsScan();notifScan()}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&isApp()){nativeLaunch();smsScan()}});
 {const oldFpOn=ACT.fpOn,oldFpIn=ACT.fpIn,oldPinOff=ACT.pinOff;
 Object.assign(ACT,{
@@ -1521,6 +1521,37 @@ Object.assign(ACT,{
     if(ra&&fee){const A=ac(ra);addTx({kind:"out",acc:A.id,amt:cv(fee,cur,A.cur),cur:A.cur,cat:"Documents",sub:d.type,payee:d.by||"",note:d.name+" renewal",date:d.issue||today()});S.cfg.last=ra}
     done();toast(d.name+": valid until "+fmt(ex))}
 });
+
+/* ===== save and sync on open, and a confirmation when leaving ===== */
+const tstr=ts=>{if(!ts)return "";const d=iso(new Date(ts)),t=new Date(ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});return d==today()?"today at "+t:dl(d)==-1?"yesterday at "+t:fmt(d)+" at "+t};
+const withTimeout=(p,ms)=>Promise.race([Promise.resolve(p).catch(()=>{}),new Promise(r=>setTimeout(r,ms))]);
+/* daily backup file (phone app), keeping the latest 14 */
+nativeBackup=async function(){if(!isApp()||META.enc||!hasData()||S.cfg.autoBk==today())return;
+  try{await NP("DueNative","saveDownload",{name:"due-and-spend-backup-"+today()+".json",text:bk(),mime:"application/json"});S.cfg.autoBk=today();S.cfg.autoBkAt=Date.now();S.cfg.lastBk=today();save();
+    NP("DueNative","pruneBackups",{keep:14,prefix:"due-and-spend-backup-"}).catch(()=>{})}catch(e){}};
+{const _full=nativeFullBackup;nativeFullBackup=async function(){await _full();if(isApp())NP("DueNative","pruneBackups",{keep:3,prefix:"due-and-spend-full-backup-"}).catch(()=>{})}}
+let openedAt=0;
+async function onOpen(){openedAt=Date.now();try{await persist()}catch(e){}
+  if(!useLS)snapPut("latest").catch(()=>{});
+  if(SY.on){SY.dirty=true;syv();if(me&&me.emailVerified)pushNow()}
+  if(isApp())nativeBackup().then(nativeFullBackup)}
+let hiddenAt=0;
+document.addEventListener("visibilitychange",()=>{if(document.hidden){hiddenAt=Date.now();exitOk=false;persist();if(SY.on&&SY.dirty&&me&&me.emailVerified)pushNow()}
+  else if(hiddenAt&&Date.now()-hiddenAt>30*60000&&!lockMode)onOpen()});
+/* leaving with the back button */
+let exitOk=false,exiting=false;
+async function saveAll(){await withTimeout(persist(),3000);let synced=null;
+  if(SY.on&&me&&me.emailVerified){const before=SY.lastOk||0;SY.dirty=true;await withTimeout(pushNow(),7000);synced=(SY.lastOk||0)>before}
+  if(isApp())await withTimeout(nativeBackup(),5000);if(!useLS)await withTimeout(snapPut("latest"),3000);return synced}
+async function exitDialog(){if(exiting)return;exiting=true;sheet(`<h2>Saving…</h2><p class="sub">Saving your data${SY.on?" and syncing":""} before you leave.</p>`);
+  let synced=null;try{synced=await saveAll()}catch(e){}exiting=false;
+  const row=(ok,l,t)=>`<div class="hrow"><span class="dot ${ok}"></span><div><b>${l}</b><small>${t}</small></div></div>`;
+  sheet(`<h2>All saved</h2><div class="card">${row("good","Saved on this phone",tstr(Date.now()))}
+  ${SY.on?row(synced===false?"warn":SY.lastOk?"good":"warn","Last synced",SY.lastOk?tstr(SY.lastOk)+(me&&me.email?" as "+esc(me.email):"")+(synced===false?". This time it couldn’t sync, probably no internet. It will sync next time.":""):"Not synced yet"):row("","Sync between phones","Off")}
+  ${isApp()?row(META.enc?"warn":S.cfg.autoBkAt?"good":"warn","Backup file in Downloads",META.enc?"Paused while app lock is on":S.cfg.autoBkAt?tstr(S.cfg.autoBkAt):"Not saved yet"):row(S.cfg.lastBk?"good":"warn","Backup file",S.cfg.lastBk?"Last exported "+fmt(S.cfg.lastBk):"Never exported")}</div>
+  <div class="acts"><button class="btn" data-act="exitNow">Close app</button><button class="btn ghost" data-act="closeX">Stay</button></div>`)}
+{const _back=window.__dsBack;window.__dsBack=()=>{const r=_back();if(r)return true;if($("#lock").innerHTML)return false;if(exitOk)return false;exitDialog();return true}}
+ACT.exitNow=async()=>{exitOk=true;sheet("");try{await NP("DueNative","exitApp")}catch(e){toast("Press back again to close")}};
 
 //---------------------------------------------------------------------
 //
@@ -3827,7 +3858,7 @@ function start(){mon=today().slice(0,7);prefsJ=JSON.stringify(prefsObj());let ch
   render();snapDaily();openPending();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}catch(e){}
   if(SY.on&&!inClaude())syncStart();
-  cloudProbe();smartProbe();nativeStart()}
+  cloudProbe();smartProbe();nativeStart();onOpen()}
 async function boot(){mon=today().slice(0,7);let st="ready";
   try{st=await loadAll()}catch(e){console.warn(e);useLS=true;try{const ls=JSON.parse(localStorage.getItem(K)||"null");if(ls)adopt(ls)}catch(x){}mig()}
   if(st=="locked")return showLock("cold");

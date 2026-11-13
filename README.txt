@@ -1,4 +1,4 @@
-DUE & SPEND (version 15)
+DUE & SPEND (version 16)
 
 UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
@@ -9,7 +9,7 @@ UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
    If it does not start by itself, tap Run workflow.
 4. Releases page > download due-and-spend.apk > open it > Update.
    Your data stays, because the app is signed with the same key.
-5. Open the app once. Home should end with "Version 15".
+5. Open the app once. Home should end with "Version 16".
 If the build shows a red cross, open it and send Claude the red error lines.
 
 WHAT IS NEW IN THE PHONE APP
@@ -25,6 +25,13 @@ WHAT IS NEW IN THE PHONE APP
   enter the PIN > Use fingerprint.
 - A backup file is saved every week to Downloads/DueAndSpend while app lock is off.
 - The phone's back button closes the open form.
+
+NEW IN VERSION 16
+- Every time the app opens it saves, syncs and (phone app) writes a backup file to
+  Downloads/DueAndSpend once a day. Only the latest 14 daily files are kept.
+- Pressing back on Home saves and syncs, then shows "All saved" with the last sync and
+  backup times, and a Close app button.
+- This version changes the Android part too: replace build-apk.yml as well as index.html.
 
 NEW IN VERSION 15
 - Dues tab now has three views: Dues, Subscriptions, Documents.
