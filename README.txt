@@ -1,4 +1,4 @@
-DUE & SPEND (version 16)
+PERSONAL DIARY (version 17, formerly Due & Spend)
 
 UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
@@ -9,7 +9,7 @@ UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
    If it does not start by itself, tap Run workflow.
 4. Releases page > download due-and-spend.apk > open it > Update.
    Your data stays, because the app is signed with the same key.
-5. Open the app once. Home should end with "Version 16".
+5. Open the app once. Home should end with "Version 17".
 If the build shows a red cross, open it and send Claude the red error lines.
 
 WHAT IS NEW IN THE PHONE APP
@@ -25,6 +25,18 @@ WHAT IS NEW IN THE PHONE APP
   enter the PIN > Use fingerprint.
 - A backup file is saved every week to Downloads/DueAndSpend while app lock is off.
 - The phone's back button closes the open form.
+
+NEW IN VERSION 17 (replace BOTH index.html and build-apk.yml)
+- New name and app id: "Personal Diary" (com.personaldiary.app). It installs as a NEW app
+  next to the old "Due and Spend", so the install conflict is gone.
+  Move your data: sign in to sync with your setup code, or restore a backup file.
+  Then uninstall the old app. The APK file is now personal-diary.apk.
+- Each build has a higher version number, so updates install over each other.
+- Attached files open in your phone's PDF viewer or gallery.
+- Wealth tab: live gold (24K, 22K, 18K) and silver prices for India and Qatar, and the
+  QAR to INR rate, updated daily. The app's QAR rate follows it (can be turned off).
+- Gold holdings (grams and purity) and mutual funds (scheme code and units) are valued daily.
+- Post office scheme rates (1 Oct - 31 Dec 2026) with calculators.
 
 NEW IN VERSION 16
 - Every time the app opens it saves, syncs and (phone app) writes a backup file to

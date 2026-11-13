@@ -1,6 +1,6 @@
 {
- "name": "Due & Spend",
- "short_name": "Due & Spend",
+ "name": "Personal Diary",
+ "short_name": "Personal Diary",
  "description": "Track dues, premiums, FD maturities, EMIs, accounts, investments and spending in INR and QAR.",
  "start_url": "./",
  "scope": "./",

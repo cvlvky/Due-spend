@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Due &amp; Spend</title>
+<title>Personal Diary</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f6b5c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Due &amp; Spend">
+<meta name="apple-mobile-web-app-title" content="Personal Diary">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -104,9 +104,9 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="16";
-const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs"],LOCAL=["cfg","nw","bin","del"];
-const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],bin:[],del:[],nw:{},cfg:{rate:DEFRATE,view:"INR"}});
+const K="due-and-spend.v1",DEFRATE=26,VER="17";
+const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
+const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],bin:[],del:[],mk:null,mkh:{},nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
 
 const TYPES={premium:"Premium",fd:"FD maturity",emi:"EMI",renewal:"Renewal"};
@@ -502,7 +502,7 @@ function countUp(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: re
 function render(){
   $("#nav").innerHTML=navHtml();
   let h;try{h=({home:vHome,dates:vDates,invest:vWealth,acc:vAcc,spend:vSpend,rep:vRep})[tab]()}
-  catch(e){console.error(e);h=`<h1>Due &amp; Spend</h1><div class="card"><b>This page couldn’t be shown.</b><p class="note">${esc(e&&e.message||e)}</p><p class="note">Your data is still saved. Open Settings and backup from Home to export it.</p></div>`}
+  catch(e){console.error(e);h=`<h1>Personal Diary</h1><div class="card"><b>This page couldn’t be shown.</b><p class="note">${esc(e&&e.message||e)}</p><p class="note">Your data is still saved. Open Settings and backup from Home to export it.</p></div>`}
   $("#app").innerHTML=h+FABBTN;applyUI();try{countUp()}catch(e){}}
 
 const tile=(l,val,key,sub)=>`<div class="stat"${key?` data-act="explain" data-id="${esc(key)}"`:""}><small>${l}</small><b>${val}</b>${sub?`<small>${sub}</small>`:""}</div>`;
@@ -526,14 +526,14 @@ const trRow=t=>`<div class="row" data-act="editTx" data-id="${t.id}"><div><b>${e
 
 /* ---------- Home ---------- */
 function vHome(){const t=today(),cm=t.slice(0,7),U=upcoming(t,plus(30),true).filter(u=>u.t=="due"||u.t=="emi"),sum=U.reduce((s,u)=>s+iv(u.a,u.c),0),late=U.filter(u=>u.d<t).length,ds=activeDues(),sf=safeSpend();
-  return `<h1>Due &amp; Spend</h1><p class="sub">Everything coming up, in one place.</p>${ctl()}${searchBox()}${smsCard()}${startCard()}${cloudCard()}${alerts()}
+  return `<h1>Personal Diary</h1><p class="sub">Everything coming up, in one place.</p>${ctl()}${searchBox()}${smsCard()}${startCard()}${cloudCard()}${alerts()}
   <div class="hero" data-act="explain" data-id="due30" style="cursor:pointer"><small>Due in the next 30 days</small><div class="big">${fm(sum)}</div><small>${U.length?`${U.length} ${U.length==1?"item":"items"}${late?`, ${late} overdue`:""}`:"Nothing due soon"}</small></div>
   <div class="stats">${tile("Spent",fm(mSum(cm,"out")),"m:out:"+cm)}${tile("Income",fm(mSum(cm,"in")),"m:in:"+cm)}${tile("Saved",fm(mSum(cm,"save")),"m:save:"+cm)}</div>
   <div class="card" style="margin-top:8px;cursor:pointer" data-act="explain" data-id="safe"><small style="color:var(--mute)">Safe to spend, next 30 days</small><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:22px;color:${sf.safe<0?"var(--late)":"inherit"}">${sf.safe<0?"Short by "+fmr(-sf.safe):fmr(sf.safe)}</b><span class="note">${sf.safe>0?"about "+fmr(sf.safe/30)+" a day":""}</span></div></div>
   ${summaryCard(cm,2)}
   <h2>Accounts</h2>${accStrip()}<h2>Up next</h2>${ds.length?ds.slice(0,6).map(dRow).join(""):`<div class="empty">No dates yet. Add your LIC premium, FD maturity or EMI.</div>`}
   ${timeline()}
-  <h2>Money</h2><div class="stats" style="grid-template-columns:1fr 1fr">${tile("In accounts",fm(tot(V())),"")}${tile("Net worth",fm(nwv(V())),"nw")}</div>
+  <h2>Money</h2>${S.mk&&S.mk.g?`<div class="card" style="margin-bottom:8px;cursor:pointer" data-act="tab" data-id="invest"><div class="hbl"><span>Gold 22K a gram</span><b>₹${nf(Math.round(goldGram("INR",22)))} · QAR ${nf(goldGram("QAR",22),2)}</b></div><div class="hbl"><span>1 QAR</span><b>₹${S.mk.qi.toFixed(2)}</b></div></div>`:""}<div class="stats" style="grid-template-columns:1fr 1fr">${tile("In accounts",fm(tot(V())),"")}${tile("Net worth",fm(nwv(V())),"nw")}</div>
   <div class="acts"><button class="btn ghost" data-act="tab" data-id="rep">Open reports</button><button class="btn ghost" data-act="settings">Settings and backup</button></div>
   <p class="note" style="text-align:center;margin-top:14px">Version ${VER} · ${storeLabel()}${sstat!="Sync off"?" · "+esc(sstat):""}</p>
   `}
@@ -672,7 +672,7 @@ function iForm(x){attInit(x&&x.att);x=x||null;const g=k=>x?x[k]:"";
   <div class="two"><div>${F("f_sd","Start date (optional)",g("sd"),"date")}</div><div>${F("f_md","Maturity date (optional)",g("mdate"),"date")}</div></div>
   <div class="two"><div>${F("f_rt","Interest % per year (FDs)",g("rt")||"","number")}</div><div>${F("f_no","Account or folio no.",g("no"))}</div></div>
   ${x?`<div class="acts"><button class="btn ghost" data-act="invAdd" data-id="${x.id}">Add money</button><button class="btn ghost" data-act="invOut" data-id="${x.id}">Withdraw</button></div>${histHtml("inv",x.id)}`:SEL("f_from","Take this amount from an account",[["","No, just record it"],...ACCS()],"")}
-  ${attHtml()}${stampNote(x)}${btns("saveInv",x&&x.id,"delInv")}`)}
+  ${liveFields(x)}${attHtml()}${stampNote(x)}${btns("saveInv",x&&x.id,"delInv")}`)}
 function invMoneyForm(id,mode){const x=S.inv.find(q=>q.id==id);if(!x)return;
   sheet(`<h2>${mode=="add"?"Add money to":"Withdraw from"} ${esc(x.name)}</h2><p class="sub">Current value ${fmx(invVal(x,true),x.cur)}.${mode=="out"?" A withdrawal lowers the value and the amount invested, and is not counted as income.":""}</p><input type="hidden" id="f_mode" value="${mode}">
   <div class="two"><div>${F("f_amt","Amount ("+x.cur+")","","number")}</div><div>${F("f_date","Date",today(),"date")}</div></div>
@@ -761,10 +761,10 @@ function lockForm(){const pf=t=>F("f_pin",t,"","password",'inputmode="numeric" m
   if(useLS)return sheet(`<h2>App lock</h2><p class="sub">App lock needs the phone database, which isn’t available in this browser view.</p>`);
   sheet(`<h2>App lock</h2>`+(META.enc?`<p class="sub">App lock is on. Your data on this device is encrypted with your PIN, and the app locks when you come back after 30 seconds away.</p>${pf("Enter your PIN to change settings")}<div class="acts">${isApp()||(!inClaude()&&window.PublicKeyCredential)?`<button class="btn ghost" data-act="fpOn">Use fingerprint</button>`:""}<button class="btn del" data-act="pinOff">Turn off</button></div><p class="note">Fingerprint works when you return to the app. After the app is fully closed, enter the PIN.</p>`
   :`<p class="sub">Choose a PIN of 4 to 12 digits. Your data and attached files on this device are then encrypted with it. A forgotten PIN can’t be recovered, so keep a backup file. A longer PIN is harder to guess.</p>${pf("New PIN")}${btns("pinSet")}`))}
-function showLock(mode){lockMode=mode;$("#lock").innerHTML=`<div class="lockscr"><div><h1>Due &amp; Spend</h1><p class="sub">Enter your PIN</p><input id="f_lp" type="password" inputmode="numeric" maxlength="12" autocomplete="off" aria-label="PIN"><div class="acts"><button class="btn" data-act="unlock">Unlock</button>${(mode=="resume"&&S.cfg.cred)||nfp()?`<button class="btn ghost" data-act="fpIn">Fingerprint</button>`:""}</div><p class="note" id="lockmsg"></p></div></div>`;setTimeout(()=>{const e=$("#f_lp");e&&e.focus()},60);if(nfp())ACT.fpIn().catch(()=>{})}
+function showLock(mode){lockMode=mode;$("#lock").innerHTML=`<div class="lockscr"><div><h1>Personal Diary</h1><p class="sub">Enter your PIN</p><input id="f_lp" type="password" inputmode="numeric" maxlength="12" autocomplete="off" aria-label="PIN"><div class="acts"><button class="btn" data-act="unlock">Unlock</button>${(mode=="resume"&&S.cfg.cred)||nfp()?`<button class="btn ghost" data-act="fpIn">Fingerprint</button>`:""}</div><p class="note" id="lockmsg"></p></div></div>`;setTimeout(()=>{const e=$("#f_lp");e&&e.focus()},60);if(nfp())ACT.fpIn().catch(()=>{})}
 const hideLock=()=>{$("#lock").innerHTML="";lockMode=""};
 const b64s=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
-async function enrollFP(){try{const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:"Due & Spend"},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:"owner",displayName:"Owner"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required"},timeout:60000}});S.cfg.cred=b64s(c.rawId);save();sheet("");toast("Fingerprint enabled")}catch(e){toast("Fingerprint isn’t available here")}}
+async function enrollFP(){try{const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:"Personal Diary"},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:"owner",displayName:"Owner"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required"},timeout:60000}});S.cfg.cred=b64s(c.rawId);save();sheet("");toast("Fingerprint enabled")}catch(e){toast("Fingerprint isn’t available here")}}
 async function fpUnlock(){try{await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:"public-key",id:unb64(S.cfg.cred)}],userVerification:"required",timeout:60000}});hideLock()}catch(e){toast("Fingerprint didn’t match")}}
 
 /* ===== actions: every button, by its data-act name ===== */
@@ -887,8 +887,8 @@ const ACT={
   saveCfg(){S.cfg.fixedCats=v("f_fixed");done();toast("Settings saved")},
   copy(){const b=$("#f_bk");b.select();return (navigator.clipboard?navigator.clipboard.writeText(b.value):Promise.reject()).then(()=>toast("Copied"),()=>{try{document.execCommand("copy");toast("Copied")}catch(e){toast("Select the text and copy it")}})},
   async restoreText(){await restoreFrom(v("f_bk"));sheet("");render();toast("Restored")},
-  async shareBk(){if(await saveFile("due-and-spend-backup.json",bk(),"application/json")){S.cfg.lastBk=today();save()}},
-  async fullBk(){toast("Preparing the backup…");const t=await bkFull();if(await saveFile("due-and-spend-full-backup.json",t,"application/json")){S.cfg.lastBk=today();save()}},
+  async shareBk(){if(await saveFile("personal-diary-backup.json",bk(),"application/json")){S.cfg.lastBk=today();save()}},
+  async fullBk(){toast("Preparing the backup…");const t=await bkFull();if(await saveFile("personal-diary-full-backup.json",t,"application/json")){S.cfg.lastBk=today();save()}},
   ics(){return saveFile("due-dates.ics",ics(),"text/calendar")},
   csv(){return saveFile("spending.csv",csv(),"text/csv")},
   async snaps(){if(useLS)return toast("Automatic backups need the phone database");const L=await snapList();
@@ -1253,7 +1253,7 @@ function nativeWidget(){if(!isApp())return;try{const t=today(),U=upcoming(t,plus
 /* what the app was opened with: a widget or shortcut button, shared text, or a shared backup file */
 async function nativeLaunch(n){if(!isApp())return;n=n||0;if($("#lock").innerHTML){if(n<40)setTimeout(()=>nativeLaunch(n+1),1500);return}
   try{const r=await NP("DueNative","getLaunch"),raw=r&&r.data;if(!raw)return;const o=JSON.parse(raw),txt=o.file||o.text||"";
-    if(txt&&/^\s*\{/.test(txt)&&txt.includes('"due-and-spend"')){window.__dsFile=txt;sheet(`<h2>Restore this backup?</h2><p class="sub">You shared a Due &amp; Spend backup file. Restoring replaces what is in this app now. A copy of the current data is kept under Automatic backups.</p><div class="acts"><button class="btn" data-act="fileRestore">Restore</button></div>`);return}
+    if(txt&&/^\s*\{/.test(txt)&&txt.includes('"due-and-spend"')){window.__dsFile=txt;sheet(`<h2>Restore this backup?</h2><p class="sub">You shared a Personal Diary backup file. Restoring replaces what is in this app now. A copy of the current data is kept under Automatic backups.</p><div class="acts"><button class="btn" data-act="fileRestore">Restore</button></div>`);return}
     if(o.text&&readSetup(o.text)){syncForm();const f=$("#f_scode");if(f)f.value=o.text.trim();return}
     if(o.text){if(!smsOpen(o.text))qForm();return}
     if(o.add=="sms")smsForm();else if(o.add)qForm(o.add=="in"?"in":"out")}catch(e){console.warn("launch",e)}}
@@ -1271,7 +1271,7 @@ async function smsScan(ask){if(!isApp()||!S.cfg.smsAuto)return;
 const smsCard=()=>{const q=S.cfg.smsq||[];return q.length?`<div class="card" style="margin:0 0 12px;cursor:pointer" data-act="smsReview"><div class="hbl"><b>${q.length} ${q.length==1?"payment":"payments"} to review</b><span class="chip">Review</span></div></div>`:""};
 function smsReview(){const q=S.cfg.smsq||[];sheet(`<h2>Payments to review</h2><p class="sub">Found in your bank SMS and payment alerts. Tap Add to check and save an entry, or Skip to ignore it.</p>${q.length?q.map(m=>{const A=ac(m.p.acc),dup=S.tx.some(x=>x.date==m.p.date&&Math.abs(x.amt-m.p.amt)<.005&&x.kind==m.p.kind);return `<div class="card" style="margin-bottom:8px"><div class="hbl"><b>${m.p.kind=="in"?"+":"−"}${fmx(m.p.amt,m.p.cur||A.cur)}${m.p.payee?" · "+esc(m.p.payee):""}</b><span class="note">${fmt(m.p.date)}</span></div><small style="color:var(--mute)">${m.from?"<b>"+esc(m.from)+":</b> ":""}${esc(m.body)}</small>${dup?`<p class="note" style="color:var(--soon)">An entry with this date and amount already exists.</p>`:""}<div class="acts"><button class="btn sm" data-act="smsAdd" data-id="${esc(m.id)}">Add</button><button class="btn sm ghost" data-act="smsSkip" data-id="${esc(m.id)}">Skip</button></div></div>`}).join("")+`<div class="acts"><button class="btn ghost" data-act="smsSkipAll">Skip all</button></div>`:`<div class="empty">No messages waiting.</div>`}`)}
 async function nativeBackup(){if(!isApp()||META.enc||!hasData()||(S.cfg.autoBk&&dl(S.cfg.autoBk)>-7))return;
-  try{await NP("DueNative","saveDownload",{name:"due-and-spend-backup-"+today()+".json",text:bk()});S.cfg.autoBk=today();S.cfg.lastBk=today();save()}catch(e){}}
+  try{await NP("DueNative","saveDownload",{name:"personal-diary-backup-"+today()+".json",text:bk()});S.cfg.autoBk=today();S.cfg.lastBk=today();save()}catch(e){}}
 function nativeStart(){if(!isApp())return;
   try{window.Capacitor.addListener("LocalNotifications","localNotificationActionPerformed",ev=>{try{const x=(ev.notification&&ev.notification.extra)||{};
     if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}else if(x.sub){const r=renewSub(x.sub);if(r){save();render();toast(r.x.name+" renewal recorded")}}}
@@ -1333,7 +1333,7 @@ function mkPdf(lines){const pe=s=>asc(s).replace(/[\\()]/g,"\\$&"),pages=[];let 
   obj[2]=`<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pages.length} >>`;
   let out="%PDF-1.4\n";const off=[];for(let i=1;i<obj.length;i++){off[i]=out.length;out+=`${i} 0 obj\n${obj[i]}\nendobj\n`}
   const x=out.length;out+=`xref\n0 ${obj.length}\n0000000000 65535 f \n`+off.slice(1).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("")+`trailer\n<< /Size ${obj.length} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF\n`;return out}
-function monthPdf(m){const R=rep(m),L=[["Due & Spend report",20,1],[mlong(m)+" - amounts in "+V()+" - made on "+fmt(today()),10,0],["Summary",14,1,14]];
+function monthPdf(m){const R=rep(m),L=[["Personal Diary report",20,1],[mlong(m)+" - amounts in "+V()+" - made on "+fmt(today()),10,0],["Summary",14,1,14]];
   summary(m).forEach(s=>L.push([s,11]));
   L.push(["Totals",14,1,14],["Spent: "+fmr(R.out.cur)+"    Last month: "+fmr(R.out.prev),11],["Income: "+fmr(R.in.cur)+"    Last month: "+fmr(R.in.prev),11],["Saved: "+fmr(R.save.cur)+"    Last month: "+fmr(R.save.prev),11],["Savings rate: "+(R.rate.cur==null?"not available":Math.round(R.rate.cur)+"%"),11]);
   const C=catTotals(m);if(C.length){L.push(["Spending by category",14,1,14]);C.slice(0,15).forEach(c=>L.push([c[0]+": "+fmr(c[1])+" ("+Math.round(c[1]/(R.out.cur||1)*100)+"%)",11]))}
@@ -1361,7 +1361,7 @@ Object.assign(ACT,{
   saveDoc(id){const n=v("f_name").trim();if(!n)return toast("Add a name");const old=S.docs.find(d=>d.id==id);put("docs",stamp({...(old||{}),id:id||uid(),name:n,type:v("f_type"),exp:v("f_exp"),no:v("f_no").trim(),note:v("f_note").trim(),att:[...pend]},old));attDone(true);done()},
   delDoc(id){attDone(false);trash("docs",id);done();undoDel(id,"Document deleted")},
   setChal(){S.cfg.chal=+v("f_chal")||0;save();render();toast(S.cfg.chal?"Challenge set":"Challenge cleared")},
-  pdfMonth(){return saveFile("due-and-spend-"+mon+".pdf",monthPdf(mon),"application/pdf")},
+  pdfMonth(){return saveFile("personal-diary-"+mon+".pdf",monthPdf(mon),"application/pdf")},
   yearView(){yv=mon.slice(0,4);yearSheet()},
   yv(id){yv=String(+yv+(+id));yearSheet()}
 });
@@ -1403,7 +1403,7 @@ async function safetySheet(){const s=safety(),ago=ts=>{const d=Math.round((Date.
 /* payment notifications from Gmail, Outlook, bank apps and others (phone app) */
 async function notifStatus(){try{return !!(await NP("DueNative","notifStatus")).enabled}catch(e){return false}}
 function notifHelp(){sheet(`<h2>Read payment alerts</h2><p class="sub">The app can read notifications from Gmail, Outlook, your bank apps and SMS, and keep only the ones that mention a payment. They wait on Home for you to Add or Skip. Nothing is sent anywhere, and your email password is never needed.</p>
-  <ol class="steps"><li>Tap <b>Open notification access</b> below.</li><li>Find <b>Due &amp; Spend</b> and turn it on.</li><li>If Android says the setting is restricted: open phone Settings → Apps → Due &amp; Spend → ⋮ → <b>Allow restricted settings</b>, then try again.</li><li>Come back to the app.</li></ol>
+  <ol class="steps"><li>Tap <b>Open notification access</b> below.</li><li>Find <b>Personal Diary</b> and turn it on.</li><li>If Android says the setting is restricted: open phone Settings → Apps → Personal Diary → ⋮ → <b>Allow restricted settings</b>, then try again.</li><li>Come back to the app.</li></ol>
   <div class="acts"><button class="btn" data-act="notifOpen">Open notification access</button></div><p class="note">Only notifications that arrive after this is on can be read, and only while they are shown. Email alerts need Gmail or Outlook notifications turned on for that inbox.</p>`)}
 async function notifScan(){if(!isApp()||!S.cfg.ntfAuto)return;
   try{const r=await NP("DueNative","readNotifs"),L=(r&&r.items)||[];if(!L.length)return;const q=S.cfg.smsq=S.cfg.smsq||[],seen=new Set(S.cfg.ntfSeen||[]);let add=0;
@@ -1414,7 +1414,7 @@ async function notifScan(){if(!isApp()||!S.cfg.ntfAuto)return;
 
 /* a full backup with attachments, saved monthly by the phone app */
 async function nativeFullBackup(){if(!isApp()||META.enc||!allAtt().length||(S.cfg.autoFullBk&&dl(S.cfg.autoFullBk)>-30))return;
-  try{await NP("DueNative","saveDownload",{name:"due-and-spend-full-backup-"+today()+".json",text:await bkFull(),mime:"application/json"});S.cfg.autoFullBk=today();S.cfg.lastFullBk=today();save()}catch(e){}}
+  try{await NP("DueNative","saveDownload",{name:"personal-diary-full-backup-"+today()+".json",text:await bkFull(),mime:"application/json"});S.cfg.autoFullBk=today();S.cfg.lastFullBk=today();save()}catch(e){}}
 
 {const oldFull=ACT.fullBk,oldSync=ACT.syncSave;
 Object.assign(ACT,{
@@ -1527,9 +1527,9 @@ const tstr=ts=>{if(!ts)return "";const d=iso(new Date(ts)),t=new Date(ts).toLoca
 const withTimeout=(p,ms)=>Promise.race([Promise.resolve(p).catch(()=>{}),new Promise(r=>setTimeout(r,ms))]);
 /* daily backup file (phone app), keeping the latest 14 */
 nativeBackup=async function(){if(!isApp()||META.enc||!hasData()||S.cfg.autoBk==today())return;
-  try{await NP("DueNative","saveDownload",{name:"due-and-spend-backup-"+today()+".json",text:bk(),mime:"application/json"});S.cfg.autoBk=today();S.cfg.autoBkAt=Date.now();S.cfg.lastBk=today();save();
-    NP("DueNative","pruneBackups",{keep:14,prefix:"due-and-spend-backup-"}).catch(()=>{})}catch(e){}};
-{const _full=nativeFullBackup;nativeFullBackup=async function(){await _full();if(isApp())NP("DueNative","pruneBackups",{keep:3,prefix:"due-and-spend-full-backup-"}).catch(()=>{})}}
+  try{await NP("DueNative","saveDownload",{name:"personal-diary-backup-"+today()+".json",text:bk(),mime:"application/json"});S.cfg.autoBk=today();S.cfg.autoBkAt=Date.now();S.cfg.lastBk=today();save();
+    NP("DueNative","pruneBackups",{keep:14,prefix:"personal-diary-backup-"}).catch(()=>{})}catch(e){}};
+{const _full=nativeFullBackup;nativeFullBackup=async function(){await _full();if(isApp())NP("DueNative","pruneBackups",{keep:3,prefix:"personal-diary-full-backup-"}).catch(()=>{})}}
 let openedAt=0;
 async function onOpen(){openedAt=Date.now();try{await persist()}catch(e){}
   if(!useLS)snapPut("latest").catch(()=>{});
@@ -1552,6 +1552,84 @@ async function exitDialog(){if(exiting)return;exiting=true;sheet(`<h2>Saving…<
   <div class="acts"><button class="btn" data-act="exitNow">Close app</button><button class="btn ghost" data-act="closeX">Stay</button></div>`)}
 {const _back=window.__dsBack;window.__dsBack=()=>{const r=_back();if(r)return true;if($("#lock").innerHTML)return false;if(exitOk)return false;exitDialog();return true}}
 ACT.exitNow=async()=>{exitOk=true;sheet("");try{await NP("DueNative","exitApp")}catch(e){toast("Press back again to close")}};
+
+/* ===== live prices: gold, silver, QAR rate, mutual fund NAVs; Indian small savings schemes ===== */
+const OZ=31.1034768,PUR={24:1,22:.916,18:.75};
+async function getJSON(url){
+  if(isApp()){try{const r=await NP("CapacitorHttp","get",{url,responseType:"json",connectTimeout:15000,readTimeout:15000});if(r&&r.status>=400)throw new Error("HTTP "+r.status);let d=r&&r.data;if(typeof d=="string")d=JSON.parse(d);if(d!=null)return d}catch(e){}}
+  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),15000);try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}finally{clearTimeout(t)}}
+async function fxFile(c){let err;for(const u of [`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${c}.min.json`,`https://latest.currency-api.pages.dev/v1/currencies/${c}.min.json`]){try{const d=await getJSON(u);if(d&&d[c])return d}catch(e){err=e}}throw err||new Error("no data")}
+const gp=()=>({IN:S.cfg.gpIN??6,QA:S.cfg.gpQA??0});
+/* price of one gram at a purity, in INR or QAR, with the local adjustment */
+function goldGram(cur,pur){const k=S.mk;if(!k||!k.g)return 0;const base=cur=="QAR"?k.g.qar:k.g.inr;return base*(PUR[pur]||1)*(1+(cur=="QAR"?gp().QA:gp().IN)/100)}
+let mkBusy=false,mkErr="";
+async function refreshMarket(force){if(mkBusy)return;if(inClaude()){mkErr="Live prices work in the phone app and the web app, not inside Claude.";return}
+  if(!force&&S.mk&&S.mk.at&&Date.now()-S.mk.at<6*36e5){await refreshFunds(false);return}
+  mkBusy=true;mkErr="";try{const [xau,xag,qar]=await Promise.all([fxFile("xau"),fxFile("xag").catch(()=>null),fxFile("qar").catch(()=>null)]);
+    const g={inr:xau.xau.inr/OZ,qar:xau.xau.qar/OZ,usd:xau.xau.usd/OZ},s=xag?{inr:xag.xag.inr/OZ,qar:xag.xag.qar/OZ}:null,qi=qar&&qar.qar&&qar.qar.inr||g.inr/g.qar;
+    S.mk={at:Date.now(),date:xau.date||today(),g,s,qi};S.mkh=S.mkh||{};S.mkh[S.mk.date]={gi:g.inr,gq:g.qar,qi};Object.keys(S.mkh).sort().slice(0,-120).forEach(k=>delete S.mkh[k]);
+    if(S.cfg.autoRate!==false&&qi>1){const r=Math.round(qi*100)/100;if(r!=S.cfg.rate){S.cfg.rate=r;S.cfg.rateAt=today()}}
+    S.inv.forEach(x=>{if(x.kind=="gold"&&+x.gr&&!x.closed){const v=Math.round(+x.gr*goldGram(x.cur,+x.pur||24));if(v&&v!=+x.val){x.val=v;x.hist=[...(x.hist||[]).filter(h=>h.d!=today()),{d:today(),v}].slice(-36);x.ut=Date.now()}}});
+    save()}catch(e){mkErr="Couldn’t get today’s prices. Check the internet connection and tap Refresh."}finally{mkBusy=false}
+  await refreshFunds(force);if(tab=="invest"||tab=="home")render()}
+async function refreshFunds(force){const L=S.inv.filter(x=>x.kind=="mf"&&x.mf&&!x.closed&&(force||x.navAt!=today()));for(const x of L){try{const d=await getJSON(`https://api.mfapi.in/mf/${encodeURIComponent(x.mf)}/latest`),r=d&&d.data&&d.data[0];if(!r)continue;
+    x.nav=+r.nav;x.navd=r.date;x.navAt=today();if(d.meta&&d.meta.scheme_name)x.mfn=d.meta.scheme_name;if(+x.units){const v=Math.round(+x.units*x.nav*100)/100;x.val=v;x.cur="INR";x.hist=[...(x.hist||[]).filter(h=>h.d!=today()),{d:today(),v}].slice(-36)}x.ut=Date.now()}catch(e){}}
+  if(L.length)save()}
+function marketCard(){const k=S.mk;if(!k||!k.g)return `<div class="card" style="margin-bottom:10px"><b>Gold and exchange rates</b><p class="note" style="margin:6px 0">${esc(mkErr||(inClaude()?"Live prices work in the phone app and the web app, not inside Claude.":"Getting today’s prices…"))}</p>${inClaude()?"":`<div class="acts"><button class="btn sm" data-act="mkRefresh">Refresh</button></div>`}</div>`;
+  const row=(l,a,b)=>`<tr><td>${l}</td><td>${a}</td><td>${b}</td></tr>`,i=n=>"₹"+nf(Math.round(n)),q=n=>"QAR "+nf(n,2),H=Object.keys(S.mkh||{}).sort().slice(-30),P=gp();
+  return `<div class="card" style="margin-bottom:10px"><div class="hbl"><b>Gold and exchange rates</b><span class="note">${fmt(k.date)}</span></div>
+  <table class="tbl" style="margin-top:6px"><tr><th>Per gram</th><th>India</th><th>Qatar</th></tr>${row("Gold 24K",i(goldGram("INR",24)),q(goldGram("QAR",24)))}${row("Gold 22K",i(goldGram("INR",22)),q(goldGram("QAR",22)))}${row("Gold 18K",i(goldGram("INR",18)),q(goldGram("QAR",18)))}
+  ${row("Gold 24K, 10 g",i(goldGram("INR",24)*10),q(goldGram("QAR",24)*10))}${k.s?row("Silver, 1 kg",i(k.s.inr*1000*(1+P.IN/100)),q(k.s.qar*1000*(1+P.QA/100))):""}</table>
+  <div class="hbl" style="margin-top:8px"><span>1 QAR</span><b>₹${k.qi.toFixed(2)}</b></div>
+  ${H.length>1?`<small style="color:var(--mute)">Gold 24K per gram in India, last ${H.length} days</small>${area(H.map(d=>({l:+d.slice(8)+" "+mlab(d.slice(0,7)),v:S.mkh[d].gi*(1+P.IN/100)})),true,0)}`:""}
+  <p class="note">International price converted to rupees and riyals${P.IN?`, plus ${P.IN}% for Indian import duty`:""}${P.QA?`, plus ${P.QA}% in Qatar`:""}. Shop prices differ, and India adds 3% GST when you buy. Updated ${tstr(k.at)}.${S.cfg.autoRate!==false?" The app’s QAR rate follows this automatically.":""}${mkErr?" "+esc(mkErr):""}</p>
+  <div class="acts"><button class="btn sm" data-act="mkRefresh">${mkBusy?"Refreshing…":"Refresh"}</button><button class="btn sm ghost" data-act="mkSet">Adjust</button></div></div>`}
+/* India small savings (post office) schemes: rates for 1 Oct to 31 Dec 2026 */
+const SCH_Q={from:"2026-10-01",to:"2026-12-31",label:"1 Oct – 31 Dec 2026"};
+const SCH=[["ppf","Public Provident Fund (PPF)",7.1,"ppf","15 years. ₹500 to ₹1.5 lakh a year. Tax-free interest.","Yearly deposit"],["ssy","Sukanya Samriddhi (SSY)",8.2,"ssy","For a girl under 10. Deposits for 15 years, matures at 21 years. Up to ₹1.5 lakh a year.","Yearly deposit"],
+  ["scss","Senior Citizens Savings (SCSS)",8.2,"scss","Age 60+. 5 years, interest paid every quarter. Up to ₹30 lakh.","Amount"],["nsc","National Savings Certificate (NSC)",7.7,"nsc","5 years, interest added yearly and paid at maturity.","Amount"],
+  ["kvp","Kisan Vikas Patra (KVP)",7.5,"kvp","Money doubles in 115 months.","Amount"],["mis","Monthly Income Scheme (MIS)",7.4,"mis","5 years, interest paid monthly. Up to ₹9 lakh (₹15 lakh joint).","Amount"],
+  ["td1","Time Deposit, 1 year",6.9,"td","Interest compounded quarterly.","Amount",1],["td2","Time Deposit, 2 years",7.0,"td","Interest compounded quarterly.","Amount",2],["td3","Time Deposit, 3 years",7.1,"td","Interest compounded quarterly.","Amount",3],["td5","Time Deposit, 5 years",7.5,"td","Interest compounded quarterly.","Amount",5],
+  ["rd","Recurring Deposit, 5 years",6.7,"rd","Monthly deposit for 5 years.","Monthly deposit"],["sb","Post Office Savings Account",4.0,"sb","Withdraw any time.","Amount"]].map(a=>({id:a[0],name:a[1],rate:a[2],calc:a[3],note:a[4],ask:a[5],yrs:a[6]||0}));
+function schCalc(s,A){const r=s.rate/100,O=[];let inv=A,mat=0,mo=0;
+  if(s.calc=="ppf"||s.calc=="ssy"){const f=A*((Math.pow(1+r,15)-1)/r)*(1+r);inv=A*15;mat=s.calc=="ssy"?f*Math.pow(1+r,6):f;mo=s.calc=="ssy"?252:180}
+  else if(s.calc=="nsc"){mat=A*Math.pow(1+r,5);mo=60}else if(s.calc=="kvp"){mat=A*2;mo=115}
+  else if(s.calc=="mis"){mat=A;mo=60;O.push(["Paid every month",A*r/12])}else if(s.calc=="scss"){mat=A;mo=60;O.push(["Paid every quarter",A*r/4])}
+  else if(s.calc=="td"){mat=A*Math.pow(1+r/4,4*s.yrs);mo=12*s.yrs}else if(s.calc=="rd"){inv=A*60;for(let k=0;k<60;k++)mat+=A*Math.pow(1+r/4,(60-k)/3);mo=60}else{mat=A*(1+r);mo=12}
+  const intr=s.calc=="mis"?A*r/12*60:s.calc=="scss"?A*r/4*20:mat-inv;O.unshift(["You put in",inv],["Interest earned",intr]);if(s.calc!="mis"&&s.calc!="scss")O.push(["You get at the end",mat]);return {O,mat,inv,mo}}
+function schemesHtml(){const old=today()>SCH_Q.to;return `<h2>Post office schemes (India)</h2><div class="card">${SCH.map(s=>`<div class="hrow" data-act="schOpen" data-id="${s.id}" style="cursor:pointer"><div style="flex:1"><div class="hbl"><b>${esc(s.name)}</b><b>${s.rate.toFixed(1)}%</b></div><small>${esc(s.note)}</small></div></div>`).join("")}
+  <p class="note" style="margin-top:8px">Rates for ${SCH_Q.label}, set by the Government of India each quarter.${old?" These may be out of date now; check India Post for the current quarter.":""} Tap a scheme for a calculator. Most of these can’t be opened by NRIs; an existing PPF can usually continue until it matures. Check the rules for your situation.</p></div>`}
+function schSheet(id,amt){const s=SCH.find(x=>x.id==id);if(!s)return;const A=+amt||0,R=A?schCalc(s,A):null;
+  sheet(`<h2>${esc(s.name)}</h2><p class="sub">${s.rate.toFixed(1)}% a year · ${esc(s.note)}</p>${F("sch_amt",s.ask+" (₹)",A||"","number")}<div class="acts"><button class="btn" data-act="schCalc" data-id="${id}">Calculate</button></div>
+  ${R?`<div class="card">${R.O.map(([l,v])=>`<div class="hbl" style="margin:6px 0"><span>${l}</span><b>${inr(Math.round(v))}</b></div>`).join("")}<small style="color:var(--mute)">${R.mo?"Over "+(R.mo%12?R.mo+" months":R.mo/12+" years")+", ending around "+fmt(addM(today(),R.mo)):""}. Assumes today’s rate stays the same.</small></div><div class="acts"><button class="btn ghost" data-act="schAdd" data-id="${id}">Add as my investment</button></div>`:""}`)}
+/* attachment opening that works inside the phone app */
+viewAtt=async function(id){const m=pend.find(a=>a.id==id)||allAtt().find(a=>a.id==id)||{name:"File",type:""};let b=null;try{b=await fget(id)}catch(e){}
+  if(!b){sheet(`<h2>File not on this phone</h2><p class="sub">“${esc(m.name)}” is listed, but the file itself isn’t stored on this phone. Attached files aren’t synced between phones and aren’t in the normal backup. To get it back, restore a “Backup with files” made on the phone where you attached it, or attach the file again.</p><div class="acts"><button class="btn" data-act="closeX">OK</button></div>`);return}
+  const type=m.type||b.type||"";
+  if(isApp()){try{await NP("DueNative","openFile",{name:m.name||"file",mime:type||"application/octet-stream",data:await b64(b)});return}catch(e){toast("No app found to open this file")}return}
+  const u=URL.createObjectURL(b),im=type.startsWith("image/");
+  $("#view").innerHTML=`<div class="back" data-act="vclose" style="z-index:40"><div class="sheet">${im?`<img src="${u}" style="width:100%;border-radius:12px" alt="${esc(m.name)}">`:`<iframe src="${u}" title="${esc(m.name)}" style="width:100%;height:60vh;border:0;border-radius:12px"></iframe>`}<p><a href="${u}" download="${esc(m.name)}" target="_blank" rel="noopener">Open or save the file</a></p><div class="acts"><button class="btn" data-act="vclose">Close</button></div></div></div>`};
+/* live value fields on the investment form */
+const liveFields=x=>{x=x||{};const on=+x.gr||x.mf;return `<details${on?" open":""}><summary>Live value (gold grams or mutual fund units)</summary><p class="note">Gold: enter grams and purity. Mutual fund: find the fund and enter your units. The value then updates each day.</p>
+  <div class="two"><div>${F("f_gr","Gold weight (grams)",x.gr||"","number")}</div><div>${SEL("f_pur","Purity",[["24","24K"],["22","22K"],["18","18K"]],String(x.pur||22))}</div></div>
+  <div class="two"><div>${F("f_mf","Fund scheme code",x.mf||"","text",'inputmode="numeric"')}</div><div>${F("f_units","Units held",x.units||"","number")}</div></div><input type="hidden" id="f_mfn" value="${esc(x.mfn||"")}">
+  <p class="note" id="mf_name">${x.mfn?esc(x.mfn)+(x.nav?" · NAV ₹"+x.nav+" on "+esc(x.navd||""):""):""}</p><div class="acts"><button class="btn sm ghost" data-act="mfFind">Find fund by name</button></div><div id="mf_out"></div></details>`};
+{const _vW=vWealth;vWealth=function(){let h=_vW();h=h.replace('<div style="height:10px"></div>','<div style="height:10px"></div>'+marketCard());const k='<div class="acts" style="margin-bottom:60px">';return h.includes(k)?h.replace(k,schemesHtml()+k):h+schemesHtml()}}
+Object.assign(ACT,{
+  async mkRefresh(){toast("Getting today’s prices…");await refreshMarket(true);render();toast(mkErr||"Prices updated")},
+  mkSet(){const P=gp();sheet(`<h2>Adjust gold prices</h2><p class="sub">Live prices are international prices converted to rupees and riyals. Add a percentage to get closer to shop rates where you buy.</p><div class="two"><div>${F("f_gpin","India: add % (import duty)",P.IN,"number")}</div><div>${F("f_gpqa","Qatar: add %",P.QA,"number")}</div></div>${SEL("f_auto","Update the app’s QAR rate from live prices",[["1","Yes"],["0","No, I’ll set it myself"]],S.cfg.autoRate===false?"0":"1")}${btns("mkSave")}`)},
+  mkSave(){S.cfg.gpIN=+v("f_gpin")||0;S.cfg.gpQA=+v("f_gpqa")||0;S.cfg.autoRate=v("f_auto")=="1";S.mk&&(S.mk.at=0);done();refreshMarket(true)},
+  schOpen(id){schSheet(id)},schCalc(id){schSheet(id,v("sch_amt"))},
+  schAdd(id){const s=SCH.find(x=>x.id==id),A=+v("sch_amt")||0;if(!s)return;const R=schCalc(s,A);iForm();setTimeout(()=>{const set=(k,val)=>{const e=$("#"+k);if(e)e.value=val};set("f_name",s.name.replace(/ \(.*\)$/,""));set("f_kind2",s.calc=="ppf"||s.calc=="ssy"?"ppf":s.calc=="rd"||s.calc=="sb"?"other":"fd");set("f_cur","INR");set("f_inv",s.calc=="ppf"||s.calc=="ssy"||s.calc=="rd"?A:A);set("f_sd",today());if(R.mo)set("f_md",addM(today(),R.mo));set("f_rt",s.rate)},50)},
+  async mfFind(){const q=(v("f_name")||"").trim(),o=$("#mf_out");if(!o)return;if(q.length<3)return toast("Type the fund name in Name first");if(inClaude())return toast("Fund search works in the phone app and the web app");o.innerHTML=`<p class="note">Searching…</p>`;
+    try{const L=(await getJSON("https://api.mfapi.in/mf/search?q="+encodeURIComponent(q)))||[];o.innerHTML=L.length?L.slice(0,15).map(f=>`<div class="row" data-act="mfPick" data-id="${esc(f.schemeCode)}" style="cursor:pointer"><div><b style="font-weight:500">${esc(f.schemeName)}</b><small>Code ${esc(f.schemeCode)}</small></div></div>`).join(""):`<p class="note">No funds found. Try a shorter name, such as “Parag Parikh Flexi”.</p>`}catch(e){o.innerHTML=`<p class="note">Couldn’t search right now. Check the internet connection.</p>`}},
+  async mfPick(id,t){const n=t.querySelector("b").textContent;$("#f_mf").value=id;$("#f_mfn").value=n;$("#mf_out").innerHTML="";$("#mf_name").textContent=n+" · getting NAV…";$("#f_cur").value="INR";$("#f_kind2").value="mf";
+    try{const d=await getJSON(`https://api.mfapi.in/mf/${id}/latest`),r=d.data[0];$("#mf_name").textContent=n+" · NAV ₹"+r.nav+" on "+r.date;const u=+v("f_units");if(u)$("#f_val").value=Math.round(u*r.nav*100)/100}catch(e){$("#mf_name").textContent=n}}
+});
+{const _save=ACT.saveInv;ACT.saveInv=function(id){const n=v("f_name").trim(),gr=+v("f_gr")||0,pur=+v("f_pur")||22,mf=v("f_mf").trim(),units=+v("f_units")||0,mfn=v("f_mfn");
+  if(gr&&!(+v("f_val"))&&S.mk&&S.mk.g){const e=$("#f_val");if(e)e.value=Math.round(gr*goldGram(v("f_cur"),pur))}
+  const before=new Set(S.inv.map(x=>x.id));_save(id);const x=S.inv.find(q=>q.id==id)||S.inv.find(q=>!before.has(q.id)&&q.name==n);if(!x)return;
+  Object.assign(x,{gr,pur,mf,units,mfn:mf?mfn||x.mfn||"":""});if(mf&&x.mf!==x.prevMf){x.navAt="";x.prevMf=mf}save();if(mf||gr)refreshMarket(false)}}
 
 //---------------------------------------------------------------------
 //
@@ -3858,7 +3936,7 @@ function start(){mon=today().slice(0,7);prefsJ=JSON.stringify(prefsObj());let ch
   render();snapDaily();openPending();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}catch(e){}
   if(SY.on&&!inClaude())syncStart();
-  cloudProbe();smartProbe();nativeStart();onOpen()}
+  cloudProbe();smartProbe();nativeStart();onOpen();setTimeout(()=>refreshMarket(false),1500)}
 async function boot(){mon=today().slice(0,7);let st="ready";
   try{st=await loadAll()}catch(e){console.warn(e);useLS=true;try{const ls=JSON.parse(localStorage.getItem(K)||"null");if(ls)adopt(ls)}catch(x){}mig()}
   if(st=="locked")return showLock("cold");
