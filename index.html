@@ -104,9 +104,9 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="14";
-const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs"],LOCAL=["cfg","nw","bin","del"];
-const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],bin:[],del:[],nw:{},cfg:{rate:DEFRATE,view:"INR"}});
+const K="due-and-spend.v1",DEFRATE=26,VER="15";
+const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs"],LOCAL=["cfg","nw","bin","del"];
+const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],bin:[],del:[],nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
 
 const TYPES={premium:"Premium",fd:"FD maturity",emi:"EMI",renewal:"Renewal"};
@@ -254,7 +254,7 @@ async function resealSnaps(toPlain){const all=await run(mainDB(),"snaps","readon
 /* backup and restore */
 const bkObj=()=>({app:"due-and-spend",v:2,at:Date.now(),...Object.fromEntries(COLLS.map(c=>[c,S[c]])),nw:S.nw,cfg:{rate:S.cfg.rate,view:S.cfg.view,fixedCats:S.cfg.fixedCats,theme:S.cfg.theme}});
 const bk=()=>JSON.stringify(bkObj());
-const allAtt=()=>[...S.dates,...S.inv,...S.docs].flatMap(x=>x.att||[]);
+const allAtt=()=>[...S.dates,...S.inv,...S.docs,...S.subs].flatMap(x=>x.att||[]);
 async function b64(blob){const u=new Uint8Array(await blob.arrayBuffer());let s="";for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)}
 function unb64(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
 async function bkFull(){const o=bkObj();o.files={};for(const a of allAtt()){try{const b=await fget(a.id);if(b)o.files[a.id]={type:b.type||a.type||"",data:await b64(b)}}catch(e){}}return JSON.stringify(o)}
@@ -546,7 +546,7 @@ function dateSummary(){const ds=activeDues();if(!ds.length)return "";const by={}
   const late=ds.filter(i=>dl(i.date)<0).length,e=Object.entries(by).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
   return `<div class="stats">${tile("Yearly outflow",fm(yr))}${tile("FDs maturing",fm(fd))}${tile("Overdue",late)}</div><h2>Dues and EMIs, next 6 months</h2><div class="card">${dueChart()}</div>${e.length?`<h2>Yearly cost by type</h2><div class="card">${hbars(e)}</div>`:""}<h2>All items</h2>`}
 function vDates(){const ds=activeDues(),dn=S.dates.filter(i=>i.done);
-  return `<h1>Due dates</h1><p class="sub">Premiums, FD maturities, EMIs and renewals. Tap an item to edit.</p>${viewSeg()}<div class="acts" style="margin:10px 0 12px"><button class="btn" data-act="addDate">+ Add due date</button></div>${dueCal()}${dateSummary()}${ds.length?ds.map(dRow).join(""):`<div class="empty">Nothing here yet. Tap + Add due date.</div>`}${dn.length?`<details><summary>Completed (${dn.length})</summary>${dn.map(dRow).join("")}</details>`:""}${docsHtml()}`}
+  return `<h1>Due dates</h1><p class="sub">Premiums, FD maturities, EMIs and renewals. Tap an item to edit.</p>${viewSeg()}<div class="acts" style="margin:10px 0 12px"><button class="btn" data-act="addDate">+ Add due date</button></div>${dueCal()}${dateSummary()}${ds.length?ds.map(dRow).join(""):`<div class="empty">Nothing here yet. Tap + Add due date.</div>`}${dn.length?`<details><summary>Completed (${dn.length})</summary>${dn.map(dRow).join("")}</details>`:""}<div class="acts"><button class="btn ghost" data-act="showSubs">Subscriptions (${subAct().length})</button><button class="btn ghost" data-act="showDocs">Documents (${S.docs.length})</button></div>`}
 
 /* ---------- Wealth ---------- */
 function nwCard(){const k=Object.keys(S.nw).sort().slice(-30),d=k.map(x=>({l:+x.slice(8)+" "+mlab(x.slice(0,7)),v:iv(S.nw[x],"INR")}));
@@ -630,7 +630,7 @@ function vRep(){const m=mon,t=today(),R=rep(m),fs=fixedSet(),out=mTx(m,"out"),sp
 
 /* ===== forms and sheets ===== */
 const CATL=()=>DL("cats",[...S.tx.slice(-80).reverse().map(x=>x.cat),...CATS]);
-const linkName=L=>{const m={due:["dates","due date"],loan:["loans","loan"],goal:["goals","goal"],inv:["inv","investment"]}[L.t];if(!m)return "another record";const r=S[m[0]].find(x=>x.id==L.id);return "the "+m[1]+(r?" “"+esc(r.name)+"”":"")};
+const linkName=L=>{const m={sub:["subs","subscription"],due:["dates","due date"],loan:["loans","loan"],goal:["goals","goal"],inv:["inv","investment"]}[L.t];if(!m)return "another record";const r=S[m[0]].find(x=>x.id==L.id);return "the "+m[1]+(r?" “"+esc(r.name)+"”":"")};
 /* payments recorded against a due date, loan, goal or investment */
 function histHtml(t,id){const L=linked(t,id);if(!L.length)return "";const ins=L.filter(x=>x.kind!="adj"||t=="due"),outs=t=="inv"?L.filter(x=>x.kind=="adj"):[];
   return `<details><summary>${t=="goal"||t=="inv"?"Money put in":"Payments"}: ${fm(sumV(ins))} in ${ins.length} ${ins.length==1?"entry":"entries"}${outs.length?" · taken out "+fm(sumV(outs)):""}</summary>${L.slice(0,12).map(x=>`<div class="row" data-act="editTx" data-id="${x.id}"><div><b>${fmt(x.date)}</b><small>${esc(an(x.acc))} · ${esc(x.cat||KIND[x.kind])}</small></div><b>${fmx(x.amt,x.cur)}</b></div>`).join("")}</details>`}
@@ -894,7 +894,7 @@ const ACT={
   async snaps(){if(useLS)return toast("Automatic backups need the phone database");const L=await snapList();
     sheet(`<h2>Automatic backups</h2><p class="sub">A copy is kept for each of the last 7 days you opened the app. Restoring one replaces what is on this device now.</p>${L.length?L.map(o=>`<div class="row" style="cursor:default"><div><b>${o.k=="before-restore"?"Before the last restore":/^\d{4}-/.test(o.k)?fmt(o.k):esc(o.k)}</b><small>${new Date(o.ts).toLocaleString("en-IN")}</small></div><button class="btn sm ghost" data-act="snapRestore" data-id="${esc(o.k)}">Restore</button></div>`).join(""):`<div class="empty">No copies yet. The first one is made once you have some entries.</div>`}`)},
   async snapRestore(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to confirm";return}await restoreFrom(await snapRead(id));sheet("");render();toast("Restored")},
-  bin(){const nm=b=>b.r.name||b.r.cat||b.r.note||KIND[b.r.kind]||"Item",T={acc:"Account",tx:"Entry",dates:"Due date",inv:"Investment",loans:"Loan",goals:"Goal",bud:"Budget",rec:"Recurring entry",docs:"Document"};
+  bin(){const nm=b=>b.r.name||b.r.cat||b.r.note||KIND[b.r.kind]||"Item",T={acc:"Account",tx:"Entry",dates:"Due date",inv:"Investment",loans:"Loan",goals:"Goal",bud:"Budget",rec:"Recurring entry",docs:"Document",subs:"Subscription"};
     sheet(`<h2>Recycle bin</h2><p class="sub">Deleted items stay here for 30 days.</p>${S.bin.length?[...S.bin].reverse().map(b=>`<div class="row" style="cursor:default"><div><b>${esc(nm(b))}</b><small>${T[b.c]||"Item"} · deleted ${fmt(iso(new Date(b.at)))}${+b.r.amt?" · "+fmx(b.r.amt,b.r.cur):""}</small></div><button class="btn sm ghost" data-act="binRestore" data-id="${b.r.id}">Restore</button></div>`).join("")+`<div class="acts"><button class="btn del" data-act="binEmpty">Empty the bin</button></div>`:`<div class="empty">Nothing here.</div>`}`)},
   binRestore(id){untrash(id);save();render();ACT.bin();toast("Restored")},
   binEmpty(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete for good";return}purgeBin(true);save();ACT.bin()},
@@ -1200,12 +1200,14 @@ function searchAll(q){q=String(q||"").trim().toLowerCase();if(q.length<2)return;
   S.inv.forEach(x=>{if(hit(x.name,x.no,IK[x.kind]))R.push(iRow(x))});
   S.loans.forEach(l=>{if(hit(l.name))R.push(`<div class="row" data-act="editLoan" data-id="${l.id}"><div><b>${esc(l.name)}</b><small>Loan · ${loanLeft(l)} EMIs left</small></div><b>${fmx(Math.round(loanOut(l)),l.cur)}</b></div>`)});
   S.docs.forEach(d=>{if(hit(d.name,d.no,d.type,d.note))R.push(`<div class="row" data-act="editDoc" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${esc(d.type||"Document")}${d.exp?" · expires "+fmt(d.exp):""}</small></div></div>`)});
+  S.subs.forEach(x=>{if(hit(x.name,x.plan,x.cat,x.note))R.push(`<div class="row" data-act="editSub" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>Subscription${x.end?" · "+(x.cancelled?"ended ":"renews ")+fmt(x.end):""}</small></div><b>${fmx(+x.price||0,x.cur)}</b></div>`)});
   S.goals.forEach(g=>{if(hit(g.name))R.push(`<div class="row" data-act="editGoal" data-id="${g.id}"><div><b>${esc(g.name)}</b><small>Goal</small></div><b>${fmx(g.saved,g.cur)}</b></div>`)});
   const T=S.tx.filter(x=>x.kind!="tr"&&x.kind!="adj"&&hit(x.cat,x.sub,x.payee,x.note,(x.tags||[]).join(" "),an(x.acc),x.amt,x.date)).sort((a,b)=>b.date.localeCompare(a.date));
   sheet(`<h2>Results for “${esc(q)}”</h2>${R.join("")}${T.length?`<p class="note">${T.length} ${T.length==1?"entry":"entries"}, ${fm(sumV(T.filter(x=>x.kind=="out")))} spent</p>`+T.slice(0,80).map(txRow).join(""):""}${R.length||T.length?"":`<div class="empty">Nothing matches.</div>`}`)}
 /* month calendar of what is due */
 let dmon="";
 function dueCal(){if(!dmon)dmon=today().slice(0,7);const t=today(),U=upcoming(dmon+"-01",mEnd(dmon),false),by={};U.filter(u=>u.t!="rec"&&u.t!="recin").forEach(u=>{(by[+u.d.slice(8)]=by[+u.d.slice(8)]||[]).push(u)});
+  S.docs.forEach(d=>{if(d.exp&&d.exp.startsWith(dmon))(by[+d.exp.slice(8)]=by[+d.exp.slice(8)]||[]).push({d:d.exp,n:d.name+" expires",a:0,c:"INR",t:"doc",late:d.exp<t})});
   activeDues().forEach(i=>{if(i.date<t&&i.date.startsWith(dmon)){const d=+i.date.slice(8);if(!(by[d]||[]).some(u=>u.id==i.id))(by[d]=by[d]||[]).push({d:i.date,n:i.name,a:+i.amt||0,c:i.cur,t:"due",late:1})}});
   const off=(new Date(+dmon.slice(0,4),+dmon.slice(5)-1,1).getDay()+6)%7,tot=Object.values(by).flat().filter(u=>u.t!="fd").reduce((s,u)=>s+iv(u.a,u.c),0);
   return `<div class="card" style="margin-bottom:12px"><div class="mon" style="margin:0 0 8px"><button class="btn ghost sm" data-act="dmon" data-id="-1" aria-label="Previous month">‹</button><b>${mlong(dmon)} · ${fmr(tot)}</b><button class="btn ghost sm" data-act="dmon" data-id="1" aria-label="Next month">›</button></div><div class="hm cal">${"MTWTFSS".split("").map(c=>`<i>${c}</i>`).join("")}${Array(off).fill("<i></i>").join("")}${Array.from({length:dim(dmon)},(_,k)=>{const d=k+1,L=by[d],iso_=dmon+"-"+p2(d);return `<i class="${L?(L.some(u=>u.late||u.d<t)?"late":"has"):""}${iso_==t?" tod":""}" ${L?tip(L.map(u=>u.n+(u.a?" "+fmx(u.a,u.c):"")).join(" · ")):""}>${d}</i>`}).join("")}</div><p class="note" style="margin-top:6px">Tap a marked day to see what is due.</p></div>`}
@@ -1216,7 +1218,7 @@ function freqHtml(k){const m=new Map();S.tx.filter(x=>x.kind==k&&!x.link&&!x.rec
   return FREQ.length?`<div class="chips">${FREQ.map((x,i)=>`<button data-act="qf" data-id="${i}" style="border-style:dashed">${esc(x.payee||x.cat)} ${fmx(x.amt,x.cur)}</button>`).join("")}</div>`:""}
 const fabTile=(act,ic,l)=>`<button class="ft" data-act="${act}"><span>${ic}</span>${l}</button>`;
 Object.assign(ACT,{
-  fab(){sheet(`<h2>Add</h2><div class="fgrid">${fabTile("qOut","🧾","Expense")}${fabTile("qIn","💼","Income")}${fabTile("trf","🔁","Transfer")}${fabTile("addDate","📅","Due date")}${fabTile("smsOpen","💬","Bank SMS")}${fabTile("addInv","🌱","Investment")}${fabTile("addGoal","🎯","Goal")}${fabTile("addLoan","🏦","Loan")}${fabTile("addAcc","👛","Account")}</div>`)},
+  fab(){sheet(`<h2>Add</h2><div class="fgrid">${fabTile("qOut","🧾","Expense")}${fabTile("qIn","💼","Income")}${fabTile("trf","🔁","Transfer")}${fabTile("addDate","📅","Due date")}${fabTile("addSub","🎬","Subscription")}${fabTile("addDoc","🪪","Document")}${fabTile("smsOpen","💬","Bank SMS")}${fabTile("addInv","🌱","Investment")}${fabTile("addGoal","🎯","Goal")}${fabTile("addLoan","🏦","Loan")}${fabTile("addAcc","👛","Account")}</div>`)},
   qOut(){qForm("out")},qIn(){qForm("in")},
   qf(id){const x=FREQ[+id];if(!x)return;$("#f_amt").value=x.amt;$("#f_cat").value=x.cat||"";$("#f_acc").value=x.acc;const p=$("#f_payee");if(p)p.value=x.payee||"";const s=$("#f_sub");if(s)s.value=x.sub||""},
   repeatTx(id){const x=S.tx.find(q=>q.id==id);if(!x)return;const n=addTx({kind:x.kind,acc:x.acc,amt:x.amt,cur:x.cur,date:today(),cat:x.cat,sub:x.sub,payee:x.payee,tags:[...(x.tags||[])],note:x.note});mon=today().slice(0,7);done();undoDel(n.id,"Added again for today");},
@@ -1238,10 +1240,10 @@ async function nativeNotify(){
     const pend=await NP("LocalNotifications","getPending");if(pend&&pend.notifications&&pend.notifications.length)await NP("LocalNotifications","cancel",{notifications:pend.notifications.map(n=>({id:n.id}))});
     const t=today(),now=Date.now(),N=[],secret=!!META.enc;let id=1;
     upcoming(t,plus(90),false).filter(u=>u.t=="due"||u.t=="emi"||(u.t=="fd"&&u.a)).slice(0,25).forEach(u=>[[2,"in 2 days"],[0,"today"]].forEach(([b,w])=>{const at=D(u.d);at.setDate(at.getDate()-b);at.setHours(9,0,0,0);
-      if(at.getTime()>now){const n={id:id++,title:u.n+" is due "+w,body:(u.a&&!secret?fmx(u.a,u.c)+" · ":"")+fmt(u.d),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{due:u.t=="due"||u.t=="fd"?u.id:"",loan:u.t=="emi"?u.id:""}};if(u.t!="fd")n.actionTypeId="DUE";N.push(n)}}));
+      if(at.getTime()>now){const n={id:id++,title:u.n+" is due "+w,body:(u.a&&!secret?fmx(u.a,u.c)+" · ":"")+fmt(u.d),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{due:(u.t=="due"&&!u.src)||u.t=="fd"?u.id:"",loan:u.t=="emi"?u.id:"",sub:u.src=="sub"?u.id:""}};if(u.t!="fd")if(u.a)n.actionTypeId="DUE";N.push(n)}}));
     for(let j=0;j<7;j++){const at=D(plus(j));at.setHours(21,0,0,0);if(at.getTime()<=now)continue;const tm=plus(j+1),du=upcoming(tm,tm,false).filter(u=>u.t=="due"||u.t=="emi").map(u=>u.n).slice(0,3),sp=j==0?sumV(S.tx.filter(x=>x.kind=="out"&&x.date==t)):0;
       N.push({id:9000+j,title:"Today’s summary",body:(j==0&&sp&&!secret?"Spent today: "+fm(sp)+". ":"Add today’s spending. ")+(du.length?"Due tomorrow: "+du.join(", ")+".":"Nothing is due tomorrow."),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{add:"out"}})}
-    S.docs.forEach((d,i)=>{if(!d.exp)return;[[30,"in 30 days"],[7,"in 7 days"]].forEach(([b,w],j)=>{const at=D(d.exp);at.setDate(at.getDate()-b);at.setHours(9,30,0,0);if(at.getTime()>now&&N.length<50)N.push({id:7000+i*2+j,title:d.name+" expires "+w,body:(d.type||"Document")+" · "+fmt(d.exp),schedule:{at:at.toISOString(),allowWhileIdle:true}})})});
+    S.docs.forEach((d,i)=>{if(!d.exp)return;[[+d.rem||30,"in "+(+d.rem||30)+" days"],[7,"in 7 days"]].forEach(([b,w],j)=>{const at=D(d.exp);at.setDate(at.getDate()-b);at.setHours(9,30,0,0);if(at.getTime()>now&&N.length<50)N.push({id:7000+i*2+j,title:d.name+" expires "+w,body:(d.type||"Document")+" · "+fmt(d.exp),schedule:{at:at.toISOString(),allowWhileIdle:true}})})});
     const cm=t.slice(0,7);let seen={};try{seen=JSON.parse(localStorage.getItem("ds-balert")||"{}")}catch(e){}
     budUse(cm).forEach((u,i)=>{const k=cm+":"+u.b.id;if(u.p>=90&&!seen[k]){seen[k]=1;N.push({id:8000+i,title:"Budget: "+u.b.cat+" is at "+u.p+"%",body:fmx(u.s,u.b.cur)+" of "+fmx(u.b.lim,u.b.cur)+" used this month",schedule:{at:new Date(now+3000).toISOString()}})}});
     try{localStorage.setItem("ds-balert",JSON.stringify(seen))}catch(e){}
@@ -1272,7 +1274,7 @@ async function nativeBackup(){if(!isApp()||META.enc||!hasData()||(S.cfg.autoBk&&
   try{await NP("DueNative","saveDownload",{name:"due-and-spend-backup-"+today()+".json",text:bk()});S.cfg.autoBk=today();S.cfg.lastBk=today();save()}catch(e){}}
 function nativeStart(){if(!isApp())return;
   try{window.Capacitor.addListener("LocalNotifications","localNotificationActionPerformed",ev=>{try{const x=(ev.notification&&ev.notification.extra)||{};
-    if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}}
+    if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}else if(x.sub){const r=renewSub(x.sub);if(r){save();render();toast(r.x.name+" renewal recorded")}}}
     else if(x.add&&!$("#lock").innerHTML)qForm("out")}catch(e){console.warn(e)}})}catch(e){}
   nativeNotifyLater();nativeLaunch();smsScan();notifScan();nativeBackup().then(nativeFullBackup)}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&isApp()){nativeLaunch();smsScan()}});
@@ -1296,7 +1298,7 @@ const docLeft=d=>d.exp?dl(d.exp):null;
 function docsHtml(){const L=[...S.docs].sort((a,b)=>(a.exp||"9999").localeCompare(b.exp||"9999"));
   return `<h2>Documents and warranties</h2>${L.length?L.map(d=>{const n=docLeft(d);return `<div class="row ${n===null?"":n<0?"late":n<=30?"soon":""}" data-act="editDoc" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${esc(d.type||"Document")}${d.no?" · "+esc(d.no):""}${d.exp?" · expires "+fmt(d.exp):""}${d.att&&d.att.length?" · "+d.att.length+(d.att.length==1?" file":" files"):""}</small></div>${n===null?"":`<span class="chip">${n<0?"Expired":when(n)}</span>`}</div>`}).join(""):`<div class="empty">Keep your passport, Qatar ID, warranties and bills here, with a reminder before they expire.</div>`}<div class="acts"><button class="btn ghost" data-act="addDoc">+ Add document</button></div>`}
 function docForm(d){attInit(d&&d.att);d=d||null;sheet(`<h2>${d?"Edit document":"New document"}</h2>${F("f_name","Name",d?d.name:"","text",'placeholder="My passport, fridge warranty"')}<div class="two"><div>${SEL("f_type","Type",DOCT.map(x=>[x,x]),d?d.type:"Passport")}</div><div>${F("f_exp","Expiry date (optional)",d?d.exp:"","date")}</div></div>${F("f_no","Number (optional)",d?d.no:"")}${F("f_note","Note (optional)",d?d.note:"")}${attHtml()}<p class="note">You get a reminder on Home 30 days before the expiry date.</p>${stampNote(d)}${btns("saveDoc",d&&d.id,"delDoc")}`)}
-const docAlerts=()=>S.docs.filter(d=>d.exp&&dl(d.exp)<=30).map(d=>[dl(d.exp),d.name+" · "+(dl(d.exp)<0?"expired "+fmt(d.exp):"expires "+when(dl(d.exp)).toLowerCase()),""]);
+const docAlerts=()=>S.docs.filter(d=>d.exp&&dl(d.exp)<=(+d.rem||30)).map(d=>[dl(d.exp),d.name+" · "+(dl(d.exp)<0?"expired "+fmt(d.exp):"expires "+when(dl(d.exp)).toLowerCase()),""]);
 
 /* who added an entry (when sync is signed in) */
 const byName=e=>String(e||"").split("@")[0];
@@ -1308,7 +1310,7 @@ function streaks(){const spent=new Set(S.tx.filter(x=>x.kind=="out"&&!x.rec&&!x.
   let best=0,run=0;for(let i=89;i>=0;i--){const d=plus(-i);if(d<first)continue;if(spent.has(d))run=0;else{run++;best=Math.max(best,run)}}
   const cm=t.slice(0,7);let mdays=0;for(let k=1;k<=+t.slice(8);k++){const d=cm+"-"+p2(k);if(d>=first&&!spent.has(d))mdays++}
   return {cur,best,mdays}}
-function recurringCosts(){const L=[];S.rec.filter(r=>r.kind=="out").forEach(r=>L.push([r.cat||r.note||"Recurring",iv(r.amt,ac(r.acc).cur)*12]));
+function recurringCosts(){const L=[];subAct().forEach(x=>{if(subMon(x))L.push([x.name,subMon(x)*12])});S.rec.filter(r=>r.kind=="out").forEach(r=>L.push([r.cat||r.note||"Recurring",iv(r.amt,ac(r.acc).cur)*12]));
   activeDues().forEach(i=>{const st=REP[i.rep][1];if(st&&i.type!="fd"&&+i.amt)L.push([i.name,iv(i.amt,i.cur)*12/st])});
   S.loans.filter(loanLeft).forEach(l=>L.push(["EMI: "+l.name,iv(l.emi,l.cur)*Math.min(12,loanLeft(l))]));return L.sort((a,b)=>b[1]-a[1])}
 function moreRep(m){let h="";const RC=recurringCosts(),st=streaks(),ch=S.cfg.chal,sv=mSum(today().slice(0,7),"save");
@@ -1427,6 +1429,98 @@ Object.assign(ACT,{
 document.addEventListener("visibilitychange",async()=>{if(document.hidden||!isApp())return;
   if(!S.cfg.ntfAuto&&$("#over").innerHTML.includes("Read payment alerts")&&await notifStatus()){S.cfg.ntfAuto=true;save();sheet("");render();toast("Payment alerts are on")}
   notifScan()});
+
+/* ===== subscriptions tracker and fuller documents ===== */
+const SUBCAT=["OTT and streaming","Music","Mobile and internet","Software and cloud","News and magazines","Gym and fitness","Gaming","Other"];
+const CYC={monthly:["Every month",1],quarterly:["Every 3 months",3],half:["Every 6 months",6],yearly:["Every year",12],once:["One time",0]};
+const subAct=()=>S.subs.filter(x=>!x.cancelled);
+const subMon=x=>{const c=CYC[x.cyc]||CYC.monthly;return c[1]?iv(+x.price||0,x.cur)/c[1]:0};
+const subPaid=x=>sumV(linked("sub",x.id))+(x.paidStart?iv(+x.price||0,x.cur):0);
+const subIcon=x=>{const n=(x.name+" "+(x.cat||"")).toLowerCase();return /netflix|prime|hotstar|disney|osn|shahid|youtube|zee|sony|jio|ott|stream/.test(n)?"🎬":/spotify|anghami|music|gaana|wynk|apple music/.test(n)?"🎵":/ooredoo|vodafone|airtel|mobile|internet|broadband|fiber/.test(n)?"📶":/icloud|google one|drive|office|microsoft|adobe|software|cloud|chatgpt|claude/.test(n)?"☁️":/gym|fitness/.test(n)?"🏋️":/news|times|hindu|magazine/.test(n)?"📰":/game|playstation|xbox/.test(n)?"🎮":"🔁"};
+/* renewal dates in a range: the end date and, for auto-renewing plans, every cycle after it */
+function subOcc(x,from,to){const st=(CYC[x.cyc]||CYC.monthly)[1],out=[];if(!x.end)return out;let d=x.end;for(let k=0;k<400&&d<=to;k++){if(d>=from)out.push(d);if(!st||!x.auto)break;d=addM(x.end,st*(k+1))}return out}
+{const _up=upcoming;upcoming=function(from,to,inc){const L=_up(from,to,inc);
+  subAct().forEach(x=>{const f=inc&&x.end&&x.end<from?x.end:from;subOcc(x,f,to).forEach(d=>L.push({d,n:(x.auto?"":"Ends: ")+x.name,t:"due",src:"sub",a:x.auto?+x.price||0:0,c:x.cur,id:x.id}))});
+  return L.sort((a,b)=>a.d.localeCompare(b.d))}}
+/* a renewal payment moves the plan on one cycle; deleting the payment moves it back */
+{const _la=linkApply;linkApply=function(x,s){if(!x.link||x.link.t!="sub")return _la(x,s);const p=S.subs.find(q=>q.id==x.link.id);if(!p)return;p.ut=Date.now();
+  if(s>0){p.start=x.ns||p.start;p.end=x.ne||p.end;p.cancelled=false}else{if(x.ps!==undefined)p.start=x.ps;if(x.pe!==undefined)p.end=x.pe}}}
+function renewSub(id,pay){const x=S.subs.find(q=>q.id==id);if(!x)return null;const st=(CYC[x.cyc]||CYC.monthly)[1],base=x.end||today(),ne=st?addM(base,st):"";
+  const pa=payAcc(x.pay,x.cur),o={kind:"out",acc:pa.id,amt:cv(+x.price||0,x.cur,pa.cur),cur:pa.cur,cat:"Subscription",sub:x.cat||"",payee:x.name,note:x.plan||"",date:today(),link:{t:"sub",id},ps:x.start||"",pe:x.end||"",ns:base,ne};
+  if(pay===false||!+x.price){x.start=base;x.end=ne;x.ut=Date.now();return {x,ne}}return {x,ne,tx:addTx(o)}}
+function subsHtml(){const A=subAct(),C=S.subs.filter(x=>x.cancelled),mo=A.reduce((s,x)=>s+subMon(x),0),by={};A.forEach(x=>{const k=x.cat||"Other";by[k]=(by[k]||0)+subMon(x)*12});
+  const card=x=>{const n=x.end?dl(x.end):null,c=CYC[x.cyc]||CYC.monthly,paid=subPaid(x);return `<div class="card sub ${x.cancelled?"":n!==null&&n<0?"late":n!==null&&n<=7?"soon":""}" style="margin-bottom:8px"><div style="display:flex;gap:10px;align-items:flex-start;cursor:pointer" data-act="editSub" data-id="${x.id}"><span class="ci">${subIcon(x)}</span><div style="flex:1;min-width:0"><div class="hbl"><b>${esc(x.name)}</b><b>${fmx(+x.price||0,x.cur)}<small style="color:var(--mute);font-weight:400">${c[1]?" / "+(c[1]==1?"month":c[1]==12?"year":c[1]+" months"):" once"}</small></b></div>
+    <small style="color:var(--mute);display:block">${esc(x.cat||"Other")}${x.plan?" · "+esc(x.plan):""}${x.start?" · from "+fmt(x.start):""}${x.end?" · "+(x.cancelled?"ended ":x.auto?"renews ":"ends ")+fmt(x.end):""}</small>
+    <small style="color:var(--mute);display:block">${paid?"Paid so far "+fmr(paid):"No payments recorded"}${c[1]?" · about "+fm(subMon(x)*12)+" a year":""}</small></div>${x.cancelled?`<span class="chip">Cancelled</span>`:n!==null?`<span class="chip">${n<0?(x.auto?"Due":"Ended"):when(n)}</span>`:""}</div>
+    ${x.cancelled?"":`<div class="acts">${c[1]?`<button class="btn sm" data-act="subRenew" data-id="${x.id}">${x.auto?"Paid renewal":"Renew"}</button>`:""}<button class="btn sm ghost" data-act="subCancel" data-id="${x.id}">Cancel</button></div>`}</div>`};
+  return `<div class="hero" style="margin-bottom:10px"><small>Active subscriptions</small><div class="big">${fm(mo)}<span style="font-size:15px;font-weight:600"> / month</span></div><small>${A.length} active · about ${fmr(mo*12)} a year</small></div>
+  <div class="acts" style="margin:0 0 10px"><button class="btn" data-act="addSub">+ Add subscription</button></div>
+  ${A.length?A.sort((a,b)=>(a.end||"9999").localeCompare(b.end||"9999")).map(card).join(""):`<div class="empty">Add Netflix, Prime, Spotify, mobile plans, iCloud and the like. You get a reminder before each renewal or end date.</div>`}
+  ${Object.keys(by).length>1?`<h2>Yearly cost by type</h2><div class="card">${hbars(Object.entries(by).sort((a,b)=>b[1]-a[1]),fmr)}</div>`:""}
+  ${C.length?`<details><summary>Cancelled (${C.length})</summary>${C.map(card).join("")}</details>`:""}`}
+function subForm(x){attInit(x&&x.att);x=x||null;const g=k=>x?x[k]:"";
+  sheet(`<h2>${x?"Edit subscription":"New subscription"}</h2>${F("f_name","Name",g("name"),"text",'placeholder="Netflix, Spotify, Ooredoo"')}
+  <div class="two"><div>${SEL("f_cat","Type",SUBCAT.map(c=>[c,c]),x?x.cat:"OTT and streaming")}</div><div>${F("f_plan","Plan (optional)",g("plan"),"text",'placeholder="Premium 4K"')}</div></div>
+  <div class="two"><div>${F("f_price","Price paid",g("price")||"","number")}</div><div>${SEL("f_cur","Currency",CURS,x?x.cur:"QAR")}</div></div>
+  <div class="two"><div>${SEL("f_cyc","Billing",Object.entries(CYC).map(([k,c])=>[k,c[0]]),x?x.cyc:"monthly")}</div><div>${SEL("f_auto","Renews by itself?",[["1","Yes"],["0","No, it just ends"]],x?(x.auto?"1":"0"):"1")}</div></div>
+  <div class="two"><div>${F("f_start","Start date",x?x.start:today(),"date")}</div><div>${F("f_end","End or next renewal",g("end"),"date")}</div></div>
+  ${SEL("f_pay","Paid from",[["","Last used account"],...ACCS()],g("pay")||"")}
+  ${x?"":SEL("f_rec","Record this payment now?",[["0","No, already in my entries"],["1","Yes, add it as spent on the start date"]],"0")}
+  ${F("f_note","Note (optional)",g("note"),"text",'placeholder="Shared with family, login email…"')}${attHtml()}
+  ${x?histHtml("sub",x.id):""}<p class="note">If you leave the end date empty, it is worked out from the start date and billing.</p>${stampNote(x)}${btns("saveSub",x&&x.id,"delSub")}`)}
+
+/* documents with issue and expiry dates, fee paid and renewal history */
+const DOCT2=["Passport","Visa","Qatar ID (QID)","Residence permit","Driving licence","Vehicle registration (Istimara)","Health card","Insurance card","Aadhaar / PAN","Warranty","Bill or receipt","Other"];
+const docSpan=d=>{if(!d.issue||!d.exp)return "";const m=Math.round((D(d.exp)-D(d.issue))/2629800000);return m>=12&&m%12==0?m/12+(m==12?" year":" years"):m+(m==1?" month":" months")};
+function docsView(){const L=[...S.docs].sort((a,b)=>(a.exp||"9999").localeCompare(b.exp||"9999")),soon=L.filter(d=>d.exp&&dl(d.exp)<=(+d.rem||30)).length,fees=L.reduce((s,d)=>s+iv(+d.fee||0,d.cur),0);
+  return `<div class="stats" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:10px">${tile("Documents",L.length)}${tile("Expiring soon",soon)}${tile("Fees paid",fmr(fees))}</div><div class="acts" style="margin:0 0 10px"><button class="btn" data-act="addDoc">+ Add document</button></div>`+
+  (L.length?L.map(d=>{const n=d.exp?dl(d.exp):null,lim=+d.rem||30;return `<div class="card ${n===null?"":n<0?"late":n<=lim?"soon":""}" style="margin-bottom:8px;cursor:pointer" data-act="editDoc" data-id="${d.id}"><div class="hbl"><b>${esc(d.name)}</b>${n===null?"":`<span class="chip">${n<0?"Expired":n>lim?"Valid":when(n)}</span>`}</div>
+    <small style="color:var(--mute);display:block">${esc(d.type||"Document")}${d.holder?" · "+esc(d.holder):""}${d.no?" · "+esc(d.no):""}${d.by?" · "+esc(d.by):""}</small>
+    <small style="color:var(--mute);display:block">${d.issue?"Issued "+fmt(d.issue):""}${d.issue&&d.exp?" → ":""}${d.exp?"expires "+fmt(d.exp):""}${docSpan(d)?" ("+docSpan(d)+")":""}${+d.fee?" · paid "+fmx(d.fee,d.cur):""}${d.att&&d.att.length?" · "+d.att.length+(d.att.length==1?" file":" files"):""}</small>
+    ${d.hist&&d.hist.length?`<small style="color:var(--mute);display:block">Renewed ${d.hist.length} ${d.hist.length==1?"time":"times"} · total fees ${fm(d.hist.reduce((s,h)=>s+iv(+h.fee||0,h.cur),0)+iv(+d.fee||0,d.cur))}</small>`:""}</div>`}).join(""):`<div class="empty">Keep your passport, visa, QID, licence, warranties and bills here, with issue and expiry dates, the fee paid and a reminder before they expire.</div>`)}
+docForm=function(d){attInit(d&&d.att);d=d||null;const g=k=>d?d[k]:"";
+  sheet(`<h2>${d?"Edit document":"New document"}</h2>${F("f_name","Name",g("name"),"text",'placeholder="My visa, wife’s passport"')}
+  <div class="two"><div>${SEL("f_type","Type",[...new Set([...DOCT2,...(d&&d.type?[d.type]:[])])].map(x=>[x,x]),d?d.type:"Passport")}</div><div>${F("f_holder","Holder",g("holder"),"text",'placeholder="Name"')}</div></div>
+  <div class="two"><div>${F("f_no","Number",g("no"))}</div><div>${F("f_by","Issued by / country",g("by"),"text",'placeholder="Qatar MOI, India"')}</div></div>
+  <div class="two"><div>${F("f_issue","Issue or start date",g("issue"),"date")}</div><div>${F("f_exp","Expiry or end date",g("exp"),"date")}</div></div>
+  <div class="two"><div>${F("f_fee","Fee or price paid",g("fee")||"","number")}</div><div>${SEL("f_cur","Currency",CURS,d?d.cur||"QAR":"QAR")}</div></div>
+  ${SEL("f_rem","Remind me before expiry",[["30","30 days"],["60","60 days"],["90","90 days"],["15","15 days"]],String(d&&d.rem||30))}
+  ${d?"":SEL("f_rec","Record the fee as spent?",[["","No"],...ACCS().map(([k,l])=>[k,"Yes, from "+l])],"")}
+  ${F("f_note","Note (optional)",g("note"))}${attHtml()}
+  ${d&&d.hist&&d.hist.length?`<details><summary>Earlier periods (${d.hist.length})</summary>${d.hist.slice().reverse().map(h=>`<div class="hbl" style="margin:6px 0"><span>${h.issue?fmt(h.issue):"?"} → ${h.exp?fmt(h.exp):"?"}</span><b>${+h.fee?fmx(h.fee,h.cur):""}</b></div>`).join("")}</details>`:""}
+  ${stampNote(d)}<div class="acts"><button class="btn" data-act="saveDoc" data-id="${d?d.id:""}">Save</button>${d?`<button class="btn ghost" data-act="docRenew" data-id="${d.id}">Renewed</button><button class="btn del" data-act="delDoc" data-id="${d.id}">Delete</button>`:""}</div>`)};
+function docRenewForm(id){const d=S.docs.find(x=>x.id==id);if(!d)return;const yrs=docSpan(d);
+  sheet(`<h2>Renewed: ${esc(d.name)}</h2><p class="sub">The current period (${d.issue?fmt(d.issue):"?"} → ${d.exp?fmt(d.exp):"?"}) is kept in the history.</p><div class="two"><div>${F("f_issue","New issue date",today(),"date")}</div><div>${F("f_exp","New expiry date",d.issue&&d.exp?addM(today(),Math.round((D(d.exp)-D(d.issue))/2629800000)):"","date")}</div></div>
+  <div class="two"><div>${F("f_fee","Fee paid",d.fee||"","number")}</div><div>${SEL("f_cur","Currency",CURS,d.cur||"QAR")}</div></div>${F("f_no","New number (if it changed)",d.no)}${SEL("f_rec","Record the fee as spent?",[["","No"],...ACCS().map(([k,l])=>[k,"Yes, from "+l])],"")}${yrs?`<p class="note">The expiry is suggested from the last period of ${yrs}.</p>`:""}${btns("saveDocRenew",id)}`)}
+
+{const _vD=vDates;let dview="dues";
+vDates=function(){const seg=`<div class="seg" style="margin:0 0 12px">${[["dues","Dues"],["subs","Subscriptions"],["docs","Documents"]].map(([k,l])=>`<button class="btn sm ${dview==k?"":"ghost"}" data-act="dview" data-id="${k}">${l}</button>`).join("")}</div>`;
+  return dview=="subs"?`<h1>Subscriptions</h1><p class="sub">OTT, music, mobile plans and other subscriptions. Tap one to edit it.</p>${seg}${subsHtml()}`:dview=="docs"?`<h1>Documents</h1><p class="sub">Passport, visa, QID, licences, warranties and bills. Tap one to edit it.</p>${seg}${docsView()}`:_vD().replace("</p>","</p>"+seg)};
+ACT.dview=id=>{dview=id;render();scrollTo(0,0)};
+ACT.showSubs=()=>{dview="subs";tab="dates";render();scrollTo(0,0)};ACT.showDocs=()=>{dview="docs";tab="dates";render();scrollTo(0,0)}}
+
+Object.assign(ACT,{
+  addSub(){subForm()},
+  editSub(id){subForm(S.subs.find(x=>x.id==id))},
+  saveSub(id){const n=v("f_name").trim(),pr=+v("f_price")||0;if(!n)return toast("Add a name");const old=S.subs.find(x=>x.id==id),cyc=v("f_cyc"),st=CYC[cyc][1],start=v("f_start");
+    let end=v("f_end");if(!end&&start&&st){end=addM(start,st);while(end<today()&&v("f_auto")=="1")end=addM(end,st)}
+    const o=stamp({...(old||{}),id:id||uid(),name:n,cat:v("f_cat"),plan:v("f_plan").trim(),price:pr,cur:v("f_cur"),cyc,auto:v("f_auto")=="1",start,end,pay:v("f_pay"),note:v("f_note").trim(),att:[...pend]},old);put("subs",o);
+    if(!old&&v("f_rec")=="1"&&pr){const pa=payAcc(o.pay,o.cur);addTx({kind:"out",acc:pa.id,amt:cv(pr,o.cur,pa.cur),cur:pa.cur,cat:"Subscription",sub:o.cat,payee:n,note:o.plan,date:start||today(),link:{t:"sub",id:o.id},ps:o.start,pe:o.end,ns:o.start,ne:o.end})}
+    attDone(true);done()},
+  delSub(id){attDone(false);trash("subs",id);done();undoDel(id,"Subscription deleted")},
+  subRenew(id){const r=renewSub(id);if(!r)return;save();render();toast(r.x.name+(r.ne?": next "+(r.x.auto?"renewal ":"end ")+fmt(r.ne):" renewed"),()=>{if(r.tx){removeTx(r.tx.id);S.bin=S.bin.filter(b=>b.r.id!=r.tx.id)}save();render()})},
+  subCancel(id,t){const x=S.subs.find(q=>q.id==id);if(!x)return;if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to cancel";return}
+    const prev={c:x.cancelled,e:x.end};x.cancelled=true;if(!x.end||x.end>today())x.end=x.end||today();x.ut=Date.now();save();render();toast(x.name+" marked cancelled",()=>{x.cancelled=prev.c;x.end=prev.e;x.ut=Date.now();save();render()})},
+  saveDoc(id){const n=v("f_name").trim();if(!n)return toast("Add a name");const old=S.docs.find(d=>d.id==id),fee=+v("f_fee")||0;
+    const o=stamp({...(old||{}),id:id||uid(),name:n,type:v("f_type"),holder:v("f_holder").trim(),no:v("f_no").trim(),by:v("f_by").trim(),issue:v("f_issue"),exp:v("f_exp"),fee,cur:v("f_cur"),rem:+v("f_rem")||30,note:v("f_note").trim(),att:[...pend]},old);put("docs",o);
+    const ra=!old&&v("f_rec");if(ra&&fee){const A=ac(ra);addTx({kind:"out",acc:A.id,amt:cv(fee,o.cur,A.cur),cur:A.cur,cat:"Documents",sub:o.type,payee:o.by||"",note:n,date:o.issue||today()});S.cfg.last=ra}
+    attDone(true);done()},
+  docRenew(id){attDone(false);docRenewForm(id)},
+  saveDocRenew(id){const d=S.docs.find(x=>x.id==id);if(!d)return;const ex=v("f_exp");if(!ex)return toast("Add the new expiry date");const fee=+v("f_fee")||0,cur=v("f_cur"),ra=v("f_rec");
+    d.hist=[...(d.hist||[]),{issue:d.issue||"",exp:d.exp||"",fee:+d.fee||0,cur:d.cur||"QAR",no:d.no||""}].slice(-20);d.issue=v("f_issue");d.exp=ex;d.fee=fee;d.cur=cur;if(v("f_no").trim())d.no=v("f_no").trim();d.ut=Date.now();
+    if(ra&&fee){const A=ac(ra);addTx({kind:"out",acc:A.id,amt:cv(fee,cur,A.cur),cur:A.cur,cat:"Documents",sub:d.type,payee:d.by||"",note:d.name+" renewal",date:d.issue||today()});S.cfg.last=ra}
+    done();toast(d.name+": valid until "+fmt(ex))}
+});
 
 //---------------------------------------------------------------------
 //
