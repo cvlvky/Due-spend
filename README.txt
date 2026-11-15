@@ -1,4 +1,4 @@
-PERSONAL DIARY (version 17, formerly Due & Spend)
+PERSONAL DIARY (version 19, formerly Due & Spend)
 
 UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
@@ -9,7 +9,7 @@ UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
    If it does not start by itself, tap Run workflow.
 4. Releases page > download due-and-spend.apk > open it > Update.
    Your data stays, because the app is signed with the same key.
-5. Open the app once. Home should end with "Version 17".
+5. Open the app once. Home should end with "Version 19".
 If the build shows a red cross, open it and send Claude the red error lines.
 
 WHAT IS NEW IN THE PHONE APP
@@ -25,6 +25,28 @@ WHAT IS NEW IN THE PHONE APP
   enter the PIN > Use fingerprint.
 - A backup file is saved every week to Downloads/DueAndSpend while app lock is off.
 - The phone's back button closes the open form.
+
+NEW IN VERSION 19 (replace index.html, sw.js AND build-apk.yml, then run the build)
+- Reads Qatar card alerts ("used for QAR", "Txn ... approved"), Arabic SMS, and Axis Bank
+  emails (Amount Debited / credited, UPI and IMPS names such as Meesho).
+- Email notifications that show no amount wait on Home: copy the email text and tap Paste.
+- Copy any bank message and open the app: it is offered for review.
+- The same payment from SMS, email and alert is shown once.
+- New card or account ending: choose the account once, the app remembers it.
+- Settings > Check SMS and alert reading: status, reconnect, read the last 30 days of SMS,
+  test a message, and the last 30 messages checked with what happened to each.
+- Alert reading reconnects itself after an update or when Android stops it.
+
+NEW IN VERSION 18 (replace index.html and sw.js; build-apk.yml is unchanged)
+- Wealth tab > My savings schemes: track SSY (Selvamagal), PPF (Ponmagan) and post office
+  RD accounts you already pay into.
+- Add past deposits in one go (same amount every month or year, or single deposits),
+  with or without taking the money from an account in the app.
+- Deposit button takes the money from an account; deleting a deposit puts it back.
+- Value, interest and year-by-year table use the rate set for each quarter since opening
+  (RD: rate on the opening date). Maturity value is projected from your usual deposit.
+- Correct the balance from your passbook. Reminders on the deposit day, with Mark paid.
+- Shows how much went into SSY + PPF this financial year (80C, ₹1.5 lakh limit).
 
 NEW IN VERSION 17 (replace BOTH index.html and build-apk.yml)
 - New name and app id: "Personal Diary" (com.personaldiary.app). It installs as a NEW app

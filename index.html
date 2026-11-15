@@ -104,9 +104,9 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="17";
-const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
-const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],bin:[],del:[],mk:null,mkh:{},nw:{},cfg:{rate:DEFRATE,view:"INR"}});
+const K="due-and-spend.v1",DEFRATE=26,VER="19";
+const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs","sacc"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
+const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],sacc:[],bin:[],del:[],mk:null,mkh:{},nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
 
 const TYPES={premium:"Premium",fd:"FD maturity",emi:"EMI",renewal:"Renewal"};
@@ -734,7 +734,7 @@ function settings(){const cl=inClaude();
   <div class="acts"><button class="btn ghost" data-act="snaps">Automatic backups</button><button class="btn ghost" data-act="bin">Recycle bin (${S.bin.length})</button></div>
   <h3>Export</h3><div class="acts">${cl?"":`<button class="btn ghost" data-act="ics">Calendar file</button>`}<button class="btn ghost" data-act="csv">Spending CSV</button></div>${cl?`<p class="note">For calendar reminders here, open a due date and tap Add to calendar. A calendar file for all dates is available in the installed app.</p>`:""}
   <h3>Security and sharing</h3><div class="acts"><button class="btn ghost" data-act="lock">App lock${META.enc?" (on)":""}</button>${cl?`<button class="btn ghost" data-act="cloudOpen">Claude account copy${CLS.on?" (on)":""}</button>`:`<button class="btn ghost" data-act="syncOpen">Google sync</button>`}</div>
-  ${isApp()?`<h3>Phone app</h3><div class="acts"><button class="btn ghost" data-act="notifAuto">Read payment alerts (Gmail, Outlook, banks): ${S.cfg.ntfAuto?"On":"Off"}</button></div><div class="acts"><button class="btn ghost" data-act="smsAuto">Read bank SMS automatically: ${S.cfg.smsAuto?"On":"Off"}</button></div><p class="note">When on, new payments wait on Home for you to approve. A backup file is saved to Downloads every week while app lock is off. To bring data from the web app, share its backup file to this app.</p>`:""}
+  ${isApp()?`<h3>Phone app</h3><div class="acts"><button class="btn ghost" data-act="notifAuto">Read payment alerts (Gmail, Outlook, banks): ${S.cfg.ntfAuto?"On":"Off"}</button><button class="btn ghost" data-act="readCheck">Check SMS and alert reading</button></div><div class="acts"><button class="btn ghost" data-act="smsAuto">Read bank SMS automatically: ${S.cfg.smsAuto?"On":"Off"}</button></div><p class="note">When on, new payments wait on Home for you to approve. A backup file is saved to Downloads every week while app lock is off. To bring data from the web app, share its backup file to this app.</p>`:""}
   <h3>Reports</h3>${F("f_fixed","Fixed-cost categories (comma separated)",S.cfg.fixedCats)}<div class="acts"><button class="btn" data-act="saveCfg">Save settings</button></div>
   <p class="note">Backup files are not encrypted. Keep them somewhere safe.</p>`)}
 /* hand a generated file to the person: Claude's download prompt, then the share sheet, then a browser download */
@@ -894,7 +894,7 @@ const ACT={
   async snaps(){if(useLS)return toast("Automatic backups need the phone database");const L=await snapList();
     sheet(`<h2>Automatic backups</h2><p class="sub">A copy is kept for each of the last 7 days you opened the app. Restoring one replaces what is on this device now.</p>${L.length?L.map(o=>`<div class="row" style="cursor:default"><div><b>${o.k=="before-restore"?"Before the last restore":/^\d{4}-/.test(o.k)?fmt(o.k):esc(o.k)}</b><small>${new Date(o.ts).toLocaleString("en-IN")}</small></div><button class="btn sm ghost" data-act="snapRestore" data-id="${esc(o.k)}">Restore</button></div>`).join(""):`<div class="empty">No copies yet. The first one is made once you have some entries.</div>`}`)},
   async snapRestore(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to confirm";return}await restoreFrom(await snapRead(id));sheet("");render();toast("Restored")},
-  bin(){const nm=b=>b.r.name||b.r.cat||b.r.note||KIND[b.r.kind]||"Item",T={acc:"Account",tx:"Entry",dates:"Due date",inv:"Investment",loans:"Loan",goals:"Goal",bud:"Budget",rec:"Recurring entry",docs:"Document",subs:"Subscription"};
+  bin(){const nm=b=>b.r.name||b.r.cat||b.r.note||KIND[b.r.kind]||"Item",T={acc:"Account",tx:"Entry",dates:"Due date",inv:"Investment",loans:"Loan",goals:"Goal",bud:"Budget",rec:"Recurring entry",docs:"Document",subs:"Subscription",sacc:"Scheme account"};
     sheet(`<h2>Recycle bin</h2><p class="sub">Deleted items stay here for 30 days.</p>${S.bin.length?[...S.bin].reverse().map(b=>`<div class="row" style="cursor:default"><div><b>${esc(nm(b))}</b><small>${T[b.c]||"Item"} · deleted ${fmt(iso(new Date(b.at)))}${+b.r.amt?" · "+fmx(b.r.amt,b.r.cur):""}</small></div><button class="btn sm ghost" data-act="binRestore" data-id="${b.r.id}">Restore</button></div>`).join("")+`<div class="acts"><button class="btn del" data-act="binEmpty">Empty the bin</button></div>`:`<div class="empty">Nothing here.</div>`}`)},
   binRestore(id){untrash(id);save();render();ACT.bin();toast("Restored")},
   binEmpty(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete for good";return}purgeBin(true);save();ACT.bin()},
@@ -1201,6 +1201,7 @@ function searchAll(q){q=String(q||"").trim().toLowerCase();if(q.length<2)return;
   S.loans.forEach(l=>{if(hit(l.name))R.push(`<div class="row" data-act="editLoan" data-id="${l.id}"><div><b>${esc(l.name)}</b><small>Loan · ${loanLeft(l)} EMIs left</small></div><b>${fmx(Math.round(loanOut(l)),l.cur)}</b></div>`)});
   S.docs.forEach(d=>{if(hit(d.name,d.no,d.type,d.note))R.push(`<div class="row" data-act="editDoc" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${esc(d.type||"Document")}${d.exp?" · expires "+fmt(d.exp):""}</small></div></div>`)});
   S.subs.forEach(x=>{if(hit(x.name,x.plan,x.cat,x.note))R.push(`<div class="row" data-act="editSub" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>Subscription${x.end?" · "+(x.cancelled?"ended ":"renews ")+fmt(x.end):""}</small></div><b>${fmx(+x.price||0,x.cur)}</b></div>`)});
+  S.sacc.forEach(x=>{if(hit(x.name,x.holder,x.no,SAS[x.type]))R.push(`<div class="row" data-act="saInfo" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>${SAT[x.type]}</small></div><b>${inr(Math.round(saState(x).now))}</b></div>`)});
   S.goals.forEach(g=>{if(hit(g.name))R.push(`<div class="row" data-act="editGoal" data-id="${g.id}"><div><b>${esc(g.name)}</b><small>Goal</small></div><b>${fmx(g.saved,g.cur)}</b></div>`)});
   const T=S.tx.filter(x=>x.kind!="tr"&&x.kind!="adj"&&hit(x.cat,x.sub,x.payee,x.note,(x.tags||[]).join(" "),an(x.acc),x.amt,x.date)).sort((a,b)=>b.date.localeCompare(a.date));
   sheet(`<h2>Results for “${esc(q)}”</h2>${R.join("")}${T.length?`<p class="note">${T.length} ${T.length==1?"entry":"entries"}, ${fm(sumV(T.filter(x=>x.kind=="out")))} spent</p>`+T.slice(0,80).map(txRow).join(""):""}${R.length||T.length?"":`<div class="empty">Nothing matches.</div>`}`)}
@@ -1240,7 +1241,7 @@ async function nativeNotify(){
     const pend=await NP("LocalNotifications","getPending");if(pend&&pend.notifications&&pend.notifications.length)await NP("LocalNotifications","cancel",{notifications:pend.notifications.map(n=>({id:n.id}))});
     const t=today(),now=Date.now(),N=[],secret=!!META.enc;let id=1;
     upcoming(t,plus(90),false).filter(u=>u.t=="due"||u.t=="emi"||(u.t=="fd"&&u.a)).slice(0,25).forEach(u=>[[2,"in 2 days"],[0,"today"]].forEach(([b,w])=>{const at=D(u.d);at.setDate(at.getDate()-b);at.setHours(9,0,0,0);
-      if(at.getTime()>now){const n={id:id++,title:u.n+" is due "+w,body:(u.a&&!secret?fmx(u.a,u.c)+" · ":"")+fmt(u.d),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{due:(u.t=="due"&&!u.src)||u.t=="fd"?u.id:"",loan:u.t=="emi"?u.id:"",sub:u.src=="sub"?u.id:""}};if(u.t!="fd")if(u.a)n.actionTypeId="DUE";N.push(n)}}));
+      if(at.getTime()>now){const n={id:id++,title:u.n+" is due "+w,body:(u.a&&!secret?fmx(u.a,u.c)+" · ":"")+fmt(u.d),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{due:(u.t=="due"&&!u.src)||u.t=="fd"?u.id:"",loan:u.t=="emi"?u.id:"",sub:u.src=="sub"?u.id:"",sch:u.src=="sch"?u.id:""}};if(u.t!="fd")if(u.a)n.actionTypeId="DUE";N.push(n)}}));
     for(let j=0;j<7;j++){const at=D(plus(j));at.setHours(21,0,0,0);if(at.getTime()<=now)continue;const tm=plus(j+1),du=upcoming(tm,tm,false).filter(u=>u.t=="due"||u.t=="emi").map(u=>u.n).slice(0,3),sp=j==0?sumV(S.tx.filter(x=>x.kind=="out"&&x.date==t)):0;
       N.push({id:9000+j,title:"Today’s summary",body:(j==0&&sp&&!secret?"Spent today: "+fm(sp)+". ":"Add today’s spending. ")+(du.length?"Due tomorrow: "+du.join(", ")+".":"Nothing is due tomorrow."),schedule:{at:at.toISOString(),allowWhileIdle:true},extra:{add:"out"}})}
     S.docs.forEach((d,i)=>{if(!d.exp)return;[[+d.rem||30,"in "+(+d.rem||30)+" days"],[7,"in 7 days"]].forEach(([b,w],j)=>{const at=D(d.exp);at.setDate(at.getDate()-b);at.setHours(9,30,0,0);if(at.getTime()>now&&N.length<50)N.push({id:7000+i*2+j,title:d.name+" expires "+w,body:(d.type||"Document")+" · "+fmt(d.exp),schedule:{at:at.toISOString(),allowWhileIdle:true}})})});
@@ -1261,23 +1262,23 @@ window.__dsLaunch=()=>nativeLaunch();
 /* phone back button: close what is open, then go Home, then leave the app */
 window.__dsBack=()=>{try{if($("#lock").innerHTML)return false;if($("#view").innerHTML){$("#view").innerHTML="";return true}if($("#over").innerHTML){ACT.closeX();return true}if(tab!="home"){tab="home";render();return true}}catch(e){}return false};
 /* bank SMS waiting for approval */
-const SMSRE=/debited|credited|spent|withdrawn|received|purchase|paid|payment|deposited|refund/i;
+const SMSRE=/debit|credit|spent|withdrawn|withdrawal|received|purchase|paid|payment|deposited|refund|used|txn|transaction|approved|charged|deducted|transferred|sent|شراء|خصم|سحب|إيداع|ايداع/i;
 async function smsScan(ask){if(!isApp()||!S.cfg.smsAuto)return;
-  try{const since=S.cfg.smsAt||Date.now()-3*864e5,r=await NP("DueNative","readSms",{since:String(since)}),L=(r&&r.messages)||[];if(!L.length)return;let mx=since;const q=S.cfg.smsq=S.cfg.smsq||[];
-    L.forEach(m=>{mx=Math.max(mx,+m.date||0);if(!SMSRE.test(m.body||"")||/otp|one time password/i.test(m.body))return;const p=parseSms(m.body);if(!p||q.some(x=>x.id==m.id))return;
+  try{const since=S.cfg.smsAt||Date.now()-3*864e5,r=await NP("DueNative","readSms",{since:String(since),max:S.cfg.smsMax||150}),L=(r&&r.messages)||[];if(!L.length)return;let mx=since;const q=S.cfg.smsq=S.cfg.smsq||[];
+    L.forEach(m=>{mx=Math.max(mx,+m.date||0);const why=/\botp\b|one time password|verification code/i.test(m.body||"")?"code":!SMSRE.test(m.body||"")?"nowords":null,p=why?null:parseSms(m.body);smsLog(m,why||(p?"kept":"noamt"),p);if(!p||q.some(x=>x.id==m.id))return;
       if(!p.date||Math.abs(dl(p.date))>3)p.date=iso(new Date(+m.date));q.push({id:m.id,from:m.address||"",body:String(m.body).slice(0,300),p})});
-    S.cfg.smsq=q.slice(-40);S.cfg.smsAt=mx;save();if(tab=="home")render()}
+    S.cfg.smsq=q.slice(-40);S.cfg.smsAt=mx;S.cfg.smsLast=Date.now();dedupeQ();save();if(tab=="home")render()}
   catch(e){if(ask)toast("Couldn’t read messages. Allow the SMS permission in phone settings.");if(ask){S.cfg.smsAuto=false;save();render()}}}
-const smsCard=()=>{const q=S.cfg.smsq||[];return q.length?`<div class="card" style="margin:0 0 12px;cursor:pointer" data-act="smsReview"><div class="hbl"><b>${q.length} ${q.length==1?"payment":"payments"} to review</b><span class="chip">Review</span></div></div>`:""};
+let smsCard=()=>{const q=S.cfg.smsq||[];return q.length?`<div class="card" style="margin:0 0 12px;cursor:pointer" data-act="smsReview"><div class="hbl"><b>${q.length} ${q.length==1?"payment":"payments"} to review</b><span class="chip">Review</span></div></div>`:""};
 function smsReview(){const q=S.cfg.smsq||[];sheet(`<h2>Payments to review</h2><p class="sub">Found in your bank SMS and payment alerts. Tap Add to check and save an entry, or Skip to ignore it.</p>${q.length?q.map(m=>{const A=ac(m.p.acc),dup=S.tx.some(x=>x.date==m.p.date&&Math.abs(x.amt-m.p.amt)<.005&&x.kind==m.p.kind);return `<div class="card" style="margin-bottom:8px"><div class="hbl"><b>${m.p.kind=="in"?"+":"−"}${fmx(m.p.amt,m.p.cur||A.cur)}${m.p.payee?" · "+esc(m.p.payee):""}</b><span class="note">${fmt(m.p.date)}</span></div><small style="color:var(--mute)">${m.from?"<b>"+esc(m.from)+":</b> ":""}${esc(m.body)}</small>${dup?`<p class="note" style="color:var(--soon)">An entry with this date and amount already exists.</p>`:""}<div class="acts"><button class="btn sm" data-act="smsAdd" data-id="${esc(m.id)}">Add</button><button class="btn sm ghost" data-act="smsSkip" data-id="${esc(m.id)}">Skip</button></div></div>`}).join("")+`<div class="acts"><button class="btn ghost" data-act="smsSkipAll">Skip all</button></div>`:`<div class="empty">No messages waiting.</div>`}`)}
 async function nativeBackup(){if(!isApp()||META.enc||!hasData()||(S.cfg.autoBk&&dl(S.cfg.autoBk)>-7))return;
   try{await NP("DueNative","saveDownload",{name:"personal-diary-backup-"+today()+".json",text:bk()});S.cfg.autoBk=today();S.cfg.lastBk=today();save()}catch(e){}}
 function nativeStart(){if(!isApp())return;
   try{window.Capacitor.addListener("LocalNotifications","localNotificationActionPerformed",ev=>{try{const x=(ev.notification&&ev.notification.extra)||{};
-    if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}else if(x.sub){const r=renewSub(x.sub);if(r){save();render();toast(r.x.name+" renewal recorded")}}}
+    if(ev.actionId=="paid"){if(x.due){const r=payDue(x.due);if(r){save();render();toast(r.i.name+" marked paid")}}else if(x.loan){if(payEmi(x.loan)){save();render();toast("EMI recorded")}}else if(x.sub){const r=renewSub(x.sub);if(r){save();render();toast(r.x.name+" renewal recorded")}}else if(x.sch){const a=S.sacc.find(q=>q.id==x.sch);if(a&&planAmt(a)){saDeposit(a.id,planAmt(a),today(),a.pay||"");save();render();toast(a.name+" deposit recorded")}}}
     else if(x.add&&!$("#lock").innerHTML)qForm("out")}catch(e){console.warn(e)}})}catch(e){}
   nativeNotifyLater();nativeLaunch();smsScan();notifScan()}
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&isApp()){nativeLaunch();smsScan()}});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&isApp()){nativeLaunch();smsScan();notifScan();setTimeout(clipCheck,600)}});
 {const oldFpOn=ACT.fpOn,oldFpIn=ACT.fpIn,oldPinOff=ACT.pinOff;
 Object.assign(ACT,{
   async fpOn(){if(!isApp())return oldFpOn();const pin=v("f_pin");if(!(await tryPin(pin)))return toast("Enter your PIN first");
@@ -1407,10 +1408,10 @@ function notifHelp(){sheet(`<h2>Read payment alerts</h2><p class="sub">The app c
   <div class="acts"><button class="btn" data-act="notifOpen">Open notification access</button></div><p class="note">Only notifications that arrive after this is on can be read, and only while they are shown. Email alerts need Gmail or Outlook notifications turned on for that inbox.</p>`)}
 async function notifScan(){if(!isApp()||!S.cfg.ntfAuto)return;
   try{const r=await NP("DueNative","readNotifs"),L=(r&&r.items)||[];if(!L.length)return;const q=S.cfg.smsq=S.cfg.smsq||[],seen=new Set(S.cfg.ntfSeen||[]);let add=0;
-    L.forEach(m=>{if(seen.has(m.id))return;seen.add(m.id);const body=String(m.body||"");if(/\botp\b|one.time password|verification code/i.test(body))return;const p=parseSms(body);if(!p)return;
+    L.forEach(m=>{if(seen.has(m.id))return;seen.add(m.id);const body=String(m.body||"");if(/\botp\b|one.time password|verification code/i.test(body))return;const p=parseSms(body);if(!p){noAmt(m);return}
       const at=+m.time||Date.now();if(!p.date||Math.abs(dl(p.date))>3)p.date=iso(new Date(at));
       if(q.some(x=>x.p.amt==p.amt&&x.p.kind==p.kind&&x.p.date==p.date))return;q.push({id:m.id,from:m.app||m.pkg||"",body:body.slice(0,300),p,src:"n"});add++});
-    S.cfg.ntfSeen=[...seen].slice(-300);S.cfg.smsq=q.slice(-40);save();if(add&&tab=="home")render()}catch(e){console.warn("alerts",e)}}
+    S.cfg.ntfSeen=[...seen].slice(-300);S.cfg.smsq=q.slice(-40);S.cfg.ntfLast=Date.now();dedupeQ();save();if(add&&tab=="home")render()}catch(e){console.warn("alerts",e)}}
 
 /* a full backup with attachments, saved monthly by the phone app */
 async function nativeFullBackup(){if(!isApp()||META.enc||!allAtt().length||(S.cfg.autoFullBk&&dl(S.cfg.autoFullBk)>-30))return;
@@ -3928,6 +3929,190 @@ var qrcode = function() {
 }(function () {
     return qrcode;
 }));
+
+/* ===== my scheme accounts: SSY (Selvamagal), PPF (Ponmagan), Post Office RD ===== */
+/* rate history: [from date, % a year]. RD uses the rate on the day it was opened, for its whole term. */
+const RATES={ssy:[["2014-04-01",9.1],["2015-04-01",9.2],["2016-04-01",8.6],["2016-10-01",8.5],["2017-04-01",8.4],["2017-07-01",8.3],["2018-01-01",8.1],["2018-10-01",8.5],["2019-07-01",8.4],["2020-04-01",7.6],["2023-04-01",8.0],["2024-01-01",8.2]],
+  ppf:[["2013-04-01",8.7],["2016-04-01",8.1],["2016-10-01",8.0],["2017-04-01",7.9],["2017-07-01",7.8],["2018-01-01",7.6],["2018-10-01",8.0],["2019-07-01",7.9],["2020-04-01",7.1]],
+  rd:[["2019-07-01",7.2],["2020-04-01",5.8],["2023-04-01",6.2],["2023-07-01",6.5],["2023-10-01",6.7]]};
+const SAT={ssy:"Sukanya Samriddhi (Selvamagal Semippu Thittam)",ppf:"PPF (Ponmagan Podhuvaippu Nidhi for a son)",rd:"Post Office RD, 5 years"},SAS={ssy:"SSY",ppf:"PPF",rd:"RD"};
+const rateAt=(t,d)=>{const L=RATES[t]||[["2000-01-01",0]];let r=L[0][1];for(const [f,v] of L)if(f<=d)r=v;return r};
+const mdiff=(a,b)=>{const A=D(a),B=D(b);return (B.getFullYear()-A.getFullYear())*12+B.getMonth()-A.getMonth()-(B.getDate()<A.getDate()?1:0)};
+const fyLabel=d=>{const y=+d.slice(0,4),m=+d.slice(5,7),s=m>=4?y:y-1;return s+"-"+String(s+1).slice(2)};
+const saMature=x=>x.type=="ssy"?addM(x.open,252):x.type=="rd"?addM(x.open,60):(+x.open.slice(5,7)>=4?+x.open.slice(0,4)+1:+x.open.slice(0,4))+15+"-04-01";
+const saDepEnd=x=>x.type=="ssy"?addM(x.open,180):saMature(x);
+const saRate=(x,d)=>+x.rate||rateAt(x.type,x.type=="rd"?x.open:d);
+const deps=x=>(x.dep||[]).slice().sort((a,b)=>a.d.localeCompare(b.d));
+/* SSY and PPF: interest on the lowest balance between the 5th and month end, added every 31 March */
+function ssyRun(x,to,extra){const L=[...deps(x),...(extra||[])].sort((a,b)=>a.d.localeCompare(b.d)),endI=saMature(x);let bal=0,m=x.open.slice(0,7),acc=0,yrs=[],fix=x.fix&&x.fix.d?x.fix:null;
+  if(fix){bal=+fix.bal||0;m=addMon(fix.d.slice(0,7),1)}
+  const em=to.slice(0,7);let cur={fy:fyLabel(m+"-01"),dep:0,int:0};
+  for(let k=0;k<400&&m<=em;k++){const D_=L.filter(d=>d.d.slice(0,7)==m&&(!fix||d.d>fix.d)),early=D_.filter(d=>+d.d.slice(8)<=5).reduce((s,d)=>s+ +d.a,0),all=D_.reduce((s,d)=>s+ +d.a,0);
+    if(m<em&&m+"-01"<endI)acc+=(bal+early)*saRate(x,m+"-01")/1200;bal+=all;cur.dep+=all;
+    if(m.slice(5)=="03"&&m<em){const i=Math.round(acc);bal+=i;cur.int+=i;cur.close=bal;yrs.push(cur);acc=0;cur={fy:fyLabel(addMon(m,1)+"-01"),dep:0,int:0}}
+    m=addMon(m,1)}
+  cur.close=bal;cur.acc=Math.round(acc);if(cur.dep||cur.acc||!yrs.length)yrs.push(cur);return {bal,acc:Math.round(acc),yrs}}
+/* RD: each instalment grows with quarterly compounding at the rate fixed on opening */
+function rdRun(x,to,extra){const r=saRate(x,x.open)/100;let v=0,dep=0;[...deps(x),...(extra||[])].forEach(d=>{if(d.d>to)return;dep+=+d.a;v+=d.a*Math.pow(1+r/4,Math.max(0,mdiff(d.d,to))/3)});return {bal:Math.round(v),acc:0,dep}}
+function saState(x){const t=today(),L=deps(x),dep=L.reduce((s,d)=>s+ +d.a,0),fy=fyStart(),fyDep=L.filter(d=>d.d>=fy).reduce((s,d)=>s+ +d.a,0),mat=saMature(x),closed=t>=mat;
+  const R=x.type=="rd"?rdRun(x,closed?mat:t):ssyRun(x,closed?mat:t),now=R.bal+(R.acc||0);
+  /* future deposits from the plan, at today's rate, to project the maturity value */
+  const fut=[],plan=planAmt(x),end=saDepEnd(x);let nd=saNext(x);
+  if(plan&&nd&&!closed)for(let k=0;k<400&&nd&&nd<end;k++){if(nd>=t||!fut.length)fut.push({d:nd<t?t:nd,a:plan});nd=x.type=="rd"&&L.length+fut.length>=60?null:x.plan&&x.plan.f=="y"?addM(nd,12):addM(nd,1)}
+  const P=x.type=="rd"?rdRun({...x},mat,fut):ssyRun({...x,rate:x.rate||0},mat,fut);
+  return {dep,fyDep,now,int:now-dep-(x.fix&&x.fix.d?0:0),mat,closed,proj:P.bal,fut:fut.length,next:closed?null:saNext(x),R}}
+const planAmt=x=>x.type=="rd"?+x.inst||0:x.plan&&x.plan.f&&+x.plan.a||0;
+/* the next deposit that is due */
+function saNext(x){const t=today(),L=deps(x);if(t>=saDepEnd(x))return null;
+  if(x.type=="rd"){const inst=+x.inst||0,n=inst?Math.floor(L.reduce((s,d)=>s+ +d.a,0)/inst+1e-9):L.length;return n>=60?null:addM(x.open,n)}
+  if(!x.plan||!x.plan.f)return null;const day=Math.min(28,+x.plan.day||+x.open.slice(8)||5);
+  if(x.plan.f=="m"){const cm=t.slice(0,7),has=L.some(d=>d.d.slice(0,7)==cm);return (has?addMon(cm,1):cm)+"-"+p2(day)}
+  const fy=fyStart(),has=L.filter(d=>d.d>=fy).reduce((s,d)=>s+ +d.a,0)>=+x.plan.a;let d=fy.slice(0,4)+"-"+(x.plan.md||"04-05");if(d<fy)d=addM(d,12);return has?addM(d,12):d}
+const saAct=()=>S.sacc.filter(x=>!x.closedHide);
+/* reminders, net worth and payments link into the rest of the app */
+{const _up=upcoming;upcoming=function(from,to,inc){const L=_up(from,to,inc);
+  saAct().forEach(x=>{let d=saNext(x),n=0;const a=planAmt(x),end=saDepEnd(x),paid=deps(x).length;
+    for(let k=0;k<60&&d&&d<=to&&d<end;k++){if(d>=from||(inc&&k==0))L.push({d,n:SAS[x.type]+": "+x.name,t:"due",src:"sch",a,c:"INR",id:x.id});n++;if(x.type=="rd"&&paid+n>=60)break;d=x.type!="rd"&&x.plan&&x.plan.f=="y"?addM(d,12):addM(d,1)}});
+  return L.sort((a,b)=>a.d.localeCompare(b.d))}}
+{const _nw=nwParts;nwParts=function(to){const p=_nw(to);p.inv+=S.sacc.reduce((s,x)=>s+cv(saState(x).now,"INR",to),0);return p}}
+{const _la=linkApply;linkApply=function(x,s){if(!x.link||x.link.t!="sch")return _la(x,s);const a=S.sacc.find(q=>q.id==x.link.id);if(!a)return;a.ut=Date.now();a.dep=a.dep||[];
+  if(s>0){if(!a.dep.some(d=>d.id==x.link.dep))a.dep.push({id:x.link.dep,d:x.date,a:x.iv??x.amt,tx:x.id})}else a.dep=a.dep.filter(d=>d.id!=x.link.dep)}}
+function saDeposit(id,amt,date,accId){const x=S.sacc.find(q=>q.id==id);if(!x||!amt)return null;const did=uid();
+  if(accId){const A=ac(accId);return addTx({kind:"save",acc:A.id,amt:cv(amt,"INR",A.cur),cur:A.cur,cat:SAS[x.type],note:x.name,date,link:{t:"sch",id,dep:did},iv:amt})}
+  x.dep=[...(x.dep||[]),{id:did,d:date,a:amt}];x.ut=Date.now();return {id:did}}
+/* ---------- screens ---------- */
+function saHtml(){const L=S.sacc;let h=`<h2>My savings schemes</h2>`;
+  if(L.length){const tot=L.reduce((s,x)=>s+saState(x).now,0),c80=L.filter(x=>x.type!="rd").reduce((s,x)=>s+saState(x).fyDep,0);
+    h+=`<div class="stats" style="grid-template-columns:1fr 1fr;margin:0 0 8px">${tile("Value today",inr(Math.round(tot)))}${tile("SSY + PPF this year",inr(c80),"","for 80C, since "+fmt(fyStart()))}</div>`;
+    h+=L.map(x=>{const s=saState(x),n=s.next?dl(s.next):null;return `<div class="card ${n!==null&&n<0?"late":n!==null&&n<=7?"soon":""}" style="margin-bottom:8px"><div style="cursor:pointer" data-act="saInfo" data-id="${x.id}"><div class="hbl"><b>${esc(x.name)}</b>${s.closed?`<span class="chip">Matured</span>`:n!==null?`<span class="chip">${n<0?"Due "+fmt(s.next):when(n)}</span>`:""}</div>
+      <small style="color:var(--mute);display:block">${SAS[x.type]}${x.holder?" · "+esc(x.holder):""}${x.no?" · "+esc(x.no):""} · opened ${fmt(x.open)} · ${saRate(x,today())}%</small>
+      <div class="stats" style="margin:8px 0 0">${tile("Value now",inr(Math.round(s.now)))}${tile("You put in",inr(s.dep))}${tile("Interest",inr(Math.round(s.now-s.dep)))}</div>
+      <small style="color:var(--mute);display:block;margin-top:6px">${s.closed?"Matured on "+fmt(s.mat):`Matures ${fmt(s.mat)} · about ${inr(Math.round(s.proj))}${s.fut?" if you keep paying "+inr(planAmt(x))+(x.type!="rd"&&x.plan&&x.plan.f=="y"?" a year":" a month"):" with no more deposits"}`}${x.type!="rd"&&s.fyDep>150000?` · <b style="color:var(--late)">over ₹1.5 lakh this year</b>`:""}</small></div>
+      ${s.closed?"":`<div class="acts"><button class="btn sm" data-act="saDep" data-id="${x.id}">Deposit</button><button class="btn sm ghost" data-act="saPast" data-id="${x.id}">Past deposits</button></div>`}</div>`}).join("")}
+  else h+=`<div class="empty">Add the SSY (Selvamagal), PPF or post office RD accounts you already pay into. Enter your past deposits once, and the app works out the balance and interest.</div>`;
+  return h+`<div class="acts"><button class="btn ghost" data-act="saAdd">+ Add scheme account</button></div><p class="note">Balances are estimates from the rates in force each quarter. Check them against your passbook, and correct them from the account details if needed.</p>`}
+function saForm(x,pre){x=x||null;const g=k=>x?x[k]??"":pre&&pre[k]||"",ty=x?x.type:pre&&pre.type||"ssy",pl=x&&x.plan||{};
+  sheet(`<h2>${x?"Edit scheme account":"New scheme account"}</h2>${SEL("f_ty","Scheme",Object.entries(SAT),ty,x?"disabled":"")}
+  ${F("f_name","Name",g("name"),"text",'placeholder="Selvamagal for Anika"')}<div class="two"><div>${F("f_holder","Account holder",g("holder"),"text",'placeholder="Child’s name"')}</div><div>${F("f_no","Account number",g("no"))}</div></div>
+  <div class="two"><div>${F("f_open","Date opened",g("open")||today(),"date")}</div><div>${F("f_po","Post office or bank",g("po"))}</div></div>
+  <div class="two"><div>${F("f_plan","Usual deposit (₹)",x?(x.type=="rd"?x.inst:pl.a)||"":pre&&pre.amt||"","number")}</div><div>${SEL("f_freq","How often",[["m","Every month"],["y","Once a year"],["","No fixed plan"]],x?(x.type=="rd"?"m":pl.f??"m"):"m")}</div></div>
+  <div class="two"><div>${F("f_day","Day of the month I pay",x?(pl.day||+x.open.slice(8)):5,"number")}</div><div>${SEL("f_pay","Pay from",[["","Ask each time"],...ACCS()],g("pay"))}</div></div>
+  <details><summary>Interest rate</summary>${F("f_rate","Use a fixed rate instead (% a year)",x&&x.rate||"","number")}<p class="note">Leave empty to use the rate the government set for each quarter. For an RD, that is the rate on the day it was opened, which stays for its 5 years.</p></details>
+  <p class="note">For an RD, the usual deposit is the monthly instalment. Deposits made on or before the 5th earn interest for that month in SSY and PPF.</p>${stampNote(x)}${btns("saSave",x&&x.id,"saDel")}`)}
+function saPastForm(id){const x=S.sacc.find(q=>q.id==id);if(!x)return;const last=deps(x).slice(-1)[0],from=last?addM(last.d,x.plan&&x.plan.f=="y"?12:1):x.open;
+  sheet(`<h2>Past deposits: ${esc(x.name)}</h2><p class="sub">Add deposits you have already made. They count for the balance and interest.</p>
+  ${SEL("f_mode","What to add",[["m","The same amount every month"],["y","The same amount every year"],["1","One deposit"]],x.type!="rd"&&x.plan&&x.plan.f=="y"?"y":"m",'data-pmode="1"')}
+  <div class="two"><div>${F("f_amt","Amount each time (₹)",planAmt(x)||"","number")}</div><div>${F("f_day","Day of the month",Math.min(28,x.plan&&x.plan.day||+x.open.slice(8)||5),"number")}</div></div>
+  <div class="two"><div>${F("f_from","From",from>today()?today():from,"date")}</div><div>${F("f_to","To",addM(today(),-1)<from?today():addM(today(),-1),"date")}</div></div>
+  ${SEL("f_acc","Did this money leave one of your accounts in the app?",[["","No, it was paid before I used the app"],...ACCS()],"")}
+  <p class="note" id="pd_prev"></p><div class="acts"><button class="btn ghost" data-act="saPastPrev" data-id="${id}">Check</button><button class="btn" data-act="saPastSave" data-id="${id}">Add deposits</button></div>`);pastPrev()}
+function pastList(){const mode=v("f_mode"),a=+v("f_amt")||0,day=Math.min(31,Math.max(1,+v("f_day")||5)),f=v("f_from"),t=v("f_to")||f;if(!a||!f)return [];if(mode=="1")return [{d:f,a}];
+  const out=[];let m=f.slice(0,7);const step=mode=="y"?12:1;for(let k=0;k<400&&m<=t.slice(0,7);k++){const d=m+"-"+p2(Math.min(day,dim(m)));if(d>=f&&d<=t)out.push({d,a});m=addMon(m,step)}return out}
+function pastPrev(){const L=pastList(),e=$("#pd_prev"),one=v("f_mode")=="1",tt=$("#f_to");if(tt)tt.closest("div").style.display=one?"none":"";if(e)e.textContent=L.length?`This adds ${L.length} ${L.length==1?"deposit":"deposits"}, ${inr(L.reduce((s,d)=>s+d.a,0))} in total, from ${fmt(L[0].d)} to ${fmt(L[L.length-1].d)}.`:"Enter the amount and dates."}
+function saInfoSheet(id){const x=S.sacc.find(q=>q.id==id);if(!x)return;const s=saState(x),L=deps(x).reverse(),Y=x.type=="rd"?null:ssyRun(x,s.closed?s.mat:today()).yrs;
+  sheet(`<h2>${esc(x.name)}</h2><p class="sub">${SAT[x.type]}${x.no?" · "+esc(x.no):""}${x.po?" · "+esc(x.po):""}<br>Opened ${fmt(x.open)} · matures ${fmt(s.mat)}${x.type=="ssy"?" · deposits until "+fmt(saDepEnd(x)):""}</p>
+  <div class="stats">${tile("Value now",inr(Math.round(s.now)))}${tile("You put in",inr(s.dep))}${tile("Interest",inr(Math.round(s.now-s.dep)))}</div>
+  ${Y?`<h3>Year by year</h3><table class="tbl"><tr><th>Year</th><th>Deposited</th><th>Interest</th><th>Balance</th></tr>${Y.map(y=>`<tr><td>${y.fy}</td><td>${inr(y.dep)}</td><td>${y.acc!=null&&y.acc?inr(y.acc)+"*":inr(y.int)}</td><td>${inr(y.close)}</td></tr>`).join("")}</table><p class="note">* interest building up this year, added on 31 March.</p>`:`<p class="note">Rate ${saRate(x,x.open)}% fixed from opening, compounded every quarter. ${deps(x).length} of 60 instalments recorded.</p>`}
+  <h3>Correct from passbook</h3><p class="note">${x.fix&&x.fix.d?`Using your passbook balance of ${inr(x.fix.bal)} on ${fmt(x.fix.d)}. `:""}Enter a balance printed in your passbook, for example on 31 March. The app then calculates from that figure.</p><div class="two"><div>${F("f_fd","Date",x.fix&&x.fix.d||"","date")}</div><div>${F("f_fb","Balance (₹)",x.fix&&x.fix.bal||"","number")}</div></div><div class="acts"><button class="btn ghost" data-act="saFix" data-id="${id}">Use passbook balance</button>${x.fix&&x.fix.d?`<button class="btn ghost" data-act="saUnfix" data-id="${id}">Remove</button>`:""}</div>
+  <h3>Deposits (${L.length})</h3>${L.slice(0,80).map(d=>`<div class="row" style="cursor:default"><div><b>${inr(d.a)}</b><small>${fmt(d.d)}${d.tx?" · from "+esc(an((S.tx.find(t=>t.id==d.tx)||{}).acc)):""}</small></div><button class="btn sm ghost" data-act="saDelDep" data-id="${x.id}|${d.id}" aria-label="Delete deposit">✕</button></div>`).join("")||`<div class="empty">No deposits yet.</div>`}
+  <div class="acts"><button class="btn" data-act="saEdit" data-id="${id}">Edit account</button><button class="btn ghost" data-act="saPast" data-id="${id}">Past deposits</button></div>`)}
+{const _vW=vWealth;vWealth=function(){let h=_vW();const k="<h2>Post office schemes (India)</h2>";return h.includes(k)?h.replace(k,saHtml()+k):h+saHtml()}}
+Object.assign(ACT,{
+  saAdd(){saForm()},
+  saEdit(id){saForm(S.sacc.find(q=>q.id==id))},
+  saSave(id){const n=v("f_name").trim(),op=v("f_open");if(!n||!op)return toast("Add a name and the opening date");const old=S.sacc.find(q=>q.id==id),ty=old?old.type:v("f_ty"),amt=+v("f_plan")||0,f=v("f_freq"),day=Math.min(28,Math.max(1,+v("f_day")||5));
+    const o=stamp({...(old||{}),id:id||uid(),type:ty,name:n,holder:v("f_holder").trim(),no:v("f_no").trim(),po:v("f_po").trim(),open:op,pay:v("f_pay"),rate:+v("f_rate")||0,dep:old?old.dep||[]:[]},old);
+    if(ty=="rd")o.inst=amt;else o.plan={f,a:amt,day,md:op.slice(5,7)+"-"+p2(day)};put("sacc",o);done();
+    if(!old&&dl(op)<-20)setTimeout(()=>{saPastForm(o.id);toast("Now add the deposits you have already made")},150)},
+  saDel(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete";return}const x=S.sacc.find(q=>q.id==id);(x.dep||[]).forEach(d=>{if(d.tx)removeTx(d.tx)});trash("sacc",id);done();undoDel(id,"Scheme account deleted")},
+  saDep(id){const x=S.sacc.find(q=>q.id==id);if(!x)return;sheet(`<h2>Deposit: ${esc(x.name)}</h2><div class="two"><div>${F("f_amt","Amount (₹)",planAmt(x)||"","number")}</div><div>${F("f_date","Date",today(),"date")}</div></div>${SEL("f_acc","Take it from",[["","Don’t change any account"],...ACCS()],x.pay||S.cfg.last||"")}${x.type!="rd"&&saState(x).fyDep>=150000?`<p class="note" style="color:var(--late)">This account already has ₹1.5 lakh this year, the yearly limit.</p>`:""}${btns("saDepSave",id)}`)},
+  saDepSave(id){const a=+v("f_amt")||0,d=v("f_date")||today(),acc=v("f_acc");if(!a)return toast("Enter the amount");saDeposit(id,a,d,acc);if(acc)S.cfg.last=acc;done();toast("Deposit added")},
+  saPast(id){saPastForm(id)},saPastPrev(){pastPrev()},
+  saPastSave(id){const x=S.sacc.find(q=>q.id==id),L=pastList(),acc=v("f_acc");if(!x||!L.length)return toast("Enter the amount and dates");
+    const have=new Set(deps(x).map(d=>d.d+"|"+d.a));let n=0;L.forEach(d=>{if(have.has(d.d+"|"+d.a))return;saDeposit(id,d.a,d.d,acc);n++});done();toast(`Added ${n} ${n==1?"deposit":"deposits"}${L.length-n?", skipped "+(L.length-n)+" already there":""}`)},
+  saInfo(id){saInfoSheet(id)},
+  saFix(id){const x=S.sacc.find(q=>q.id==id),d=v("f_fd"),b=+v("f_fb");if(!x||!d||!b)return toast("Enter the date and balance");x.fix={d,bal:b};x.ut=Date.now();save();render();saInfoSheet(id);toast("Using your passbook balance")},
+  saUnfix(id){const x=S.sacc.find(q=>q.id==id);if(!x)return;delete x.fix;x.ut=Date.now();save();render();saInfoSheet(id)},
+  saDelDep(key){const [id,did]=key.split("|"),x=S.sacc.find(q=>q.id==id);if(!x)return;const d=(x.dep||[]).find(q=>q.id==did);if(!d)return;if(d.tx)removeTx(d.tx);else{x.dep=x.dep.filter(q=>q.id!=did);x.ut=Date.now()}save();render();saInfoSheet(id)}
+});
+{const _sa=ACT.schAdd;ACT.schAdd=function(id){if(id=="ppf"||id=="ssy"||id=="rd"){const a=+v("sch_amt")||0;saForm(null,{type:id,amt:a});return}return _sa(id)}}
+document.addEventListener("change",e=>{const t=e.target;if(t&&t.closest&&t.closest("#over")&&["f_mode","f_amt","f_day","f_from","f_to"].includes(t.id)&&$("#pd_prev"))pastPrev()});
+
+/* ===== better reading of bank SMS, email alerts and copied text ===== */
+const hsh=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return (h>>>0).toString(36)};
+const PAYW=/debit|credit|spent|purchase|paid|payment|received|withdraw|used for|txn|transaction|transfer|refund|charged|deducted|deposited/i;
+const l4Acc=l4=>l4?S.acc.find(a=>(a.l4&&l4.endsWith(String(a.l4)))||(a.l4s||[]).includes(l4)):null;
+{const _ps=parseSms;parseSms=function(text){let s=String(text||"").replace(/\s+/g," ").trim();if(!s)return null;
+  const ar=/ر\.?\s?ق|ريال/.test(s);
+  s=s.replace(/(\d[\d,]*(?:\.\d+)?)\s*(?:ر\.?\s?ق\.?|ريال(?: قطري)?)/g,"QAR $1").replace(/(?:ر\.?\s?ق\.?|ريال(?: قطري)?)\s*(\d[\d,]*(?:\.\d+)?)/g,"QAR $1")
+   .replace(/شراء|خصم|سحب/g," purchase ").replace(/إيداع|ايداع|تحويل وارد/g," credited ");
+  const p=_ps(s);if(!p)return null;
+  const lab=s.match(/amount\s+(debited|credited|paid|received|spent|withdrawn)\b/i);if(lab)p.kind=/credited|received/i.test(lab[1])?"in":"out";
+  if(/\bused for\b|\btxn of\b|\bpurchase of\b/i.test(s)&&!/refund|reversal|credited/i.test(s))p.kind="out";
+  /* payee from a UPI, IMPS or NEFT reference, else after "at" or "to" */
+  const ref=s.match(/\b(?:UPI|IMPS|NEFT|RTGS|NACH|ACH|MMT)\/(?:[^\/\s]+\/)+([A-Za-z][A-Za-z .&'\-]{1,40}?)(?=\s+(?:If|For|Avl|Available|Bal|Ref|on|Thank|To|Please|Call|Not)\b|[.,;:|]|\s{2}|$)/i);
+  if(ref)p.payee=ref[1].trim();
+  else{const at=s.match(/\b(?:at|to)\s+([A-Za-z][A-Za-z0-9&.'\- ]{1,40}?)(?=\s+(?:at|on)\s+\d|\s+\d{1,2}[:\-\/]\d|\s+(?:on|avl|available|bal|ref|via|using|is|was)\b|[,;:]|\.\s|\.$|$)/i);
+    if(at&&!/^(?:block|you|your|us|the|this|a\/c|ac|account|customer|bank|card|report)\b/i.test(at[1])&&(!p.payee||p.payee.length>at[1].length+3))p.payee=at[1].trim()}
+  if(p.payee&&/^(?:block|you|your|us|the|this|a\/c|account|customer)\b/i.test(p.payee))p.payee="";
+  if(!p.cur&&ar)p.cur="QAR";
+  if(!p.l4){const m=s.match(/(?:المنتهية|المنتهيه|المنتهي|رقم)\s*(?:ب|في)?\s*[*xX]*\s*(\d{3,6})/);if(m)p.l4=m[1]}
+  if(!p.payee){const m=s.match(/(?:لدى|عند|في)\s+([^\d.,،]{2,30}?)(?=\s+(?:في|بتاريخ|الساعة|الرصيد)\b|[.,،]|$)/);if(m)p.payee=m[1].trim()}
+  const A=l4Acc(p.l4);if(A)p.acc=A.id;else if(p.l4){p.newL4=p.l4;if(p.cur){const c=S.acc.find(a=>a.cur==p.cur&&a.id==S.cfg.last)||S.acc.find(a=>a.cur==p.cur);p.acc=c?c.id:""}}
+  p.cat=p.cat||catFor(p.payee);p.weak=!p.l4&&!PAYW.test(s);return p}}
+/* the same payment often arrives by SMS, email and app alert: keep one */
+function dedupeQ(){const q=S.cfg.smsq||[],out=[];
+  q.forEach(m=>{if(!m.p||(m.src=="n"&&m.p.weak))return;const d=out.find(o=>o.p.kind==m.p.kind&&Math.abs(o.p.amt-m.p.amt)<.005&&Math.abs(dl(o.p.date)-dl(m.p.date))<=1&&(!o.p.l4||!m.p.l4||o.p.l4.slice(-4)==m.p.l4.slice(-4)));
+    if(d){if(!d.p.payee&&m.p.payee)d.p.payee=m.p.payee;return}out.push(m)});S.cfg.smsq=out}
+function smsLog(m,why,p){const b=String(m.body||"");if(why=="nowords"&&!/(INR|Rs\.?|QAR|QR|₹|ر\.?\s?ق)\s?\d/i.test(b))return;
+  const L=S.cfg.smsLog=S.cfg.smsLog||[];if(L.some(x=>x.id==m.id))return;L.push({id:m.id,t:+m.date||Date.now(),app:"SMS "+(m.address||""),body:b.slice(0,220),why});S.cfg.smsLog=L.slice(-30)}
+function noAmt(m){const L=S.cfg.ntfNo=S.cfg.ntfNo||[],k=hsh(m.body);if(L.some(x=>x.k==k))return;L.push({id:m.id,k,from:m.app||m.pkg||"",body:String(m.body||"").slice(0,200),t:+m.time||Date.now()});S.cfg.ntfNo=L.slice(-10)}
+/* a bank message copied anywhere is offered when the app opens */
+async function clipCheck(){if(!isApp()||S.cfg.clipOff)return;try{const r=await NP("DueNative","readClip"),t=String(r&&r.text||"").trim();if(t.length<15)return;const k=hsh(t),seen=S.cfg.clipSeen=S.cfg.clipSeen||[];if(seen.includes(k))return;seen.push(k);S.cfg.clipSeen=seen.slice(-30);
+  const p=parseSms(t);if(!p||p.weak){save();return}S.cfg.smsq=[...(S.cfg.smsq||[]),{id:"c"+k,from:"Copied text",body:t.slice(0,300),p,src:"c"}];dedupeQ();save();if(tab=="home")render();toast("Copied bank message found. It waits on Home to review.")}catch(e){}}
+/* is alert reading still connected? */
+const RD={on:null,conn:0,disc:0,seen:0,sms:null};
+async function readStat(rebind){if(!isApp())return RD;try{const r=await NP("DueNative","notifStatus",{rebind:!!rebind});Object.assign(RD,{on:!!r.enabled,conn:+r.conn||0,disc:+r.disc||0,seen:+r.seen||0,sms:r.sms==null?null:!!r.sms})}catch(e){}return RD}
+async function readWake(){if(!isApp()||!S.cfg.ntfAuto)return;await readStat(false);if(RD.on&&(!RD.conn||RD.disc>RD.conn))await readStat(true);if(tab=="home")render()}
+{const _sc=smsCard;smsCard=()=>{const n=(S.cfg.ntfNo||[]).length;let h=_sc();
+  if(n&&!(S.cfg.smsq||[]).length)h=`<div class="card" style="margin:0 0 12px;cursor:pointer" data-act="smsReview"><div class="hbl"><b>${n} payment ${n==1?"email":"emails"} without an amount</b><span class="chip">Review</span></div></div>`;
+  if(isApp()&&S.cfg.ntfAuto&&RD.on===false)h+=`<div class="card late" style="margin:0 0 12px;cursor:pointer" data-act="readCheck"><div class="hbl"><b>Payment alert reading has stopped</b><span class="chip">Fix</span></div><small style="color:var(--mute)">Notification access for Personal Diary is off.</small></div>`;return h}}
+const tAgo=t=>{if(!t)return "never";const m=Math.round((Date.now()-t)/6e4);return m<1?"just now":m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" days ago"};
+smsReview=function(){const q=S.cfg.smsq||[],N=S.cfg.ntfNo||[];
+  const card=m=>{const A=ac(m.p.acc),dup=S.tx.some(x=>Math.abs(dl(x.date)-dl(m.p.date))<=1&&Math.abs(x.amt-m.p.amt)<.005&&x.kind==m.p.kind),nl=m.p.newL4&&!l4Acc(m.p.newL4);
+    return `<div class="card" style="margin-bottom:8px"><div class="hbl"><b>${m.p.kind=="in"?"+":"−"}${fmx(m.p.amt,m.p.cur||(A&&A.cur)||"INR")}${m.p.payee?" · "+esc(m.p.payee):""}</b><span class="note">${fmt(m.p.date)}</span></div><small style="color:var(--mute)">${m.from?"<b>"+esc(m.from)+":</b> ":""}${esc(m.body)}</small>
+    ${nl?`<label class="fl" style="margin-top:6px">Card or account ending ${esc(m.p.newL4)} is<select data-l4pick="${esc(m.p.newL4)}"><option value="">Choose once, the app remembers</option>${ACCS().map(([k,t])=>`<option value="${k}">${esc(t)}</option>`).join("")}</select></label>`:A?`<p class="note">Account: ${esc(A.name)}</p>`:""}
+    ${dup?`<p class="note" style="color:var(--soon)">An entry with this amount already exists around this date.</p>`:""}<div class="acts"><button class="btn sm" data-act="smsAdd" data-id="${esc(m.id)}">Add</button><button class="btn sm ghost" data-act="smsSkip" data-id="${esc(m.id)}">Skip</button></div></div>`};
+  sheet(`<h2>Payments to review</h2><p class="sub">Found in your bank SMS, email alerts and copied text. Tap Add to check and save, or Skip.</p>${q.length?q.map(card).join("")+`<div class="acts"><button class="btn ghost" data-act="smsSkipAll">Skip all</button></div>`:N.length?"":`<div class="empty">No payments waiting.</div>`}
+  ${N.length?`<h3>Emails without an amount</h3><p class="note">The notification showed only the subject. Open the email, copy its text, come back and tap Paste.</p>${N.slice().reverse().map(m=>`<div class="card" style="margin-bottom:8px"><small style="color:var(--mute)"><b>${esc(m.from)}:</b> ${esc(m.body)} · ${tAgo(m.t)}</small><div class="acts"><button class="btn sm" data-act="clipAdd" data-id="${esc(m.k)}">Paste copied text</button><button class="btn sm ghost" data-act="ntfNoSkip" data-id="${esc(m.k)}">Skip</button></div></div>`).join("")}`:""}
+  <div class="acts"><button class="btn ghost" data-act="readCheck">Something missing? Check reading</button></div>`)};
+const WHY={kept:["Read","var(--pri)"],noamt:["No amount shown","var(--soon)"],noamt0:["Not a payment","var(--mute)"],nowords:["Amount, but no payment words","var(--soon)"],code:["Security code, ignored","var(--mute)"]};
+async function readCheck(){const st=isApp()?await readStat(false):RD;let log=[];if(isApp()){try{log=JSON.parse(JSON.stringify((await NP("DueNative","notifLog")).items||[]))}catch(e){}}
+  log=[...log.map(x=>({...x,t:+x.time})),...(S.cfg.smsLog||[])].sort((a,b)=>b.t-a.t).slice(0,30);
+  const yes=(b,t)=>`<b style="color:${b?"var(--pri)":"var(--late)"}">${b?"✓":"✕"}</b> ${t}`;
+  sheet(`<h2>SMS and alert reading</h2>${isApp()?`<div class="card" style="margin-bottom:8px">
+  <p>${yes(st.sms!==false&&S.cfg.smsAuto,"Bank SMS: "+(S.cfg.smsAuto?"on":"off")+(st.sms===false?", permission not given":""))} · last check ${tAgo(S.cfg.smsLast)}</p>
+  <p>${yes(st.on&&S.cfg.ntfAuto,"Email and app alerts: "+(S.cfg.ntfAuto?(st.on?"on":"access is off"):"off"))}${st.on?` · connected ${tAgo(st.conn)}${st.disc>st.conn?", then <b>disconnected</b>":""} · last money alert seen ${tAgo(st.seen)}`:""}</p>
+  <div class="acts"><button class="btn sm" data-act="smsScan30">Read SMS from the last 30 days</button>${st.on?`<button class="btn sm ghost" data-act="readRebind">Reconnect alerts</button>`:`<button class="btn sm ghost" data-act="notifOpen">Turn on alert access</button>`}</div></div>`:`<p class="note">Automatic reading works in the phone app. Here you can test a message.</p>`}
+  <h3>Test a message</h3><textarea id="f_rt" rows="3" placeholder="Paste a bank SMS or email text" aria-label="Message to test"></textarea><p class="note" id="rt_out"></p><div class="acts"><button class="btn ghost" data-act="readTest">Read it</button><button class="btn" data-act="readTestAdd">Add as entry</button></div>
+  ${isApp()?`<h3>Last messages checked (${log.length})</h3>${log.length?log.map(x=>{const w=WHY[x.why]||[x.why,"var(--mute)"],p=x.why=="kept"?parseSms(x.body):null;return `<div class="row" style="cursor:default;align-items:flex-start"><div><b style="color:${w[1]}">${w[0]}</b><small>${esc(x.app||"")} · ${tAgo(x.t)}${p?" · "+(p.kind=="in"?"+":"−")+fmx(p.amt,p.cur||"INR")+(p.payee?" "+esc(p.payee):""):""}</small><small style="color:var(--mute)">${esc(String(x.body||"").slice(0,140))}</small></div></div>`}).join(""):`<div class="empty">Nothing yet. Alerts appear here as they arrive.</div>`}`:""}
+  <h3>If emails are not read</h3><ol class="steps"><li><b>Outlook:</b> Settings → Notifications → Mail → <b>Focused and Other</b>. Or open a bank email → ⋮ → Move to Focused → Always.</li><li><b>Gmail:</b> Settings → your account → Notifications: <b>All</b>. Bank emails in the Updates tab don’t notify unless that label’s notifications are on.</li><li>Phone Settings → Apps → Personal Diary → Battery → <b>Unrestricted</b>, so Android doesn’t stop alert reading.</li><li>After each app update, if alerts stop, tap <b>Reconnect alerts</b>.</li><li>If an email notification has no amount, copy the email text. The app picks it up when you open it.</li></ol>`)}
+Object.assign(ACT,{
+  readCheck(){readCheck()},
+  async readRebind(){await readStat(true);setTimeout(async()=>{await readStat(false);readCheck();toast(RD.on?"Alert reading reconnected":"Turn on alert access")},1200)},
+  async smsScan30(){S.cfg.smsAuto=true;S.cfg.smsAt=Date.now()-30*864e5;S.cfg.smsMax=400;const before=(S.cfg.smsq||[]).length;await smsScan(true);S.cfg.smsMax=150;save();const n=(S.cfg.smsq||[]).length-before;toast(S.cfg.smsAuto?(n>0?n+" payments found. Check them on Home.":"No new payments found in SMS"):"Allow the SMS permission first");readCheck()},
+  readTest(){const t=v("f_rt"),p=parseSms(t),o=$("#rt_out");if(o)o.innerHTML=!t.trim()?"Paste a message first.":!p?"No amount found in this message.":`Reads as: <b>${p.kind=="in"?"money in":"money out"} ${fmx(p.amt,p.cur||"INR")}</b>${p.payee?", "+esc(p.payee):""}, ${fmt(p.date)}${p.l4?", card or account ending "+esc(p.l4):""}${p.acc?" → "+esc(an(p.acc)):""}.`},
+  readTestAdd(){const t=v("f_rt");if(!t.trim())return toast("Paste a message first");smsOpen(t)},
+  async clipAdd(k){let t="";try{t=String((await NP("DueNative","readClip")).text||"")}catch(e){}if(!t&&navigator.clipboard){try{t=await navigator.clipboard.readText()}catch(e){}}
+    if(!parseSms(t)){sheet(`<h2>Paste the email text</h2><textarea id="f_sms" rows="6" aria-label="Email text"></textarea><div class="acts"><button class="btn" data-act="clipAddTyped" data-id="${esc(k)}">Read it</button></div>`);return}
+    S.cfg.ntfNo=(S.cfg.ntfNo||[]).filter(x=>x.k!=k);save();render();smsOpen(t)},
+  clipAddTyped(k){const t=v("f_sms");if(!parseSms(t))return toast("Couldn’t find an amount in that text");S.cfg.ntfNo=(S.cfg.ntfNo||[]).filter(x=>x.k!=k);save();render();smsOpen(t)},
+  ntfNoSkip(k){S.cfg.ntfNo=(S.cfg.ntfNo||[]).filter(x=>x.k!=k);save();render();smsReview()}
+});
+{const _sa=ACT.smsSkipAll;ACT.smsSkipAll=function(){S.cfg.ntfNo=[];return _sa()}}
+document.addEventListener("change",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.l4pick||!t.value)return;const l4=t.dataset.l4pick,a=S.acc.find(x=>x.id==t.value);if(!a)return;
+  a.l4s=[...new Set([...(a.l4s||[]),l4])];a.ut=Date.now();(S.cfg.smsq||[]).forEach(m=>{if(m.p&&m.p.newL4==l4){m.p.acc=a.id;m.p.cur=m.p.cur||a.cur;delete m.p.newL4}});save();smsReview();toast(`Ending ${l4} is now linked to ${a.name}`)});
+{const _ns=nativeStart;nativeStart=function(){_ns();setTimeout(readWake,800);setTimeout(clipCheck,1500)}}
 
 /* ===== start ===== */
 let pq=null,pshare="";try{const U=new URLSearchParams(location.search);pq=U.get("add");pshare=[U.get("title"),U.get("text")].filter(Boolean).join(" ")}catch(e){}
