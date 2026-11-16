@@ -96,6 +96,10 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 .cal i:nth-child(-n+7),.cal i:empty{background:none}
 .qrbox{background:#fff;border-radius:14px;padding:8px;width:220px;max-width:70%;margin:8px auto}.qrbox svg{display:block;width:100%;height:auto}
 .steps{margin:8px 0 4px;padding-left:22px}.steps li{margin:6px 0}
+/* teach once */
+.tkbox{line-height:2.1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:10px 0;font-size:15px;word-break:break-word}
+.tk{display:inline;border:0;background:none;color:inherit;font:inherit;padding:2px 1px;margin:0;border-radius:6px;cursor:pointer}
+.tk:hover{background:var(--line)}.tk.amt{background:var(--pri);color:var(--onpri)}.tk.pay{background:var(--soonbg);color:var(--ink);box-shadow:0 0 0 1px var(--soon)}
 </style></head><body>
 <main id="app"><p class="sub">Opening your data…</p></main>
 <nav><div id="nav"></div></nav>
@@ -104,9 +108,9 @@ nav button.on{box-shadow:none}nav button.on svg{stroke-width:2.4}nav button.on s
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="19";
-const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs","sacc"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
-const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],sacc:[],bin:[],del:[],mk:null,mkh:{},nw:{},cfg:{rate:DEFRATE,view:"INR"}});
+const K="due-and-spend.v1",DEFRATE=26,VER="24";
+const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs","sacc","tpl","fam","moi","lend"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
+const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],sacc:[],tpl:[],fam:[],moi:[],lend:[],bin:[],del:[],mk:null,mkh:{},nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
 
 const TYPES={premium:"Premium",fd:"FD maturity",emi:"EMI",renewal:"Renewal"};
@@ -252,7 +256,7 @@ async function resealSnaps(toPlain){const all=await run(mainDB(),"snaps","readon
   await run(mainDB(),"snaps","readwrite",s=>{s.clear();out.forEach(o=>s.put(o,o.k))})}
 
 /* backup and restore */
-const bkObj=()=>({app:"due-and-spend",v:2,at:Date.now(),...Object.fromEntries(COLLS.map(c=>[c,S[c]])),nw:S.nw,cfg:{rate:S.cfg.rate,view:S.cfg.view,fixedCats:S.cfg.fixedCats,theme:S.cfg.theme}});
+const bkObj=()=>({app:"due-and-spend",v:2,at:Date.now(),...Object.fromEntries(COLLS.map(c=>[c,S[c]])),nw:S.nw,cfg:{rate:S.cfg.rate,view:S.cfg.view,fixedCats:S.cfg.fixedCats,theme:S.cfg.theme,...Object.fromEntries(PREFX.map(k=>[k,S.cfg[k]??null]))}});
 const bk=()=>JSON.stringify(bkObj());
 const allAtt=()=>[...S.dates,...S.inv,...S.docs,...S.subs].flatMap(x=>x.att||[]);
 async function b64(blob){const u=new Uint8Array(await blob.arrayBuffer());let s="";for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)}
@@ -501,7 +505,7 @@ function countUp(){if(window.matchMedia&&matchMedia("(prefers-reduced-motion: re
     (function f(now){const p=Math.min(1,(now-t0)/600),val=n*(1-Math.pow(1-p,3));e.textContent=pre+val.toLocaleString("en-IN",{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;if(p<1)requestAnimationFrame(f)})(t0)})}
 function render(){
   $("#nav").innerHTML=navHtml();
-  let h;try{h=({home:vHome,dates:vDates,invest:vWealth,acc:vAcc,spend:vSpend,rep:vRep})[tab]()}
+  let h;try{h=({home:vHome,dates:vDates,invest:vWealth,acc:vAcc,spend:vSpend,rep:vRep,fam:vFam})[tab]()}
   catch(e){console.error(e);h=`<h1>Personal Diary</h1><div class="card"><b>This page couldn’t be shown.</b><p class="note">${esc(e&&e.message||e)}</p><p class="note">Your data is still saved. Open Settings and backup from Home to export it.</p></div>`}
   $("#app").innerHTML=h+FABBTN;applyUI();try{countUp()}catch(e){}}
 
@@ -521,7 +525,7 @@ function alerts(){const A=[],t=today();
   return A.length?`<div class="card" style="border-color:var(--soon);background:var(--soonbg);margin:0 0 12px"><b>Needs attention</b>${A.sort((a,b)=>a[0]-b[0]).slice(0,8).map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px"><span>${esc(a[1])}</span><b>${a[2]}</b></div>`).join("")}</div>`:""}
 
 function dRow(i){const n=dl(i.date);return `<div class="row ${i.done?"":cls(n)}" data-act="editDate" data-id="${i.id}"><div><b>${esc(i.name)}</b><small>${TYPES[i.type]} · ${fmt(i.date)}${i.rep!="none"?" · "+REP[i.rep][0].toLowerCase():""}${i.no?" · "+esc(i.no):""}${i.att&&i.att.length?" · "+i.att.length+(i.att.length==1?" file":" files"):""}</small></div><div class="r"><span class="chip">${i.done?"Done":when(n)}</span>${+i.amt?`<b>${fmx(i.amt,i.cur)}</b>`:""}${i.done?"":`<button class="btn sm" data-act="paid" data-id="${i.id}">${i.type=="fd"?"Received":"Paid"}</button>`}</div></div>`}
-const txRow=x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><span class="ci">${catIcon(x)}</span><div><b>${esc(x.cat||KIND[x.kind])}${x.sub?" › "+esc(x.sub):""}</b><small>${fmt(x.date)} · ${esc(an(x.acc))}${x.payee?" · "+esc(x.payee):""}${(x.tags||[]).map(t=>" #"+esc(t)).join("")}${x.note?" · "+esc(x.note):""}${byTag(x)}</small></div><div class="r"><b>${x.kind=="out"?"−":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=V()?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`;
+const txRow=x=>`<div class="row" data-act="editTx" data-id="${x.id}" style="border-left-color:${x.kind=="out"?"var(--late)":"var(--pri)"}"><span class="ci">${catIcon(x)}</span><div><b>${esc(x.cat||KIND[x.kind])}${x.sub?" › "+esc(x.sub):""}</b><small>${fmt(x.date)} · ${esc(an(x.acc))}${x.payee?" · "+esc(x.payee):""}${(x.tags||[]).map(t=>" #"+esc(t)).join("")}${x.note?" · "+esc(x.note):""}${byTag(x)}</small></div><div class="r"><b>${x.kind=="out"?"−":x.kind=="adj"&&x.amt<0?"":"+"}${fmx(x.amt,x.cur)}</b>${(x.cur||"INR")!=V()?`<small>≈ ${fm(ca(x))}</small>`:""}</div></div>`;
 const trRow=t=>`<div class="row" data-act="editTx" data-id="${t.id}"><div><b>${esc(an(t.acc))} → ${esc(an(t.to))}</b><small>${fmt(t.date)}${t.note?" · "+esc(t.note):""}</small></div><div class="r"><b>${fmx(t.amt,ac(t.acc).cur)}</b>${ac(t.acc).cur!=ac(t.to).cur?`<small>→ ${fmx(t.got,ac(t.to).cur)}</small>`:""}</div></div>`;
 
 /* ---------- Home ---------- */
@@ -693,7 +697,7 @@ function fixForm(id){const k=ac(id);sheet(`<h2>Correct balance</h2><p class="sub
 function trForm(t){t=t||null;const f=t?t.acc:(S.cfg.last&&ac(S.cfg.last).id||S.acc[0].id),to=t?t.to:(S.acc.find(k=>k.id!=f)||{}).id||"";
   sheet(`<h2>${t?"Edit transfer":"Transfer money"}</h2><div class="two"><div>${SEL("f_from","From",ACCS(),f,'data-trs="1"')}</div><div>${SEL("f_to","To",ACCS(),to,'data-trs="1"')}</div></div>
   <div class="two"><div><label id="l_amt" for="f_amt">Amount sent</label><input id="f_amt" type="number" inputmode="decimal" step="any" data-trs="1" value="${t?t.amt:""}"></div><div><label id="l_got" for="f_got">Amount received</label><input id="f_got" type="number" inputmode="decimal" step="any" value="${t?t.got:""}"></div></div>
-  <div class="two"><div>${F("f_fee","Fee (optional)",t&&t.fee||"","number")}</div><div>${F("f_date","Date",t?t.date:today(),"date")}</div></div>${F("f_note","Note (optional)",t?t.note:"")}<p class="note" id="trn"></p>${stampNote(t)}${btns("saveTr",t&&t.id,"delTx")}`);trSync(!!t)}
+  <div class="two"><div>${F("f_fee","Fee (optional)",t&&t.fee||"","number")}</div><div>${F("f_date","Date",t?t.date:today(),"date")}</div></div><div class="two"><div>${F("f_via","Sent through (optional)",t&&t.via||"","text",'list="dl_via" placeholder="Bank app, Al Zaman…"')}</div><div>${F("f_note","Note (optional)",t?t.note:"")}</div></div>${DL("dl_via",S.tx.filter(x=>x.via).map(x=>x.via).reverse())}<p class="note" id="trn"></p>${stampNote(t)}${btns("saveTr",t&&t.id,"delTx")}`);trSync(!!t)}
 function trSync(keep){const A=ac(v("f_from")),B=ac(v("f_to")),s=+v("f_amt")||0,g=$("#f_got");if(!g)return;$("#l_amt").textContent="Amount sent ("+A.cur+")";$("#l_got").textContent="Amount received ("+B.cur+")";
   if(A.cur==B.cur){g.value=s||"";g.readOnly=true;$("#trn").textContent=""}else{g.readOnly=false;if(!keep&&s)g.value=cv(s,A.cur,B.cur).toFixed(2);$("#trn").textContent="Change the received amount to the real figure from your bank."}}
 function stmt(k){const ev=[];S.tx.forEach(x=>{if(x.kind=="tr"){if(x.acc==k.id)ev.push([x,"Transfer to "+an(x.to),-((+x.amt||0)+(+x.fee||0))]);if(x.to==k.id)ev.push([x,"Transfer from "+an(x.acc),+x.got||0])}
@@ -862,7 +866,7 @@ const ACT={
   okBal(id){const k=ac(id);k.rcd=today();k.ut=Date.now();done();toast("Marked as checked")},
   stmt(id){stmt(ac(id))},
   trf(){if(S.acc.length<2)return toast("Add a second account first");trForm()},
-  saveTr(id){trSync(true);const old=S.tx.find(x=>x.id==id),o={...(old||{}),id:id||uid(),kind:"tr",acc:v("f_from"),to:v("f_to"),amt:+v("f_amt")||0,got:+v("f_got")||0,fee:+v("f_fee")||0,date:v("f_date")||today(),note:v("f_note").trim()};
+  saveTr(id){trSync(true);const old=S.tx.find(x=>x.id==id),o={...(old||{}),id:id||uid(),kind:"tr",acc:v("f_from"),to:v("f_to"),amt:+v("f_amt")||0,got:+v("f_got")||0,fee:+v("f_fee")||0,date:v("f_date")||today(),note:v("f_note").trim(),via:($("#f_via")?v("f_via").trim():(old&&old.via)||"")};
     if(!o.to||o.acc==o.to)return toast("Choose two different accounts");if(!o.amt||!o.got)return toast("Add the amounts");
     o.cur=ac(o.acc).cur;stamp(o,old);put("tx",o);S.cfg.last=o.acc;done();if(bal(ac(o.acc))<0)toast(an(o.acc)+" balance is now below zero")},
 
@@ -894,7 +898,7 @@ const ACT={
   async snaps(){if(useLS)return toast("Automatic backups need the phone database");const L=await snapList();
     sheet(`<h2>Automatic backups</h2><p class="sub">A copy is kept for each of the last 7 days you opened the app. Restoring one replaces what is on this device now.</p>${L.length?L.map(o=>`<div class="row" style="cursor:default"><div><b>${o.k=="before-restore"?"Before the last restore":/^\d{4}-/.test(o.k)?fmt(o.k):esc(o.k)}</b><small>${new Date(o.ts).toLocaleString("en-IN")}</small></div><button class="btn sm ghost" data-act="snapRestore" data-id="${esc(o.k)}">Restore</button></div>`).join(""):`<div class="empty">No copies yet. The first one is made once you have some entries.</div>`}`)},
   async snapRestore(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to confirm";return}await restoreFrom(await snapRead(id));sheet("");render();toast("Restored")},
-  bin(){const nm=b=>b.r.name||b.r.cat||b.r.note||KIND[b.r.kind]||"Item",T={acc:"Account",tx:"Entry",dates:"Due date",inv:"Investment",loans:"Loan",goals:"Goal",bud:"Budget",rec:"Recurring entry",docs:"Document",subs:"Subscription",sacc:"Scheme account"};
+  bin(){const nm=b=>b.r.name||b.r.cat||b.r.note||KIND[b.r.kind]||"Item",T={acc:"Account",tx:"Entry",dates:"Due date",inv:"Investment",loans:"Loan",goals:"Goal",bud:"Budget",rec:"Recurring entry",docs:"Document",subs:"Subscription",sacc:"Scheme account",tpl:"Message format",fam:"Family member",moi:"Gift",lend:"Hand loan"};
     sheet(`<h2>Recycle bin</h2><p class="sub">Deleted items stay here for 30 days.</p>${S.bin.length?[...S.bin].reverse().map(b=>`<div class="row" style="cursor:default"><div><b>${esc(nm(b))}</b><small>${T[b.c]||"Item"} · deleted ${fmt(iso(new Date(b.at)))}${+b.r.amt?" · "+fmx(b.r.amt,b.r.cur):""}</small></div><button class="btn sm ghost" data-act="binRestore" data-id="${b.r.id}">Restore</button></div>`).join("")+`<div class="acts"><button class="btn del" data-act="binEmpty">Empty the bin</button></div>`:`<div class="empty">Nothing here.</div>`}`)},
   binRestore(id){untrash(id);save();render();ACT.bin();toast("Restored")},
   binEmpty(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete for good";return}purgeBin(true);save();ACT.bin()},
@@ -982,16 +986,36 @@ async function syncStart(){if(started||!SY.cfg||!SY.space)return;
 function takeRemote(R,gen,known,dirty){/* a higher generation means someone restored a backup: take their copy whole */
   if(known!=null&&(gen||0)>known){R=normR(R);COLLS.forEach(c=>{if(Array.isArray(R[c]))S[c]=R[c]});S.del=R.del||[];if(R.prefs){S.cfg.pu=0;prefsIn(R.prefs)}mig()}
   else{if(known==null)dropStarter();mergeInto(R,dirty)}}
+/* the cloud copy: plain JSON while small; gzip, then split into pieces of the same "spaces" collection when large (Firestore allows 1 MB per document) */
+let SYLIM=700000,snapSeq=0;
+async function gz(s){const b=new Uint8Array(await new Response(new Blob([s]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());let t="";for(let i=0;i<b.length;i+=8192)t+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(t)}
+async function gunz(z){const bin=atob(z),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text()}
+async function packData(o){const j=JSON.stringify(o);if(j.length<=SYLIM||typeof CompressionStream=="undefined")return {data:j,z:"",n:0,parts:[],size:j.length};
+  const z=await gz(j);if(z.length<=SYLIM)return {data:"",z,n:0,parts:[],size:z.length};const parts=[];for(let i=0;i<z.length;i+=SYLIM)parts.push(z.slice(i,i+SYLIM));return {data:"",z:"",n:parts.length,parts,size:z.length}}
+async function unpackDoc(d,getPart){if(+d.n>0){let z="";for(let i=0;i<d.n;i++){const p=await getPart(i);if(!p||p.h!=d.h)throw new Error("parts not ready");z+=p.s}return JSON.parse(await gunz(z))}
+  if(d.z)return JSON.parse(await gunz(d.z));return JSON.parse(d.data||"{}")}
+const partRef=i=>fdb.collection("spaces").doc(SY.space+"__p"+i);
+async function partGet(i){const x=await partRef(i).get();return x.exists?x.data():null}
 function listen(){if(unsub)unsub();const ref=fdb.collection("spaces").doc(SY.space);
-  unsub=ref.onSnapshot(sn=>{if(!sn.exists){SY.owner=true;syv();pushNow();return}if(sn.metadata.hasPendingWrites)return;const d=sn.data();SY.members=d.members||SY.members;SY.applying=true;
-    try{if(!SY.force){takeRemote(JSON.parse(d.data||"{}"),d.gen,SY.gen,!!SY.dirty);SY.gen=d.gen||0}syv();persist();render()}catch(e){console.warn(e)}SY.applying=false;
-    sset("Synced "+hhmm()+(d.by&&me&&d.by!==me.email?" · last edit by "+d.by:""));if(SY.dirty||SY.force)pushNow()},err=>sset("Sync error: "+(err.code||"check your rules")))}
+  unsub=ref.onSnapshot(sn=>{if(!sn.exists){SY.owner=true;syv();pushNow();return}if(sn.metadata.hasPendingWrites)return;const d=sn.data(),my=++snapSeq;SY.members=d.members||SY.members;
+    (async()=>{let R;try{R=await unpackDoc(d,partGet)}catch(e){console.warn("sync read",e);setTimeout(async()=>{if(my!=snapSeq)return;try{const x=await ref.get();if(x.exists&&my==snapSeq){const R2=await unpackDoc(x.data(),partGet);applySnap(x.data(),R2)}}catch(er){sset("Sync is waiting for the rest of the data")}},2500);return}
+      if(my==snapSeq)applySnap(d,R)})()},err=>sset("Sync error: "+(err.code||"check your rules")))}
+function applySnap(d,R){SY.applying=true;try{if(!SY.force){takeRemote(R,d.gen,SY.gen,!!SY.dirty);SY.gen=d.gen||0}SY.size=(d.data||"").length+(d.z||"").length+(+d.n||0)*SYLIM;syv();persist();render()}catch(e){console.warn(e)}SY.applying=false;
+  sset("Synced "+hhmm()+(d.by&&me&&d.by!==me.email?" · last edit by "+d.by:""));if(SY.dirty||SY.force)pushNow()}
 async function pushNow(){if(!fdb||!me||!me.emailVerified||!SY.space)return;
-  try{const ref=fdb.collection("spaces").doc(SY.space);let merged,gen;
-    await fdb.runTransaction(async t=>{const sn=await t.get(ref),d=sn.exists?sn.data():null;gen=Math.max(d&&d.gen||0,SY.gen||0)+(SY.force?1:0);
-      merged=SY.force||!d?{...Object.fromEntries(COLLS.map(c=>[c,S[c]])),del:S.del,prefs:prefsOut()}:mergeCalc(JSON.parse(d.data||"{}"),true);
-      t.set(ref,{data:JSON.stringify(merged),members:d?(d.members||[]):[me.email,...(SY.members||[])],by:me.email,ts:Date.now(),gen})});
-    SY.applying=true;COLLS.forEach(c=>S[c]=merged[c]);S.del=merged.del;prefsIn(merged.prefs);mig();SY.gen=gen;SY.force=false;SY.dirty=false;syv();persist();SY.applying=false;sset("Synced "+hhmm());render()}
+  try{const ref=fdb.collection("spaces").doc(SY.space),force=!!SY.force;let merged,gen,adopt=false;
+    await fdb.runTransaction(async t=>{const sn=await t.get(ref),d=sn.exists?sn.data():null;adopt=false;
+      /* someone restored a backup since this phone last synced: take their copy instead of merging old records back in */
+      if(d&&!force&&SY.gen!=null&&(d.gen||0)>(SY.gen||0)){merged=normR(await unpackDoc(d,async i=>{const x=await t.get(partRef(i));return x.exists?x.data():null}));gen=d.gen||0;adopt=true;return}
+      gen=Math.max(d&&d.gen||0,SY.gen||0)+(force?1:0);
+      const R=d&&!force?await unpackDoc(d,async i=>{const x=await t.get(partRef(i));return x.exists?x.data():null}):{};
+      merged=force||!d?{...Object.fromEntries(COLLS.map(c=>[c,S[c]])),del:S.del,prefs:prefsOut()}:mergeCalc(R,true);
+      const P=await packData(merged),mem=d?(d.members||[]):[me.email,...(SY.members||[])],h=uid(),ts=Date.now();SY.size=P.size;
+      P.parts.forEach((x,i)=>t.set(partRef(i),{members:mem,h,s:x,i,ts}));for(let i=P.n;i<(+(d&&d.n)||0);i++)t.delete(partRef(i));
+      t.set(ref,{data:P.data,z:P.z,n:P.n,h,members:mem,by:me.email,ts,gen})});
+    if(adopt){SY.applying=true;COLLS.forEach(c=>{if(Array.isArray(merged[c]))S[c]=merged[c]});S.del=merged.del||[];if(merged.prefs){S.cfg.pu=0;prefsIn(merged.prefs)}mig();SY.gen=gen;SY.dirty=false;syv();persist();SY.applying=false;sset("Synced "+hhmm()+" · took the restored copy");render();return}
+    /* a restore that started while this upload was running still needs its own upload */
+    const later=!force&&SY.force;SY.applying=true;if(!later){COLLS.forEach(c=>S[c]=merged[c]);S.del=merged.del;prefsIn(merged.prefs);mig()}SY.gen=gen;if(force)SY.force=false;SY.dirty=later;syv();persist();SY.applying=false;sset("Synced "+hhmm());render();if(later)pushNow()}
   catch(e){SY.applying=false;sset("Sync error: "+(e.code||e.message))}}
 function syncForm(){sheet(`<h2>Google sync</h2><p class="sub">Shares your data live with people you invite. It works in the installed app. See SETUP-SYNC.txt for the one-time setup.</p>${F("f_scode","Have a setup code? Paste it here","","text",'placeholder="DS1.…" autocomplete="off"')}<div class="acts"><button class="btn ghost" data-act="useCode">Use setup code</button></div><p class="note" style="text-align:center">or enter the details yourself</p><label for="f_cfg">Firebase config (paste the lines with apiKey, projectId and so on)</label><textarea id="f_cfg" rows="4" placeholder='apiKey: "...", authDomain: "...", projectId: "..."'>${esc(SY.cfg?Object.entries(SY.cfg).map(([k,x])=>k+': "'+x+'"').join(",\n"):"")}</textarea>${F("f_sp","Space ID (same on every phone)",SY.space||"home-"+uid().slice(0,5))}<div class="acts"><button class="btn" data-act="syncSave">Save settings</button></div><p class="note" id="sstat">${esc(sstat)}</p>`+
   (SY.on?`<h3>Sign in</h3>${F("f_se","Email",me&&me.email||SY.email||"","email",'autocomplete="username"')}${F("f_sp2","Password (8 or more characters)","","password",'autocomplete="current-password"')}<div class="acts"><button class="btn" data-act="syncEmailIn">Sign in</button><button class="btn ghost" data-act="syncEmailNew">Create account</button></div><div class="acts"><button class="btn ghost sm" data-act="syncVerified">I’ve confirmed my email</button><button class="btn ghost sm" data-act="syncReset">Forgot password</button></div>${isApp()?"":`<div class="acts"><button class="btn ghost" data-act="syncIn">Sign in with Google</button></div>`}<div class="acts"><button class="btn ghost" data-act="syncNow">Sync now</button></div>${F("f_em","Invite someone (their Google email)","","email",'placeholder="name@gmail.com"')}<div class="acts"><button class="btn ghost" data-act="addMember">Add person</button><button class="btn del" data-act="syncOff">Turn off</button></div><p class="note">${(SY.members||[]).map(esc).join(", ")}</p><p class="note">Attached files and the recycle bin are not synced. The QAR rate, fixed-cost categories and savings challenge are. Update the app on every phone before syncing.</p>${setupCard()}`:""))}
@@ -1201,6 +1225,8 @@ function searchAll(q){q=String(q||"").trim().toLowerCase();if(q.length<2)return;
   S.loans.forEach(l=>{if(hit(l.name))R.push(`<div class="row" data-act="editLoan" data-id="${l.id}"><div><b>${esc(l.name)}</b><small>Loan · ${loanLeft(l)} EMIs left</small></div><b>${fmx(Math.round(loanOut(l)),l.cur)}</b></div>`)});
   S.docs.forEach(d=>{if(hit(d.name,d.no,d.type,d.note))R.push(`<div class="row" data-act="editDoc" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${esc(d.type||"Document")}${d.exp?" · expires "+fmt(d.exp):""}</small></div></div>`)});
   S.subs.forEach(x=>{if(hit(x.name,x.plan,x.cat,x.note))R.push(`<div class="row" data-act="editSub" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>Subscription${x.end?" · "+(x.cancelled?"ended ":"renews ")+fmt(x.end):""}</small></div><b>${fmx(+x.price||0,x.cur)}</b></div>`)});
+  S.moi.forEach(m=>{if(hit(m.person,m.place,m.occ))R.push(`<div class="row" data-act="moiEdit" data-id="${m.id}"><div><b>${esc(m.person)}</b><small>${m.dir=="gave"?"Gave":"Received"} · ${esc(m.occ)} · ${fmt(m.date)}</small></div><b>${m.cash?fmx(m.cash,m.cur):""}</b></div>`)});
+  S.lend.forEach(x=>{if(hit(x.person,x.note))R.push(`<div class="row" data-act="lendView" data-id="${x.id}"><div><b>${esc(x.person)}</b><small>Hand loan · ${x.dir=="lent"?"owes you":"you owe"}</small></div><b>${fmx(lOut(x),x.cur)}</b></div>`)});
   S.sacc.forEach(x=>{if(hit(x.name,x.holder,x.no,SAS[x.type]))R.push(`<div class="row" data-act="saInfo" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>${SAT[x.type]}</small></div><b>${inr(Math.round(saState(x).now))}</b></div>`)});
   S.goals.forEach(g=>{if(hit(g.name))R.push(`<div class="row" data-act="editGoal" data-id="${g.id}"><div><b>${esc(g.name)}</b><small>Goal</small></div><b>${fmx(g.saved,g.cur)}</b></div>`)});
   const T=S.tx.filter(x=>x.kind!="tr"&&x.kind!="adj"&&hit(x.cat,x.sub,x.payee,x.note,(x.tags||[]).join(" "),an(x.acc),x.amt,x.date)).sort((a,b)=>b.date.localeCompare(a.date));
@@ -1381,10 +1407,11 @@ const setupCard=()=>{const c=setupCode();return c?`<h3>Set up another phone</h3>
 
 /* settings that follow you to every synced phone */
 let prefsJ="";
-const prefsObj=()=>({rate:S.cfg.rate,rateAt:S.cfg.rateAt||"",fixedCats:S.cfg.fixedCats,chal:S.cfg.chal||0});
+const PREFX=[];
+const prefsObj=()=>({rate:S.cfg.rate,rateAt:S.cfg.rateAt||"",fixedCats:S.cfg.fixedCats,chal:S.cfg.chal||0,...Object.fromEntries(PREFX.map(k=>[k,S.cfg[k]??null]))});
 function prefsTouch(){try{const j=JSON.stringify(prefsObj());if(prefsJ&&j!==prefsJ&&!SY.applying&&!clApplying)S.cfg.pu=Date.now();prefsJ=j}catch(e){}}
 const prefsOut=()=>({...prefsObj(),pu:S.cfg.pu||0});
-function prefsIn(P){if(!P||!((P.pu||0)>(S.cfg.pu||0)))return false;for(const k of ["rate","rateAt","fixedCats","chal"])if(P[k]!==undefined)S.cfg[k]=P[k];S.cfg.pu=P.pu;prefsJ=JSON.stringify(prefsObj());return true}
+function prefsIn(P){if(!P||!((P.pu||0)>(S.cfg.pu||0)))return false;for(const k of ["rate","rateAt","fixedCats","chal",...PREFX])if(P[k]!==undefined)S.cfg[k]=P[k];S.cfg.pu=P.pu;prefsJ=JSON.stringify(prefsObj());return true}
 
 /* how safe is the data */
 function safety(){const now=Date.now(),syncOk=SY.on&&SY.lastOk&&now-SY.lastOk<3*864e5,bkOk=S.cfg.lastBk&&dl(S.cfg.lastBk)>=-14,att=allAtt(),attOk=!att.length||(S.cfg.lastFullBk&&dl(S.cfg.lastFullBk)>=-31);
@@ -3983,7 +4010,7 @@ function saDeposit(id,amt,date,accId){const x=S.sacc.find(q=>q.id==id);if(!x||!a
 /* ---------- screens ---------- */
 function saHtml(){const L=S.sacc;let h=`<h2>My savings schemes</h2>`;
   if(L.length){const tot=L.reduce((s,x)=>s+saState(x).now,0),c80=L.filter(x=>x.type!="rd").reduce((s,x)=>s+saState(x).fyDep,0);
-    h+=`<div class="stats" style="grid-template-columns:1fr 1fr;margin:0 0 8px">${tile("Value today",inr(Math.round(tot)))}${tile("SSY + PPF this year",inr(c80),"","for 80C, since "+fmt(fyStart()))}</div>`;
+    h+=`<div class="stats" style="grid-template-columns:1fr 1fr;margin:0 0 8px">${tile("Value today",inr(Math.round(tot)))}${tile("SSY + PPF this year",inr(c80),"","for "+TAXSEC()+", since "+fmt(fyStart()))}</div>`;
     h+=L.map(x=>{const s=saState(x),n=s.next?dl(s.next):null;return `<div class="card ${n!==null&&n<0?"late":n!==null&&n<=7?"soon":""}" style="margin-bottom:8px"><div style="cursor:pointer" data-act="saInfo" data-id="${x.id}"><div class="hbl"><b>${esc(x.name)}</b>${s.closed?`<span class="chip">Matured</span>`:n!==null?`<span class="chip">${n<0?"Due "+fmt(s.next):when(n)}</span>`:""}</div>
       <small style="color:var(--mute);display:block">${SAS[x.type]}${x.holder?" · "+esc(x.holder):""}${x.no?" · "+esc(x.no):""} · opened ${fmt(x.open)} · ${saRate(x,today())}%</small>
       <div class="stats" style="margin:8px 0 0">${tile("Value now",inr(Math.round(s.now)))}${tile("You put in",inr(s.dep))}${tile("Interest",inr(Math.round(s.now-s.dep)))}</div>
@@ -4113,6 +4140,673 @@ Object.assign(ACT,{
 document.addEventListener("change",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.l4pick||!t.value)return;const l4=t.dataset.l4pick,a=S.acc.find(x=>x.id==t.value);if(!a)return;
   a.l4s=[...new Set([...(a.l4s||[]),l4])];a.ut=Date.now();(S.cfg.smsq||[]).forEach(m=>{if(m.p&&m.p.newL4==l4){m.p.acc=a.id;m.p.cur=m.p.cur||a.cur;delete m.p.newL4}});save();smsReview();toast(`Ending ${l4} is now linked to ${a.name}`)});
 {const _ns=nativeStart;nativeStart=function(){_ns();setTimeout(readWake,800);setTimeout(clipCheck,1500)}}
+
+/* ===== Version 20: app updates, rules file, teach once, learning, regular payments ===== */
+const BUILD="__BUILD__",REPO_DEF="__REPO__";
+const buildNo=()=>/^\d+$/.test(BUILD)?+BUILD:0;
+function repoSlug(){const r=String(S.cfg.repo||"").trim().replace(/^https?:\/\/(www\.)?github\.com\//i,"").replace(/\.git$/,"").replace(/\/+$/,"");if(/^[\w.-]+\/[\w.-]+$/.test(r))return r;
+  if(!/^__/.test(REPO_DEF)&&/^[\w.-]+\/[\w.-]+$/.test(REPO_DEF))return REPO_DEF;
+  const m=location.hostname.match(/^([\w-]+)\.github\.io$/i);if(m){const p=location.pathname.split("/").filter(Boolean)[0];if(p&&!/\./.test(p))return m[1]+"/"+p}return ""}
+async function getTxt(url){if(isApp()){try{const r=await NP("CapacitorHttp","get",{url,responseType:"text",connectTimeout:15000,readTimeout:20000});if(r&&r.status>=400)throw new Error("HTTP "+r.status);if(r&&r.data!=null)return typeof r.data=="string"?r.data:JSON.stringify(r.data)}catch(e){if(/HTTP/.test(e&&e.message))throw e}}
+  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),15000);try{const r=await fetch(url,{signal:ctl.signal,cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);return await r.text()}finally{clearTimeout(t)}}
+const getJ=async u=>JSON.parse(await getTxt(u));
+/* ---------- in-app updates: the build adds version.json next to the APK ---------- */
+async function updCheck(force){if(!isApp()||inClaude())return null;const r=repoSlug();if(!r)return null;
+  if(!force&&S.cfg.updAt&&Date.now()-S.cfg.updAt<6*36e5)return S.cfg.upd||null;
+  try{const j=await getJ(`https://github.com/${r}/releases/download/app/version.json`),code=+(j&&j.code)||0;S.cfg.updAt=Date.now();S.cfg.updErr="";
+    S.cfg.updLatest=code?{code,ver:String(j.ver||""),date:String(j.date||"")}:null;S.cfg.upd=code&&buildNo()&&code>buildNo()?S.cfg.updLatest:null;save();if(tab=="home")render();return S.cfg.upd}
+  catch(e){S.cfg.updAt=Date.now();S.cfg.updErr=String(e&&e.message||e);save();return null}}
+async function updInstall(){const r=repoSlug();if(!r){toast("Add your GitHub repo in Settings first");return}const url=`https://github.com/${r}/releases/download/app/personal-diary.apk`;
+  toast("Downloading the update…");
+  try{const x=await NP("DueNative","installApk",{url});if(x&&x.needPermission)sheet(`<h2>One-time permission</h2><p class="sub">Android needs your OK before Personal Diary can install its own updates.</p><ol class="steps"><li>On the screen that opened, turn on <b>Allow from this source</b>.</li><li>Come back and tap <b>Install update</b>.</li></ol><div class="acts"><button class="btn" data-act="updInstall">Install update</button></div>`);else toast("Tap Install on the next screen. Your data stays.")}
+  catch(e){toast("Opening the download in your browser…");try{await NP("DueNative","openUrl",{url})}catch(_){location.href=url}}}
+const updCard=()=>S.cfg.upd&&isApp()?`<div class="card" style="margin:0 0 12px;cursor:pointer;border-color:var(--pri)" data-act="updInstall"><div class="hbl"><b>New version ready${S.cfg.upd.ver?": Version "+esc(S.cfg.upd.ver):""}</b><span class="chip">Install</span></div><small style="color:var(--mute)">Build ${S.cfg.upd.code}${S.cfg.upd.date?" · "+esc(S.cfg.upd.date.slice(0,10)):""}. Your data stays on the phone.</small></div>`:"";
+/* ---------- rules.json in your GitHub repo: rates and message formats, no new APK needed ---------- */
+async function rulesFetch(force){if(inClaude())return false;if(!force&&S.cfg.rulesAt&&Date.now()-S.cfg.rulesAt<12*36e5)return false;
+  const r=repoSlug(),U=[];if(/\.github\.io$/i.test(location.hostname))U.push("rules.json?t="+Date.now());
+  if(r){const [o,n]=r.split("/");U.push(`https://${o.toLowerCase()}.github.io/${n}/rules.json?t=${Date.now()}`,`https://raw.githubusercontent.com/${r}/HEAD/rules.json`)}
+  S.cfg.rulesAt=Date.now();for(const u of U){try{const j=await getJ(u);if(j&&typeof j=="object"&&j.v){S.cfg.rules=j;S.cfg.rulesFrom=u.replace(/\?t=\d+$/,"");S.cfg.rulesOk=Date.now();rulesApply();save();return true}}catch(e){}}save();return false}
+let rulesSms=[],rulesSkip=[];
+function rulesApply(){const R=S.cfg.rules;if(!R||typeof R!="object")return;
+  try{const Q=R.schemes&&R.schemes.quarter;if(Q&&/^\d{4}-\d\d-\d\d$/.test(Q.from||"")&&/^\d{4}-\d\d-\d\d$/.test(Q.to||"")&&Q.to>=SCH_Q.to){SCH_Q.from=Q.from;SCH_Q.to=Q.to;SCH_Q.label=String(Q.label||(fmt(Q.from)+" – "+fmt(Q.to)))}
+    const Rt=R.schemes&&R.schemes.rates;if(Rt&&Q&&Q.to>=SCH_Q.to)SCH.forEach(s=>{const x=+Rt[s.id];if(x>0&&x<20)s.rate=x});
+    const H=R.rateHist||{};for(const t of ["ssy","ppf","rd"])if(Array.isArray(H[t]))H[t].forEach(a=>{if(Array.isArray(a)&&/^\d{4}-\d\d-\d\d$/.test(a[0])&&+a[1]>0&&+a[1]<20&&!RATES[t].some(q=>q[0]==a[0])){RATES[t].push([a[0],+a[1]]);RATES[t].sort((p,q)=>p[0].localeCompare(q[0]))}});
+    rulesSms=(Array.isArray(R.sms)?R.sms:[]).filter(x=>x&&x.re).map(x=>({id:"rule:"+(x.name||x.re).slice(0,40),name:String(x.name||"Rule"),re:String(x.re),flags:String(x.flags||"i"),ai:+x.amt||1,pi:+x.payee||0,kind:x.kind=="in"?"in":x.kind=="out"?"out":"",cur:/^(INR|QAR)$/.test(x.cur)?x.cur:"",cat:String(x.cat||"")}));
+    rulesSkip=(Array.isArray(R.skip)?R.skip:[]).map(x=>{try{return new RegExp(String(x),"i")}catch(e){return null}}).filter(Boolean)}catch(e){console.warn("rules",e)}}
+/* ---------- learning: shop names → category and account ---------- */
+const PSTOP=/\b(doha|qatar|qa|india|in|pvt|private|ltd|limited|llc|wll|w l l|co|company|the|branch|store|online|com|www|upi|imps|neft|pos|ecom|payment|pay|txn)\b/g;
+const pkey=s=>String(s||"").toLowerCase().replace(/[^a-z؀-ۿ ]+/g," ").replace(PSTOP," ").replace(/\s+/g," ").trim().split(" ").filter(w=>w.length>1).slice(0,2).join(" ");
+const KEYCAT=[[/talabat|snoonu|zomato|swiggy|deliveroo|restaurant|cafe|coffee|karak|bakery|kfc|mcdonald|burger|pizza|shawarma|biryani|hotel saravana|starbucks|tim hortons/i,["Eating out","Food"]],
+  [/lulu|carrefour|monoprix|al meera|almeera|spar|safari|nesto|ansar|family food|hypermarket|supermarket|grocery|groceries|bigbasket|blinkit|zepto|dmart|reliance fresh|more retail|vegetable|meat|fish/i,["Groceries","Food"]],
+  [/ooredoo|vodafone|kahramaa|jio|airtel|bsnl|tneb|tangedco|electricity|water bill|broadband|internet|recharge|postpaid|prepaid|dth|tata play|gas bill|indane|bharat gas/i,["Bills"]],
+  [/woqod|petrol|fuel|shell|indian oil|iocl|hpcl|bpcl|uber|careem|karwa|metro|taxi|ola|rapido|redbus|irctc|qatar airways|indigo|air india|emirates|flydubai|air arabia|airline|airways/i,["Travel"]],
+  [/pharmacy|hospital|clinic|medical|apollo|aster|hamad|doctor|lab|diagnostic|medplus|netmeds|1mg|pharmeasy|dental|optical/i,["Health"]],
+  [/amazon|flipkart|meesho|myntra|ajio|nykaa|noon|shein|ikea|centrepoint|lc waikiki|max fashion|h&m|zara|decathlon|jarir|virgin|sharaf|extra|croma|reliance digital|mall/i,["Shopping"]],
+  [/netflix|spotify|prime video|hotstar|disney|youtube|apple\.com|google play|icloud|shahid|osn|zee5|sonyliv/i,["Subscriptions","Bills"]],
+  [/school|tuition|college|university|fees|academy|books/i,["Education","Other"]],[/lic\b|insurance|policy|premium/i,["Insurance","Bills"]],[/rent\b|landlord|housing/i,["Rent"]]];
+function catGuess(t){const all=[...S.tx.map(x=>x.cat),...S.bud.map(b=>b.cat)].filter(Boolean);
+  for(const [re,L] of KEYCAT)if(re.test(t)){for(const c of L){const own=all.find(a=>a.toLowerCase()==c.toLowerCase());if(own)return own}return L[L.length-1]}return ""}
+{const _cf=catFor;catFor=function(text){const t=String(text||"").trim();if(t.length<2)return "";const k=pkey(t);
+  if(k){for(let i=S.tx.length-1;i>=0;i--){const x=S.tx[i];if(x.cat&&x.payee&&!x.link&&pkey(x.payee)==k)return x.cat}}
+  return _cf(t)||catGuess(t)}}
+function accFor(payee,cur){const k=pkey(payee);if(!k)return "";for(let i=S.tx.length-1;i>=0;i--){const x=S.tx[i];if(x.payee&&x.acc&&(x.kind=="out"||x.kind=="in")&&pkey(x.payee)==k&&(!cur||ac(x.acc).cur==cur))return x.acc}return ""}
+/* ---------- teach once: message formats you show the app ---------- */
+const TOKRE=/[A-Za-z؀-ۿ]+|\d[\d,]*(?:\.\d+)?|\s+|[^\sA-Za-z\d؀-ۿ]/g;
+const MONRE=/^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)$/i;
+const resc=s=>s.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&");
+const normMsg=t=>String(t||"").replace(/\s+/g," ").trim();
+function tplBuild(toks,ia,ps,pe){const sig=[];toks.forEach((t,i)=>{if(/\S/.test(t))sig.push(i)});if(ia<0||!sig.includes(ia))return null;
+  const first=ps>=0?Math.min(ia,ps):ia,last=pe>=0?Math.max(ia,pe):ia,fi=sig.indexOf(first),li=sig.indexOf(last),from=sig[Math.max(0,fi-8)],to=sig[Math.min(sig.length-1,li+8)];
+  let re="",g=0,ai=0,pi=0;
+  for(let i=from;i<=to;i++){const t=toks[i];
+    if(i==ia){re+="([\\d,]*\\d(?:\\.\\d+)?)";ai=++g;continue}
+    if(ps>=0&&i==ps){re+="(.+?)";pi=++g;i=pe;if(pe>=to)re+="\\s*$";continue}
+    if(/^\s+$/.test(t)){re+="\\s*";continue}
+    if(/^\d/.test(t)){re+="[\\d,.]+";continue}
+    if(MONRE.test(t)){re+="[A-Za-z]{3,9}";continue}
+    re+=resc(t)}
+  return {re,ai,pi}}
+function tplTry(s){const L=[...(S.tpl||[]).filter(t=>t&&t.re&&!t.off).sort((a,b)=>(b.ut||0)-(a.ut||0)),...rulesSms];
+  for(const t of L){let re;try{re=new RegExp(t.re,t.flags||"i")}catch(e){continue}const m=s.match(re);if(!m)continue;const amt=num(m[t.ai||1]);if(!(amt>0))continue;return {t,amt,payee:t.pi?String(m[t.pi]||"").replace(/\s+/g," ").trim().slice(0,40):""}}return null}
+const dateIn=s=>{const m=s.match(/\b(\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}[A-Za-z]{3}\d{2,4}|\d{4}-\d\d-\d\d)\b/);if(!m)return "";const d=pDate(m[1]);return d&&d<=plus(1)&&d>=plus(-400)?d:""};
+{const _p=parseSms;parseSms=function(text){const s=normMsg(text);if(!s)return null;if(rulesSkip.some(r=>r.test(s)))return null;
+  const T=tplTry(s);let p=_p(text);
+  if(T){const b=p||{kind:"out",amt:0,cur:"",l4:"",payee:"",date:"",acc:"",cat:"",note:""};p={...b,amt:T.amt,kind:T.t.kind||b.kind||"out",cur:T.t.cur||b.cur,payee:T.payee||b.payee,tpl:T.t.id,weak:false};
+    if(!p.date)p.date=dateIn(s)||today();if(!p.l4){const m=s.match(/(?:a\/c|acct|account|card|ac)\s*(?:no\.?|number|ending|ending with)?\s*[:\-]?\s*[xX*.]*\s*(\d{3,6})\b/i);if(m)p.l4=m[1]}
+    const A=l4Acc(p.l4);if(T.t.acc&&S.acc.some(a=>a.id==T.t.acc)){p.acc=T.t.acc;delete p.newL4}else if(A){p.acc=A.id;delete p.newL4}else if(p.l4)p.newL4=p.l4;
+    if(T.t.cat)p.cat=T.t.cat;else p.cat=catFor(p.payee)}
+  if(!p)return null;
+  if(p.payee&&!l4Acc(p.l4)&&!(T&&T.t.acc)){const a=accFor(p.payee,p.cur);if(a)p.acc=a}
+  if(!p.cat)p.cat=catFor(p.payee);if(!p.cur&&p.acc)p.cur=ac(p.acc).cur;return p}}
+let TCH=null;
+function teachOpen(text,from){const s=normMsg(text);if(!s)return toast("Nothing to teach");const g=parseSms(s)||{};TCH={s,from:from||"",toks:s.match(TOKRE)||[],ia:-1,ps:-1,pe:-1,mode:"a",kind:g.kind||"out",cur:g.cur||"",acc:g.acc||"",cat:g.cat||""};
+  if(g.amt){const i=TCH.toks.findIndex(t=>/^\d/.test(t)&&num(t)==g.amt);if(i>=0){TCH.ia=i;TCH.mode="p"}}teachRender()}
+function teachRule(){if(!TCH||TCH.ia<0)return null;const b=tplBuild(TCH.toks,TCH.ia,TCH.ps,TCH.pe);if(!b)return null;let ok=false;try{const m=TCH.s.match(new RegExp(b.re,"i"));ok=!!m&&num(m[b.ai])==num(TCH.toks[TCH.ia])}catch(e){}return ok?b:null}
+function teachPrevHtml(){const T=TCH,b=teachRule(),pay=T.ps>=0?T.toks.slice(T.ps,T.pe+1).join("").trim():"";return T.ia<0?"Choose the amount first.":b?`Reads as: <b>${T.kind=="in"?"+":"−"}${fmx(num(T.toks[T.ia]),T.cur||(T.acc&&ac(T.acc).cur)||"INR")}</b>${pay?" · "+esc(pay):""}${T.cat?" · "+esc(T.cat):""}`:"This choice can’t be turned into a rule. Pick the amount again."}
+function teachRender(){const T=TCH;if(!T)return;const b=teachRule(),pay=T.ps>=0?T.toks.slice(T.ps,T.pe+1).join("").trim():"";
+  const tk=T.toks.map((t,i)=>/^\s+$/.test(t)?" ":`<button class="tk${i==T.ia?" amt":""}${T.ps>=0&&i>=T.ps&&i<=T.pe?" pay":""}" data-act="teachTok" data-id="${i}">${esc(t)}</button>`).join("");
+  sheet(`<h2>Teach this message</h2><p class="sub">${T.mode=="a"?"Tap the <b>amount</b>.":"Now tap the <b>first and last word</b> of the shop or person. Skip if there isn’t one."}</p>
+  <div class="seg"><button class="btn sm ${T.mode=="a"?"":"ghost"}" data-act="teachMode" data-id="a">Amount</button><button class="btn sm ${T.mode=="p"?"":"ghost"}" data-act="teachMode" data-id="p">Shop or person</button><button class="btn sm ghost" data-act="teachMode" data-id="x">No shop</button></div>
+  <div class="tkbox">${tk}</div>
+  <div class="two"><div>${SEL("t_kind","This is",[["out","Money out"],["in","Money in"]],T.kind,'data-tch="1"')}</div><div>${SEL("t_cur","Currency",[["","From the account"],...CURS],T.cur,'data-tch="1"')}</div></div>
+  <div class="two"><div>${SEL("t_acc","Account",[["","Find from card ending"],...ACCS()],T.acc,'data-tch="1"')}</div><div>${F("t_cat","Category (optional)",T.cat,"text",'list="t_cats" data-tch="1"')}${DL("t_cats",[...S.tx.map(x=>x.cat),...CATS])}</div></div>
+  <p class="note" id="t_prev">${teachPrevHtml()}</p>
+  <div class="acts"><button class="btn" data-act="teachSave"${b?"":" disabled"}>Save this format</button><button class="btn ghost" data-act="teachReset">Start again</button></div>
+  <p class="note">Messages with the same wording are read this way from now on, on both phones. The amount, shop and dates can change.</p>`)}
+document.addEventListener("change",e=>{const t=e.target;if(!TCH||!t||!t.dataset||!t.dataset.tch)return;TCH.kind=v("t_kind");TCH.cur=v("t_cur");TCH.acc=v("t_acc");TCH.cat=v("t_cat").trim();const p=$("#t_prev");if(p)p.innerHTML=teachPrevHtml()});
+/* ---------- regular payments the app notices ---------- */
+const CYCD=[["monthly",25,35,30],["quarterly",84,98,91],["half",175,190,182],["yearly",350,380,365]];
+function recFind(){const since=addM(today(),-14),ign=new Set(S.cfg.recIgn||[]),G={};
+  S.tx.forEach(x=>{if(x.kind!="out"||x.date<since||x.link||x.rec||/^r_/.test(x.id))return;const k=pkey(x.payee||x.note||"");if(!k)return;const key=k+"|"+(x.cur||"INR");(G[key]=G[key]||[]).push(x)});
+  const have=[...S.subs.map(s=>pkey(s.name)),...S.dates.map(d=>pkey(d.name)),...S.rec.map(r=>pkey(r.note||r.cat||"")),...S.loans.map(l=>pkey(l.name))].filter(Boolean),out=[];
+  for(const [key,L] of Object.entries(G)){if(L.length<2||ign.has(key))continue;const k=key.split("|")[0];if(have.some(h=>h==k||h.startsWith(k)||k.startsWith(h)))continue;
+    L.sort((a,b)=>a.date.localeCompare(b.date));const gaps=L.slice(1).map((x,i)=>(D(x.date)-D(L[i].date))/864e5).filter(g=>g>0).sort((a,b)=>a-b);if(!gaps.length)continue;
+    const med=gaps[Math.floor(gaps.length/2)],c=CYCD.find(([,lo,hi])=>med>=lo&&med<=hi);if(!c)continue;if(c[0]=="monthly"&&L.length<3)continue;
+    if(gaps.filter(g=>g>=c[1]*.8&&g<=c[2]*1.2).length<gaps.length*.7)continue;
+    const A=L.map(x=>+x.amt).sort((a,b)=>a-b),am=A[Math.floor(A.length/2)];if(A.filter(a=>Math.abs(a-am)<=am*.15+0.5).length<A.length*.7)continue;
+    const last=L[L.length-1],next=addM(last.date,c[0]=="monthly"?1:c[0]=="quarterly"?3:c[0]=="half"?6:12);if(dl(next)<-c[3])continue;
+    out.push({key,name:last.payee||last.note,amt:am,cur:last.cur||"INR",acc:last.acc,cat:last.cat||"",cyc:c[0],n:L.length,last:last.date,next})}
+  return out.sort((a,b)=>b.n-a.n)}
+function recCard(){const R=recFind().slice(0,4);if(!R.length)return "";const lab={monthly:"every month",quarterly:"every 3 months",half:"every 6 months",yearly:"every year"};
+  return `<div class="card" style="margin:0 0 12px"><b>Looks like regular payments</b><p class="note" style="margin-top:2px">Turn them into reminders, so they show up before they’re due.</p>${R.map(r=>`<div style="margin-top:10px"><div class="hbl"><span>${esc(r.name)}</span><b>~${fmx(r.amt,r.cur)}</b></div><small style="color:var(--mute)">${lab[r.cyc]} · seen ${r.n} times · next about ${fmt(r.next)}</small>
+  <div class="acts" style="margin-top:6px"><button class="btn sm" data-act="recSub" data-id="${esc(r.key)}">Subscription</button><button class="btn sm ghost" data-act="recDue" data-id="${esc(r.key)}">Due date</button><button class="btn sm ghost" data-act="recIgn" data-id="${esc(r.key)}">Not regular</button></div></div>`).join("")}</div>`}
+{const _vD=vDates;vDates=function(){const h=_vD(),c=recCard();if(!c)return h;const i=h.indexOf("</p>");return i>0?h.slice(0,i+4)+c+h.slice(i+4):c+h}}
+const setVal=(id,val)=>{const e=$("#"+id);if(e&&val!=null){e.value=val;try{e.dispatchEvent(new Event("change",{bubbles:true}))}catch(x){}}};
+/* ---------- settings additions ---------- */
+function setExtra(){const R=S.cfg.rules,L=S.cfg.updLatest;return `<h3>App updates</h3><p class="note">You have Version ${VER}${buildNo()?" (build "+buildNo()+")":""}.${isApp()?(S.cfg.upd?` <b>Build ${S.cfg.upd.code} is ready.</b>`:L&&L.code?` Latest on GitHub: build ${L.code}.`:""):" Updates are for the phone app; the web app updates itself."}</p>
+  ${F("f_repo","Your GitHub repo",repoSlug(),"text",'placeholder="yourname/Due-spend" autocomplete="off" autocapitalize="off"')}
+  <div class="acts"><button class="btn sm ghost" data-act="repoSave">Save repo</button>${isApp()?`<button class="btn sm ghost" data-act="updNow">Check for update</button><button class="btn sm ghost" data-act="updInstall">Install latest</button>`:""}</div>${S.cfg.updErr&&isApp()?`<p class="note">Last check: ${esc(S.cfg.updErr).slice(0,80)}</p>`:""}
+  <h3>Rules file</h3><p class="note">${R?`Using rules.json from ${fmt(iso(new Date(S.cfg.rulesOk||Date.now())))}${R.updated?" (edited "+esc(R.updated)+")":""}: ${rulesSms.length} message formats, scheme rates ${esc(SCH_Q.label)}.`:"Put rules.json in your repo to update scheme rates and bank message formats without a new app."}</p><div class="acts"><button class="btn sm ghost" data-act="rulesNow">Download rules now</button></div>`}
+{const _st=settings;settings=function(...a){const r=_st(...a);try{const sh=$("#over .sheet");if(sh&&!$("#f_repo"))sh.insertAdjacentHTML("beforeend",setExtra())}catch(e){console.warn(e)}return r}}
+Object.assign(ACT,{
+  updInstall(){return updInstall()},
+  async updNow(){toast("Checking…");const u=await updCheck(true);settings();toast(u?"Build "+u.code+" is ready to install":S.cfg.updErr?"Couldn’t check: "+S.cfg.updErr.slice(0,60):"You have the latest version")},
+  repoSave(){const r=v("f_repo").trim();S.cfg.repo=r;S.cfg.updAt=0;S.cfg.rulesAt=0;save();toast(repoSlug()?"Repo saved: "+repoSlug():"That doesn’t look like name/repo");settings()},
+  async rulesNow(){toast("Downloading rules…");const ok=await rulesFetch(true);settings();toast(ok?"Rules updated":"Couldn’t download rules.json. Check it’s in your repo.")},
+  teach(id){const q=(S.cfg.smsq||[]).find(m=>String(m.id)==id);if(q)teachOpen(q.body,q.from)},
+  teachText(){teachOpen(v("f_rt"),"")},
+  teachLog(i){const x=(window.__rcLog||[])[+i];if(x)teachOpen(x.body,x.app)},
+  teachTok(i){const T=TCH;if(!T)return;i=+i;const t=T.toks[i];
+    if(T.mode=="a"){if(!/^\d/.test(t))return toast("Tap a number for the amount");T.ia=i;T.mode="p"}
+    else{if(i==T.ia)return;if(T.ps<0)T.ps=T.pe=i;else if(i<T.ps)T.ps=i;else if(i>T.pe)T.pe=i;else T.ps=T.pe=i;
+      if(T.ps>=0&&T.ia>=T.ps&&T.ia<=T.pe){toast("The shop can’t include the amount");T.ps=T.pe=-1}}teachRender()},
+  teachMode(m){if(!TCH)return;if(m=="x"){TCH.ps=-1;TCH.pe=-1;TCH.mode="p"}else TCH.mode=m;teachRender()},
+  teachReset(){if(!TCH)return;Object.assign(TCH,{ia:-1,ps:-1,pe:-1,mode:"a"});teachRender()},
+  teachSave(){const T=TCH,b=teachRule();if(!T||!b)return toast("Pick the amount first");
+    const o=stamp({id:uid(),name:(T.from||T.s.slice(0,28)).slice(0,40),re:b.re,flags:"i",ai:b.ai,pi:b.pi,kind:T.kind,cur:T.cur,acc:T.acc,cat:T.cat,ex:T.s.slice(0,160)});put("tpl",o);
+    let n=0;(S.cfg.smsq||[]).forEach(m=>{const p=parseSms(m.body);if(p&&p.tpl==o.id){m.p=p;n++}});
+    const inQ=(S.cfg.smsq||[]).some(m=>normMsg(m.body)==T.s);save();TCH=null;
+    if(!inQ){const p=parseSms(T.s);sheet(`<h2>Format saved</h2><p class="sub">${n?n+" waiting "+(n==1?"payment was":"payments were")+" updated. ":""}Add this payment now?</p>${p?`<p><b>${p.kind=="in"?"+":"−"}${fmx(p.amt,p.cur||(p.acc&&ac(p.acc).cur)||"INR")}</b>${p.payee?" · "+esc(p.payee):""} · ${fmt(p.date)}</p>`:""}<div class="acts"><button class="btn" data-act="teachAddNow">Add it</button><button class="btn ghost" data-act="closeX">Not now</button></div>`);window.__tchLast=T.s}
+    else{render();smsReview();toast("Format saved"+(n?". "+n+" waiting "+(n==1?"payment":"payments")+" updated":""))}},
+  teachAddNow(){const t=window.__tchLast;sheet("");if(t)smsOpen(t)},
+  tplDel(id){const x=(S.tpl||[]).find(t=>t.id==id);if(!x)return;trash("tpl",id);save();readCheck();toast("Format removed")},
+  recSub(key){const r=recFind().find(x=>x.key==key);if(!r)return;subForm(null);setVal("f_name",r.name);setVal("f_price",r.amt);setVal("f_cur",r.cur);setVal("f_cyc",r.cyc);setVal("f_start",r.last);setVal("f_end",r.next);setVal("f_pay",r.acc);setVal("f_rec","0");
+    setVal("f_cat",/netflix|prime|hotstar|disney|osn|shahid|zee5|sonyliv|youtube/i.test(r.name)?"OTT and streaming":/spotify|anghami|music/i.test(r.name)?"Music":/ooredoo|vodafone|jio|airtel|internet|broadband/i.test(r.name)?"Mobile and internet":/gym|fitness/i.test(r.name)?"Gym and fitness":/icloud|google one|microsoft|adobe|dropbox/i.test(r.name)?"Software and cloud":"Other")},
+  recDue(key){const r=recFind().find(x=>x.key==key);if(!r)return;dForm(null);setVal("f_name",r.name);setVal("f_type","renewal");setVal("f_amt",r.amt);setVal("f_cur",r.cur);setVal("f_date",r.next);setVal("f_rep",r.cyc=="half"?"half":r.cyc);setVal("f_pay",r.acc)},
+  recIgn(key){S.cfg.recIgn=[...new Set([...(S.cfg.recIgn||[]),key])];save();render();toast("Won’t suggest that again")}
+});
+/* review cards and the reading check get Teach buttons */
+{const _sr=smsReview;smsReview=function(){_sr();$$("#over [data-act='smsSkip']").forEach(b=>{const id=b.getAttribute("data-id");if(!b.parentNode.querySelector("[data-act='teach']"))b.insertAdjacentHTML("afterend",`<button class="btn sm ghost" data-act="teach" data-id="${esc(id)}">Wrong? Teach</button>`)})}}
+{const _rc=readCheck;readCheck=async function(){await _rc();const sh=$("#over .sheet");if(!sh)return;
+  const tb=$("#over [data-act='readTestAdd']");if(tb)tb.insertAdjacentHTML("afterend",`<button class="btn ghost" data-act="teachText">Teach this format</button>`);
+  let log=[];if(isApp()){try{log=JSON.parse(JSON.stringify((await NP("DueNative","notifLog")).items||[]))}catch(e){}}
+  window.__rcLog=[...log.map(x=>({...x,t:+x.time})),...(S.cfg.smsLog||[])].sort((a,b)=>b.t-a.t).slice(0,30);
+  $$("#over .row").forEach((r,i)=>{if(i<window.__rcLog.length)r.insertAdjacentHTML("beforeend",`<button class="btn sm ghost" data-act="teachLog" data-id="${i}">Teach</button>`)});
+  const T=(S.tpl||[]).filter(t=>!t.off);sh.insertAdjacentHTML("beforeend",`<h3>Formats you taught (${T.length})</h3>${T.length?T.map(t=>`<div class="row" style="cursor:default"><div><b>${esc(t.name)}</b><small>${t.kind=="in"?"Money in":"Money out"}${t.cur?" · "+t.cur:""}${t.acc?" · "+esc(an(t.acc)):""} · ${esc((t.ex||"").slice(0,70))}…</small></div><button class="btn sm ghost" data-act="tplDel" data-id="${t.id}" aria-label="Remove format">✕</button></div>`).join(""):`<p class="note">When a message is read wrong, tap Teach on it.</p>`}${rulesSms.length?`<p class="note">Plus ${rulesSms.length} formats from your rules file.</p>`:""}`)}}
+/* tax label: India's Income-tax Act 2025 renumbered 80C as section 123 from 1 April 2026 */
+const TAXSEC=d=>(d||today())>="2026-04-01"?"section 123 (old 80C)":"80C";
+{const _ns=nativeStart;nativeStart=function(){_ns();setTimeout(()=>updCheck(false),4000)}}
+{const _rn=refreshMarket;refreshMarket=async function(f){const r=await _rn(f);try{await rulesFetch(!!f)}catch(e){}return r}}
+{const _start=start;start=function(...a){try{rulesApply()}catch(e){}return _start(...a)}}
+{const _sc=smsCard;smsCard=()=>updCard()+_sc()}
+
+/* ===== Version 21: Qatar ↔ India: top-up radar, money sent home, rate alert, transfer matcher, gratuity ===== */
+PREFX.push("grat","rtgt");
+/* market QAR→INR on a day (from the daily price history), or the app's rate */
+function mktRate(d){const H=S.mkh||{};if(H[d]&&H[d].qi)return H[d].qi;const ks=Object.keys(H).filter(k=>k<=d&&H[k].qi).sort();const k=ks[ks.length-1];return k&&dl(k)>=dl(d)-7?H[k].qi:0}
+const qiNow=()=>(S.mk&&S.mk.qi)||fx();
+/* ---------- top-up radar: will each account cover what is coming? ---------- */
+function radar(days){days=days||90;const t=today(),U=upcoming(t,plus(days),true),per={};
+  const add=(acc,d,a,n)=>{if(acc)(per[acc]=per[acc]||[]).push({d:d<t?t:d,a,n})};
+  U.forEach(u=>{let acc="",sg=-1;
+    if(u.src=="sub"){const x=S.subs.find(q=>q.id==u.id);if(x)acc=payAcc(x.pay,x.cur).id}
+    else if(u.src=="sch"){const x=S.sacc.find(q=>q.id==u.id);if(x)acc=payAcc(x.pay,"INR").id}
+    else if(u.src=="lend"){const x=(S.lend||[]).find(q=>q.id==u.id);if(x&&x.acc){acc=x.acc;sg=x.dir=="lent"?1:-1}}
+    else if(u.t=="fd")return;
+    else if(u.t=="due"){const x=S.dates.find(q=>q.id==u.id);if(x)acc=payAcc(x.pay,x.cur).id}
+    else if(u.t=="emi"){const x=S.loans.find(q=>q.id==u.id);if(x)acc=payAcc(x.acc,x.cur).id}
+    else if(u.t=="rec"||u.t=="recin"){const x=S.rec.find(q=>q.id==u.id);if(x)acc=x.acc;sg=u.t=="recin"?1:-1}
+    if(!acc||!+u.a)return;const A=ac(acc);add(acc,u.d,sg*cv(+u.a,u.c||A.cur,A.cur),u.n)});
+  return S.acc.filter(a=>per[a.id]&&a.type!="card").map(a=>{const L=per[a.id].sort((x,y)=>x.d.localeCompare(y.d)||x.a-y.a),min=+a.min||0;let b=bal(a),low=b,lowD=t,lowN="",first=null;
+    L.forEach(e=>{b+=e.a;e.b=b;if(b<low){low=b;lowD=e.d;lowN=e.n}if(!first&&b<min)first=e});
+    const step=a.cur=="INR"?1000:100,need=first?Math.ceil((min-low)/step)*step:0,by=first?(dl(first.d)>3?addDays(first.d,-3):today()):"";
+    return {a,L,start:bal(a),low,lowD,lowN,first,need,by,min}}).filter(r=>r.L.some(e=>e.a<0))}
+const addDays=(d,n)=>{const x=D(d);x.setDate(x.getDate()+n);return iso(x)};
+function radarCard(home){const R=radar(home?45:90).filter(r=>r.need>0);if(!R.length)return "";
+  return `<div class="card late" style="margin:0 0 12px;cursor:pointer" data-act="radar"><b>Top up needed</b>${R.slice(0,3).map(r=>`<div style="margin-top:6px"><div class="hbl"><span>Send <b>${fmx(r.need,r.a.cur)}</b> to ${esc(r.a.name)}</span><span class="chip">by ${fmt(r.by)}</span></div><small style="color:var(--mute)">For ${esc(r.first.n)} on ${fmt(r.first.d)}${r.a.cur=="INR"?" · about QAR "+nf(Math.ceil(r.need/qiNow()),0):""}</small></div>`).join("")}</div>`}
+function radarSheet(){const R=radar(90);sheet(`<h2>Top-up radar</h2><p class="sub">Next 90 days of dues, EMIs, scheme deposits, subscriptions and regular payments, account by account.</p>
+  ${R.length?R.map(r=>`<div class="card" style="margin-bottom:10px"><div class="hbl"><b>${esc(r.a.name)}</b><span class="chip">${r.need?"Send "+fmx(r.need,r.a.cur):"Covered"}</span></div>
+  <small style="color:var(--mute)">Now ${fmx(r.start,r.a.cur)} · lowest ${fmx(r.low,r.a.cur)} on ${fmt(r.lowD)}${r.lowN?" after "+esc(r.lowN):""}</small>
+  <table class="tbl" style="margin-top:6px">${r.L.slice(0,12).map(e=>`<tr><td>${fmt(e.d)}</td><td>${esc(e.n)}</td><td style="text-align:right">${e.a<0?"−":"+"}${nf(Math.abs(e.a),0)}</td><td style="text-align:right;color:${e.b<r.min?"var(--late)":"inherit"}">${nf(e.b,0)}</td></tr>`).join("")}</table>
+  <div class="two" style="margin-top:6px"><div>${F("min_"+r.a.id,"Keep at least ("+r.a.cur+")",r.a.min||"","number")}</div><div style="display:flex;align-items:flex-end;gap:6px"><button class="btn sm ghost" data-act="radarMin" data-id="${r.a.id}">Save</button>${r.need?`<button class="btn sm" data-act="radarSend" data-id="${r.a.id}">Transfer</button>`:""}</div></div></div>`).join(""):`<div class="empty">Nothing is set to be paid from your accounts in the next 90 days. Choose the "Paid from" account on dues, loans and subscriptions to use this.</div>`}
+  <p class="note">Recurring income set up under Regular entries counts too. FD maturities don’t, in case they renew.</p>`)}
+/* ---------- money sent home ---------- */
+const fyOf=d=>{const y=+d.slice(0,4);return (+d.slice(5,7)>=4?y:y-1)};
+function remitRows(from){return remits().filter(r=>!from||r.x.date>=from).map(r=>{const m=mktRate(r.x.date),fee=+r.x.fee||0,feeQ=cv(fee,ac(r.x.acc).cur,"QAR"),cost=m?Math.max(0,m*r.qar-r.inr)+feeQ*m:null;
+  return {...r,mkt:m,feeQ,cost,pct:cost!=null&&m?cost/(m*(r.qar+feeQ))*100:null,via:r.x.via||"Not noted"}})}
+function remitStats(L){const q=L.reduce((s,r)=>s+r.qar,0),n=L.reduce((s,r)=>s+r.inr,0),f=L.reduce((s,r)=>s+r.feeQ,0),C=L.filter(r=>r.cost!=null),cost=C.reduce((s,r)=>s+r.cost,0);
+  const ch={};L.forEach(r=>{const c=ch[r.via]=ch[r.via]||{via:r.via,q:0,n:0,f:0,k:0};c.q+=r.qar;c.n+=r.inr;c.f+=r.feeQ;c.k++});
+  const by=Object.values(ch).map(c=>({...c,eff:c.n/(c.q+c.f)})).sort((a,b)=>b.eff-a.eff);
+  let beat=0,tot=0;L.forEach(r=>{const mo=r.x.date.slice(0,7),H=Object.entries(S.mkh||{}).filter(([k,x])=>k.startsWith(mo)&&x.qi).map(([,x])=>x.qi);if(H.length>=5&&r.mkt){tot++;if(r.mkt>=H.reduce((s,x)=>s+x,0)/H.length)beat++}});
+  return {q,n,f,cost,costPct:C.length?cost/C.reduce((s,r)=>s+r.mkt*(r.qar+r.feeQ),0)*100:null,avg:q?n/q:0,by,beat,tot}}
+remitCard=function(){const L=remitRows(fyOf(today())+"-04-01");if(!L.length&&!S.cfg.rtgt)return `<div class="card" style="margin-top:12px;cursor:pointer" data-act="remitSheet"><b>Money sent home</b><p class="note">Record QAR → INR transfers with Transfer money. The app shows the real rate, fees and the best channel. You can also set a rate alert here.</p></div>`;
+  const st=remitStats(L),hit=S.cfg.rtgt&&qiNow()>=S.cfg.rtgt;
+  return `<div class="card" style="margin-top:12px;cursor:pointer" data-act="remitSheet"><div class="hbl"><b>Money sent home</b><span class="chip">${L.length} this tax year</span></div>
+  <div class="stats" style="margin:8px 0 0">${tile("Received",inr(Math.round(st.n)))}${tile("Sent","QAR "+nf(st.q,0))}${tile("Your rate",st.avg?st.avg.toFixed(2):"–")}</div>
+  <small style="color:var(--mute);display:block;margin-top:6px">${st.costPct!=null?"Fees and rate gap cost about "+inr(Math.round(st.cost))+" ("+st.costPct.toFixed(1)+"%). ":""}${st.by.length>1?"Best channel: "+esc(st.by[0].via)+". ":""}Today 1 QAR = ₹${qiNow().toFixed(2)}${S.cfg.rtgt?` · alert at ₹${S.cfg.rtgt}${hit?" <b>reached</b>":""}`:""}</small></div>`};
+function remitSheet(){const L=remitRows("").reverse(),fy=fyOf(today()),Y=L.filter(r=>r.x.date>=fy+"-04-01"),st=remitStats(Y),H=Object.keys(S.mkh||{}).filter(k=>S.mkh[k].qi).sort().slice(-60);
+  sheet(`<h2>Money sent home</h2><p class="sub">Tax year ${fy}-${String(fy+1).slice(2)}: ${Y.length} transfers, QAR ${nf(st.q,0)} → ${inr(Math.round(st.n))}.</p>
+  ${H.length>1?`<small style="color:var(--mute)">1 QAR in rupees, last ${H.length} days</small>${area(H.map(d=>({l:+d.slice(8)+" "+mlab(d.slice(0,7)),v:S.mkh[d].qi})),true,2)}`:""}
+  <h3>Rate alert</h3><div class="two"><div>${F("f_rtgt","Tell me when 1 QAR reaches ₹",S.cfg.rtgt||"","number",'placeholder="'+(qiNow()+0.15).toFixed(2)+'"')}</div><div style="display:flex;align-items:flex-end"><button class="btn sm" data-act="rtgtSave">Save alert</button></div></div>
+  <p class="note">Today ₹${qiNow().toFixed(2)}. The app checks a few times a day when it’s opened, and shows a phone notification once a day while the rate is at or above your number.</p>
+  ${st.tot?`<p class="note"><b>Timing:</b> on ${st.beat} of ${st.tot} transfers the market rate was at or above that month’s average.</p>`:""}
+  ${st.by.length?`<h3>Channels</h3><table class="tbl"><tr><th>Through</th><th>Times</th><th>Rate after fees</th></tr>${st.by.map(c=>`<tr><td>${esc(c.via)}</td><td>${c.k}</td><td>${c.eff.toFixed(3)}</td></tr>`).join("")}</table><p class="note">Rate after fees = rupees received ÷ (QAR sent + fee). Higher is better. Add "Sent through" on each transfer to compare.</p>`:""}
+  <h3>Transfers</h3>${L.length?L.slice(0,40).map(r=>`<div class="row" data-act="editTx" data-id="${r.x.id}"><div><b>QAR ${nf(r.qar)} → ${inr(r.inr)}</b><small>${fmt(r.x.date)} · ${esc(r.via)} · rate ${r.rate.toFixed(3)}${r.mkt?" · market "+r.mkt.toFixed(3):""}${r.feeQ?" · fee QAR "+nf(r.feeQ):""}</small></div>${r.cost!=null?`<small style="text-align:right">cost<br><b>${inr(Math.round(r.cost))}</b></small>`:""}</div>`).join(""):`<div class="empty">No QAR → INR transfers yet.</div>`}
+  <div class="acts"><button class="btn" data-act="trf">Transfer money</button></div>`)}
+/* rate alert: checked whenever prices refresh */
+{const _rm=refreshMarket;refreshMarket=async function(f){const r=await _rm(f);try{const g=+S.cfg.rtgt,q=S.mk&&S.mk.qi;if(g&&q&&q>=g&&S.cfg.rtHit!=today()){S.cfg.rtHit=today();save();if(isApp())nativeNotifyLater();if(tab=="home")render()}}catch(e){}return r}}
+{const _nn=nativeNotify;nativeNotify=async function(){await _nn();try{const g=+S.cfg.rtgt,q=S.mk&&S.mk.qi;if(g&&q&&q>=g&&S.cfg.rtHit==today()&&S.cfg.rtNote!=today()){S.cfg.rtNote=today();save();
+  await NP("LocalNotifications","schedule",{notifications:[{id:8600,title:"QAR rate alert: ₹"+q.toFixed(2),body:"1 QAR is at or above your ₹"+g+" target. A good day to send money home.",schedule:{at:new Date(Date.now()+1500).toISOString()}}]})}}catch(e){}}}
+const rateCard=()=>{const g=+S.cfg.rtgt,q=S.mk&&S.mk.qi;return g&&q&&q>=g?`<div class="card" style="margin:0 0 12px;cursor:pointer;border-color:var(--pri)" data-act="remitSheet"><div class="hbl"><b>1 QAR = ₹${q.toFixed(2)} today</b><span class="chip">Alert</span></div><small style="color:var(--mute)">At or above your ₹${g} target. A good day to send money home.</small></div>`:""};
+/* ---------- own-transfer matcher: QAR out + INR in = one transfer ---------- */
+function trMatch(outs,ins){const P=[],used=new Set();
+  ins.forEach(i=>{let best=null;outs.forEach(o=>{if(used.has(o.k))return;const gap=(D(i.date)-D(o.date))/864e5;if(gap<-1||gap>4)return;const m=mktRate(o.date)||qiNow(),r=i.amt/o.amt;if(r<m*.9||r>m*1.03)return;const sc=Math.abs(r-m)/m+gap*.002;if(!best||sc<best.sc)best={o,sc,r}});
+    if(best){used.add(best.o.k);P.push({o:best.o,i,rate:best.r})}});return P}
+const isQ=x=>(x.cur||ac(x.acc).cur)=="QAR",isI=x=>(x.cur||ac(x.acc).cur)=="INR";
+function trPairsTx(){const since=plus(-60),ign=new Set(S.cfg.trIgn||[]);
+  const outs=S.tx.filter(x=>x.kind=="out"&&!x.link&&x.date>=since&&isQ(x)).map(x=>({k:x.id,date:x.date,amt:+x.amt,x})),ins=S.tx.filter(x=>x.kind=="in"&&!x.link&&x.date>=since&&isI(x)).map(x=>({k:x.id,date:x.date,amt:+x.amt,x}));
+  return trMatch(outs,ins).filter(p=>!ign.has(p.o.k+"|"+p.i.k))}
+function trPairCard(){const P=trPairsTx();if(!P.length)return "";return `<div class="card" style="margin-top:12px"><b>Possible transfers between your accounts</b><p class="note">A QAR payment and a rupee credit a few days apart, at about the market rate.</p>${P.slice(0,4).map(p=>`<div style="margin-top:8px"><div class="hbl"><span>QAR ${nf(p.o.amt)} from ${esc(an(p.o.x.acc))} → ${inr(p.i.amt)} to ${esc(an(p.i.x.acc))}</span></div><small style="color:var(--mute)">${fmt(p.o.date)} and ${fmt(p.i.date)} · rate ${p.rate.toFixed(3)}</small><div class="acts" style="margin-top:4px"><button class="btn sm" data-act="trMerge" data-id="${p.o.k}|${p.i.k}">Make it one transfer</button><button class="btn sm ghost" data-act="trNo" data-id="${p.o.k}|${p.i.k}">Not the same</button></div></div>`).join("")}</div>`}
+/* in the review queue */
+function qPairs(){const q=(S.cfg.smsq||[]).filter(m=>m.p),since=plus(-10);
+  const outs=[...q.filter(m=>m.p.kind=="out"&&(m.p.cur||ac(m.p.acc).cur)=="QAR").map(m=>({k:"q:"+m.id,date:m.p.date,amt:+m.p.amt,m})),...S.tx.filter(x=>x.kind=="out"&&!x.link&&x.date>=since&&isQ(x)).map(x=>({k:"t:"+x.id,date:x.date,amt:+x.amt,x}))];
+  const ins=q.filter(m=>m.p.kind=="in"&&(m.p.cur||ac(m.p.acc).cur)=="INR").map(m=>({k:"q:"+m.id,date:m.p.date,amt:+m.p.amt,m}));return trMatch(outs,ins)}
+{const _sr=smsReview;smsReview=function(){_sr();qPairs().forEach(p=>{const b=$(`#over [data-act='smsAdd'][data-id='${CSS.escape(String(p.i.m.id))}']`);if(!b)return;const card=b.closest(".card");if(!card||card.querySelector("[data-act='qMerge']"))return;
+  card.insertAdjacentHTML("beforeend",`<div class="note" style="margin-top:6px;color:var(--pri)">Looks like your transfer of QAR ${nf(p.o.amt)} from ${esc(an(p.o.m?p.o.m.p.acc:p.o.x.acc)||"your Qatar account")} on ${fmt(p.o.date)} (rate ${p.rate.toFixed(3)}).</div><div class="acts"><button class="btn sm" data-act="qMerge" data-id="${esc(p.o.k)}|${esc(p.i.k)}">Record as one transfer</button></div>`)})}}
+function makeTransfer(o,i,via){const fromAcc=o.acc||S.acc.find(a=>a.cur=="QAR")&&S.acc.find(a=>a.cur=="QAR").id,toAcc=i.acc||S.acc.find(a=>a.cur=="INR")&&S.acc.find(a=>a.cur=="INR").id;if(!fromAcc||!toAcc)return null;
+  return addTx(stamp({kind:"tr",acc:fromAcc,to:toAcc,amt:+o.amt,got:+i.amt,fee:0,date:o.date,cur:ac(fromAcc).cur,note:"Sent home",via:via||""}))}
+/* ---------- gratuity (Qatar end of service) ---------- */
+function gratCalc(at){const G=S.cfg.grat;if(!G||!G.join||!(+G.basic>0))return null;const end=at||(G.exit&&G.exit<today()?G.exit:today()),days=Math.max(0,(D(end)-D(G.join))/864e5-(+G.unpaid||0)),yrs=days/365,perYr=(+G.basic)/30*(+G.days||21);
+  return {yrs,amt:yrs>=1?perYr*yrs:0,accr:perYr*yrs,perYr,perMo:perYr/12,elig:yrs>=1,from:addM(G.join,12)}}
+{const _nw=nwParts;nwParts=function(to){const p=_nw(to),G=S.cfg.grat,g=G&&G.on!==false?gratCalc():null;p.grat=g?cv(g.amt,"QAR",to):0;p.inv+=p.grat;return p}}
+function gratCard(){const g=gratCalc(),G=S.cfg.grat;if(!g)return `<h2>Gratuity</h2><div class="card" style="cursor:pointer" data-act="gratForm"><b>End-of-service gratuity</b><p class="note">Add your joining date and basic pay. The app works out what you’ve earned so far and counts it in your net worth.</p></div>`;
+  const ex=G.exit&&G.exit>today()?gratCalc(G.exit):null;
+  return `<h2>Gratuity</h2><div class="card" style="cursor:pointer" data-act="gratForm"><div class="hbl"><b>End-of-service gratuity</b><span class="chip">${nf(g.yrs,1)} years</span></div>
+  <div class="stats" style="margin:8px 0 0">${tile("Earned so far","QAR "+nf(Math.round(g.accr)))}${tile("Each month","+QAR "+nf(Math.round(g.perMo)))}${ex?tile("By "+fmt(G.exit),"QAR "+nf(Math.round(ex.amt))):tile("In rupees",inr(Math.round(cv(g.accr,"QAR","INR"))))}</div>
+  <small style="color:var(--mute);display:block;margin-top:6px">${g.elig?"":"Payable after one year of service ("+fmt(g.from)+"). "}${+G.days||21} days of basic pay a year${G.on===false?" · not counted in net worth":" · counted in net worth"}. Estimate; your contract may give more.</small></div>`}
+function gratForm(){const G=S.cfg.grat||{};sheet(`<h2>End-of-service gratuity</h2><p class="sub">Qatar’s labour law sets at least three weeks (21 days) of your last basic pay for each year, with part years paid pro rata, after one year of service. Your contract can give more.</p>
+  <div class="two"><div>${F("g_join","Joining date",G.join||"","date")}</div><div>${F("g_basic","Basic pay a month (QAR)",G.basic||"","number")}</div></div>
+  <div class="two"><div>${F("g_days","Days of pay per year",G.days||21,"number")}</div><div>${F("g_unpaid","Unpaid leave days (not counted)",G.unpaid||"","number")}</div></div>
+  ${F("g_exit","Planned last working day (optional)",G.exit||"","date")}${SEL("g_on","Count it in net worth?",[["1","Yes"],["0","No"]],G.on===false?"0":"1")}
+  <p class="note">Use your basic pay only, without housing or transport allowances.</p>${btns("gratSave",G.join?"g":"",G.join?"gratDel":"")}`)}
+Object.assign(ACT,{
+  radar(){radarSheet()},
+  radarMin(id){const a=S.acc.find(x=>x.id==id);if(!a)return;a.min=+v("min_"+id)||0;stamp(a,a);save();render();radarSheet();toast("Saved")},
+  radarSend(id){const r=radar(90).find(x=>x.a.id==id);if(!r)return;const src=S.acc.filter(a=>a.cur!=r.a.cur&&a.type!="card").sort((a,b)=>bal(b)-bal(a))[0]||S.acc.find(a=>a.id!=id);trForm(null);
+    if(src)setVal("f_from",src.id);setVal("f_to",id);if(src){setVal("f_amt",src.cur==r.a.cur?r.need:Math.ceil(cv(r.need,r.a.cur,src.cur)));setVal("f_got",r.need)}},
+  remitSheet(){remitSheet()},
+  rtgtSave(){const g=+v("f_rtgt")||0;S.cfg.rtgt=g||null;S.cfg.rtHit="";S.cfg.rtNote="";save();toast(g?"You’ll get an alert at ₹"+g:"Rate alert off");if(g&&S.mk&&S.mk.qi>=g){S.cfg.rtHit=today();if(isApp())nativeNotifyLater()}render();remitSheet()},
+  trMerge(key){const [a,b]=key.split("|"),o=S.tx.find(x=>x.id==a),i=S.tx.find(x=>x.id==b);if(!o||!i)return;const t=makeTransfer({acc:o.acc,amt:o.amt,date:o.date},{acc:i.acc,amt:i.amt});if(!t)return;removeTx(a);removeTx(b);save();render();toast("Recorded as one transfer",()=>{removeTx(t.id);untrash(a);untrash(b);save();render()})},
+  trNo(key){S.cfg.trIgn=[...new Set([...(S.cfg.trIgn||[]),key])].slice(-200);save();render()},
+  qMerge(key){const [ok_,ik]=key.split("|"),q=S.cfg.smsq||[],im=q.find(m=>"q:"+m.id==ik);if(!im)return;let o;
+    if(ok_.startsWith("q:")){const om=q.find(m=>"q:"+m.id==ok_);if(!om)return;o={acc:om.p.acc,amt:om.p.amt,date:om.p.date};S.cfg.smsq=q.filter(m=>m!==om&&m!==im)}
+    else{const x=S.tx.find(t=>"t:"+t.id==ok_);if(!x)return;o={acc:x.acc,amt:x.amt,date:x.date};removeTx(x.id);S.cfg.smsq=q.filter(m=>m!==im)}
+    const t=makeTransfer(o,{acc:im.p.acc,amt:im.p.amt});save();render();if(t){toast("Recorded as one transfer");smsReview()}},
+  gratForm(){gratForm()},
+  gratSave(){const j=v("g_join"),b=+v("g_basic");if(!j||!(b>0))return toast("Add the joining date and basic pay");S.cfg.grat={join:j,basic:b,days:+v("g_days")||21,unpaid:+v("g_unpaid")||0,exit:v("g_exit"),on:v("g_on")!="0"};save();done();toast("Gratuity saved")},
+  gratDel(){S.cfg.grat=null;save();done()}
+});
+{const _vA=vAcc;vAcc=function(){let h=_vA();const r=radarCard(false),p=trPairCard(),k='<div class="acts"><button class="btn" data-act="trf">';const i=h.indexOf(k);
+  return i>=0?h.slice(0,i)+r+h.slice(i).replace("<h2>Transfers</h2>",p+"<h2>Transfers</h2>"):r+h+p}}
+{const _vW=vWealth;vWealth=function(){const h=_vW(),k="<h2>My savings schemes</h2>";return h.includes(k)?h.replace(k,gratCard()+k):h+gratCard()}}
+{const _sc=smsCard;smsCard=()=>_sc()+radarCard(true)+rateCard()}
+
+/* ===== Version 22: monthly verdict, money-flow chart, return-to-India plan ===== */
+PREFX.push("ret");
+/* ---------- monthly verdict ---------- */
+function verdict(m){m=m||today().slice(0,7);const cm=today().slice(0,7),part=m==cm,R=rep(m),p=addMon(m,-1),pts=[],why=[],tips=[];let sc=50;
+  const r=R.rate.cur;if(r!=null){sc+=r>=30?25:r>=20?18:r>=10?8:r>=0?0:-20;pts.push(["Savings rate",Math.round(r)+"% of income kept",r>=20?"good":r>=10?"warn":"bad"])}
+  /* part month: compare with what was spent by the same day in earlier months, not a share of their totals */
+  const day=part?+today().slice(8):31,upTo=(mm,k)=>sumV(mTx(mm,k||"out").filter(x=>+x.date.slice(8)<=day)),H=histMonths(m,3),avg=H.length?H.reduce((s_,x)=>s_+upTo(x),0)/H.length:null;
+  if(avg){const d=(R.out.cur-avg)/avg*100;sc+=d<=-10?10:d<=5?5:d<=15?0:-10;pts.push(["Spending",(d>=0?"+":"−")+Math.abs(Math.round(d))+"% vs usual"+(part?" so far":""),d<=5?"good":d<=15?"warn":"bad"])}
+  const B=budUse(m),over=B.filter(x=>x.p>100);sc-=Math.min(15,over.length*5);if(B.length)pts.push(["Budgets",over.length?over.length+" over the limit":"All within limits",over.length?"bad":"good"]);
+  const t=today(),late=part?upcoming(t,t,true).filter(u=>(u.t=="due"||u.t=="emi")&&u.d<t).length:0;if(late){sc-=10;pts.push(["Payments",late+" overdue","bad"])}
+  const need=R.out.avg||R.out.cur,liq=liquid();if(need>0){const mo=liq/need;sc+=mo>=6?10:mo>=3?5:mo<1?-10:0;pts.push(["Emergency cover",mo.toFixed(1)+" months of spending",mo>=6?"good":mo>=3?"warn":"bad"])}
+  sc=Math.max(0,Math.min(100,Math.round(sc)));
+  const catUp=mm=>{const o={};mTx(mm,"out").filter(x=>+x.date.slice(8)<=day).forEach(x=>{const c=x.cat||"Uncategorised";o[c]=(o[c]||0)+ca(x)});return o};
+  const C=Object.fromEntries(catTotals(m)),P=part?catUp(p):Object.fromEntries(catTotals(p)),floor=Math.max(1,(R.out.avg||R.out.cur||1)*.03);
+  const ch=[...new Set([...Object.keys(C),...Object.keys(P)])].map(k=>({k,c:C[k]||0,p:P[k]||0,d:(C[k]||0)-(P[k]||0)})).filter(x=>Math.abs(x.d)>=floor).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,3);
+  ch.forEach(x=>why.push(`${x.k} ${x.d>0?"up":"down"} ${fmr(Math.abs(x.d))}${x.p>0?" ("+(x.d>0?"+":"−")+Math.abs(Math.round(x.d/x.p*100))+"%)":""}${part?" compared with the same days last month":" compared with last month"}`));
+  const U=upcoming(t,plus(30),true).filter(u=>u.t!="fd"&&u.t!="recin"&&+u.a),cs=U.reduce((s,u)=>s+iv(u.a,u.c),0),big=U.slice().sort((a,b)=>iv(b.a,b.c)-iv(a.a,a.c)).slice(0,3),rad=radar(30).filter(x=>x.need>0);
+  if(rad.length)tips.push({t:`Send ${fmx(rad[0].need,rad[0].a.cur)} to ${rad[0].a.name} by ${fmt(rad[0].by)} for ${rad[0].first.n}.`,a:"radar"});
+  const up=ch.find(x=>x.d>0&&x.p>0&&x.d/x.p>.25&&!S.bud.some(b=>String(b.cat).toLowerCase()==x.k.toLowerCase()));if(up)tips.push({t:`${up.k} is up ${Math.round(up.d/up.p*100)}%. A monthly budget would warn you before it runs over.`,a:"vBud",id:up.k});
+  if(r!=null&&r<10)tips.push({t:`Only ${Math.max(0,Math.round(r))}% of income was kept${part?" so far":""}. Setting money aside on salary day, before spending, makes this easier.`});
+  if(!tips.length&&r!=null&&r>=20)tips.push({t:"On track. Put the surplus into SSY, PPF, an FD or a goal before it gets spent.",a:"fab"});
+  return {m,part,sc,label:sc>=70?"Good month":sc>=45?"OK month":"Tough month",pts,why,cs,big,tips,R}}
+const vCol=s=>s>=70?"var(--pri)":s>=45?"var(--soon)":"var(--late)",lCol=l=>l=="good"?"var(--pri)":l=="warn"?"var(--soon)":l=="bad"?"var(--late)":"var(--mute)";
+function verdictCard(m,small){if(!S.tx.length)return "";const X=verdict(m);return `<div class="card" style="margin:0 0 12px;cursor:pointer;border-left:5px solid ${vCol(X.sc)}" data-act="verdict" data-id="${X.m}"><div class="hbl"><b>${mlong(X.m)}${X.part?" so far":""}: ${X.label}</b><span class="chip">${X.sc}/100</span></div>
+  <small style="color:var(--mute)">${esc(X.why[0]||X.pts.slice(0,2).map(p=>p[0]+": "+p[1]).join(" · "))}${small?"":""}</small></div>`}
+function verdictSheet(m){const X=verdict(m),F_=flowHtml(X.m);sheet(`<h2>${mlong(X.m)}${X.part?" so far":""}</h2><div class="hbl" style="margin:4px 0 10px"><b style="font-size:22px;color:${vCol(X.sc)}">${X.label}</b><span class="chip">${X.sc}/100</span></div>
+  <h3>How it went</h3>${X.pts.map(p=>`<div class="hbl" style="margin:6px 0"><span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${lCol(p[2])};margin-right:6px"></span>${esc(p[0])}</span><b>${esc(p[1])}</b></div>`).join("")||`<p class="note">Add income and spending entries to see this.</p>`}
+  ${X.why.length?`<h3>What changed</h3>${X.why.map(w=>`<p style="margin:5px 0">${esc(w)}</p>`).join("")}`:""}
+  <h3>Coming up in 30 days</h3><p style="margin:5px 0"><b>${fmr(X.cs)}</b> in dues, EMIs, deposits and bills${X.big.length?": "+X.big.map(u=>esc(u.n)+" "+fmx(u.a,u.c)).join(", "):""}.</p>
+  ${X.tips.length?`<h3>One thing to do</h3>${X.tips.slice(0,2).map(t=>`<div class="card" style="margin:6px 0"><p style="margin:0">${esc(t.t)}</p>${t.a?`<div class="acts"><button class="btn sm" data-act="${t.a}" data-id="${esc(t.id||"")}">${t.a=="radar"?"Open top-up radar":t.a=="vBud"?"Set a budget":"Add"}</button></div>`:""}</div>`).join("")}`:""}
+  ${F_?`<h3>Where the money went</h3>${F_}`:""}
+  <div class="acts"><button class="btn sm ghost" data-act="verdict" data-id="${addMon(X.m,-1)}">← ${mlab(addMon(X.m,-1))}</button>${X.m<today().slice(0,7)?`<button class="btn sm ghost" data-act="verdict" data-id="${addMon(X.m,1)}">${mlab(addMon(X.m,1))} →</button>`:""}</div>`)}
+/* ---------- money-flow chart ---------- */
+function flowData(m){const cu=V(),g={incQ:0,incI:0,spQ:0,spI:0,svQ:0,svI:0,emQ:0,emI:0,sent:0,cost:0,svIc:{},spIc:{},spQc:{}};const qa=id=>ac(id).cur!="INR";
+  S.tx.forEach(x=>{if(!x.date||!x.date.startsWith(m))return;const c=x.cur||ac(x.acc).cur,a=cv(+x.amt,c,cu);
+    if(x.kind=="in"){if(qa(x.acc))g.incQ+=a;else g.incI+=a}
+    else if(x.kind=="out"){const emi=!!(x.link&&x.link.t=="loan"),k=x.cat||"Other";if(qa(x.acc)){if(emi)g.emQ+=a;else{g.spQ+=a;g.spQc[k]=(g.spQc[k]||0)+a}}else{if(emi)g.emI+=a;else{g.spI+=a;g.spIc[k]=(g.spIc[k]||0)+a}}}
+    else if(x.kind=="save"){if(qa(x.acc))g.svQ+=a;else{g.svI+=a;const k=x.cat||"Savings";g.svIc[k]=(g.svIc[k]||0)+a}}
+    else if(x.kind=="tr"){const A=ac(x.acc),B=ac(x.to);if(A.cur!="INR"&&B.cur=="INR"){const s=cv(+x.amt+(+x.fee||0),A.cur,cu),r=cv(+x.got,"INR",cu);g.sent+=r;g.cost+=Math.max(0,s-r)}}});return g}
+const FC={inc:"#2a9d8f",live:"#e9a23b",save:"#3c8d5a",emi:"#c0504d",sent:"#4a7fd6",cost:"#9aa4ad",left:"#7c8b96",ind:"#8a6fd1"};
+function flowGraph(g){const N=[],L=[],add=(id,label,col,color)=>{if(!N.some(n=>n.id==id))N.push({id,label,col,color})},share=(src,uses)=>{const tot=src.reduce((s,x)=>s+x[2],0);if(tot>0)src.forEach(s=>uses.forEach(u=>{const v=s[2]*u[2]/tot;if(v>0.5)L.push({s:s[0],t:u[0],v})}))};
+  const hasQ=g.incQ+g.spQ+g.svQ+g.emQ+g.sent>0.5,hasI=g.incI+g.spI+g.svI+g.emI+g.sent>0.5;
+  if(hasQ){const U=[["q_live","Living in Qatar",g.spQ,FC.live],["q_save","Saved in Qatar",g.svQ,FC.save],["q_emi","EMIs in Qatar",g.emQ,FC.emi],["q_cost","Fees and rate",g.cost,FC.cost],["q_sent","Sent to India",g.sent,FC.sent]].filter(u=>u[2]>0.5);
+    const left=g.incQ-U.reduce((s,u)=>s+u[2],0);if(left>0.5)U.push(["q_left","Left in Qatar",left,FC.left]);const Sr=[];if(g.incQ>0.5)Sr.push(["q_inc","Income in Qatar",g.incQ,FC.inc]);if(left<-0.5)Sr.push(["q_draw","From Qatar savings",-left,FC.left]);
+    Sr.forEach(s=>add(s[0],s[1],0,s[3]));U.forEach(u=>add(u[0],u[1],1,u[3]));share(Sr,U)}
+  if(hasI){const sv=Object.entries(g.svIc).sort((a,b)=>b[1]-a[1]),U=[["i_live","Spent in India",g.spI,FC.live],...sv.slice(0,3).map(([k,v],j)=>["i_s"+j,k,v,FC.save]),["i_sr","Other savings",sv.slice(3).reduce((s,x)=>s+x[1],0),FC.save],["i_emi","EMIs in India",g.emI,FC.emi]].filter(u=>u[2]>0.5);
+    const inI=g.sent+g.incI,left=inI-U.reduce((s,u)=>s+u[2],0);if(left>0.5)U.push(["i_left","Kept in India",left,FC.left]);
+    const col=hasQ?2:1,Sr=[];if(g.sent>0.5)Sr.push(["q_sent","Sent to India",g.sent,FC.sent]);if(g.incI>0.5)Sr.push(["i_inc","Income in India",g.incI,FC.inc]);if(left<-0.5)Sr.push(["i_draw","From India savings",-left,FC.left]);
+    Sr.forEach(s=>add(s[0],s[1],col-1,s[3]));U.forEach(u=>add(u[0],u[1],col,u[3]));share(Sr,U)}
+  return {N,L}}
+function sankeySvg(G){const cols=Math.max(...G.N.map(n=>n.col))+1;if(cols<2||!G.L.length)return "";const W=cols==3?620:420,nw=10,gap=12,val=n=>Math.max(G.L.filter(l=>l.t==n.id).reduce((s,l)=>s+l.v,0),G.L.filter(l=>l.s==n.id).reduce((s,l)=>s+l.v,0));
+  G.N.forEach(n=>n.v=val(n));const C=[...Array(cols)].map((_,c)=>G.N.filter(n=>n.col==c&&n.v>0)),maxN=Math.max(...C.map(L=>L.length)),H=Math.max(200,maxN*38+20),pad=10,maxT=Math.max(...C.map(L=>L.reduce((s,n)=>s+n.v,0))),k=(H-pad*2-gap*(maxN-1))/maxT;
+  C.forEach((L,c)=>{const x=c*(W-nw-150)/(cols-1)+(c==cols-1?0:0),tot=L.reduce((s,n)=>s+Math.max(2,n.v*k),0)+gap*(L.length-1);let y=pad+(H-pad*2-tot)/2;L.forEach(n=>{n.x=x;n.y=y;n.h=Math.max(2,n.v*k);n.oo=0;n.io=0;y+=n.h+gap})});
+  const B=Object.fromEntries(G.N.map(n=>[n.id,n]));let ps="";
+  G.L.filter(l=>B[l.s].x!=null&&B[l.t].x!=null).sort((a,b)=>B[a.s].y-B[b.s].y||B[a.t].y-B[b.t].y).forEach(l=>{const s=B[l.s],t=B[l.t],w=Math.max(1,l.v*k),x0=s.x+nw,x1=t.x,y0=s.y+s.oo,y1=t.y+t.io,xm=(x0+x1)/2;s.oo+=w;t.io+=w;
+    ps+=`<path d="M${x0.toFixed(1)},${y0.toFixed(1)}C${xm.toFixed(1)},${y0.toFixed(1)} ${xm.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}L${x1.toFixed(1)},${(y1+w).toFixed(1)}C${xm.toFixed(1)},${(y1+w).toFixed(1)} ${xm.toFixed(1)},${(y0+w).toFixed(1)} ${x0.toFixed(1)},${(y0+w).toFixed(1)}Z" fill="${s.color}" opacity=".3"><title>${esc(s.label)} → ${esc(t.label)}: ${esc(fmr(l.v))}</title></path>`});
+  const nodes=G.N.filter(n=>n.x!=null).map(n=>`<rect x="${n.x.toFixed(1)}" y="${n.y.toFixed(1)}" width="${nw}" height="${n.h.toFixed(1)}" rx="2" fill="${n.color}"><title>${esc(n.label)}: ${esc(fmr(n.v))}</title></rect><text x="${(n.x+nw+4).toFixed(1)}" y="${(n.y+n.h/2).toFixed(1)}" dy=".35em" font-size="11" fill="var(--ink)" stroke="var(--bg)" stroke-width="3" paint-order="stroke">${esc(n.label)} · ${esc(V()=="QAR"?"QAR ":"₹")}${sh(n.v)}</text>`).join("");
+  return `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Where the money went">${ps}${nodes}</svg></div>`}
+function flowHtml(m){const g=flowData(m),G=flowGraph(g),svg=sankeySvg(G);if(!svg)return "";const tot=g.incQ+g.incI;
+  const L=[["Income",g.incQ+g.incI],["Living in Qatar",g.spQ],["Sent to India",g.sent],["Spent in India",g.spI],["Saved",g.svQ+g.svI],["EMIs",g.emQ+g.emI],["Fees and rate",g.cost]].filter(x=>x[1]>0.5);
+  return svg+`<p class="note">${G.N.some(n=>n.col==2)?"Swipe sideways to see the India side. ":""}${L.map(([k,v])=>k+" "+fmr(v)+(tot&&k!="Income"?" ("+Math.round(v/tot*100)+"%)":"")).join(" · ")}</p>`}
+/* ---------- return-to-India plan ---------- */
+function retP(){const R=S.cfg.ret||{};return {when:R.when||"",exp:+R.exp||0,infl:R.infl??6,yrs:R.yrs??30,r1:R.r1??8,r2:R.r2??7,save:R.save===""||R.save==null?null:+R.save,big:Array.isArray(R.big)?R.big.filter(b=>b&&+b.a>0):[]}}
+function avgSaveINR(){const cm=today().slice(0,7),M=[1,2,3,4,5,6].map(j=>addMon(cm,-j)).filter(m=>S.tx.some(x=>x.date&&x.date.startsWith(m)&&(x.kind=="in"||x.kind=="out")));if(!M.length)return 0;return M.reduce((s,m)=>s+cv(mSum(m,"in")-mSum(m,"out"),V(),"INR"),0)/M.length}
+function retPlan(){const P=retP();if(!P.exp)return null;const now=nwv("INR"),s=P.save!=null?P.save:Math.max(0,avgSaveINR()),r1=P.r1/100/12,r2=P.r2/100,i=P.infl/100,G=S.cfg.grat,gOn=G&&G.on!==false&&G.join,g0=gOn&&gratCalc()?cv(gratCalc().amt,"QAR","INR"):0;
+  const needAt=n=>{const y=n/12,E=P.exp*12*Math.pow(1+i,y);let pv=0;for(let k=0;k<P.yrs;k++)pv+=E*Math.pow(1+i,k)/Math.pow(1+r2,k);return pv+P.big.reduce((t,b)=>t+(+b.a)*Math.pow(1+i,y),0)};
+  const W=[now];for(let n=1;n<=480;n++)W[n]=W[n-1]*(1+r1)+s;const gEx=n=>{if(!gOn)return 0;const ex=G.exit&&G.exit>today()?G.exit:"",d=ex&&addM(today(),n)>ex?ex:addM(today(),n),c=gratCalc(d);return c?Math.max(0,cv(c.amt,"QAR","INR")-g0):0};
+  const wealthAt=n=>W[Math.min(n,480)]+gEx(n);let can=null;for(let n=0;n<=480;n++)if(wealthAt(n)>=needAt(n)){can=n;break}
+  const tgt=P.when&&P.when>today()?Math.max(1,mdiff(today(),P.when)):null;let gap=null,extra=null;
+  if(tgt!=null){gap=needAt(tgt)-wealthAt(tgt);if(gap>0){let f=0;for(let k=0;k<tgt;k++)f=f*(1+r1)+1;extra=f?gap/f:null}}
+  const span=Math.min(40,Math.max(8,Math.ceil(Math.max(can??0,tgt??0)/12)+3)),pts=[];for(let y=0;y<=span;y++)pts.push({y,w:wealthAt(y*12),n:needAt(y*12)});
+  return {P,now,s,can,canDate:can!=null?addM(today(),can):null,tgt,gap,extra,pts,needNow:needAt(0)}}
+const ym=n=>{const y=Math.floor(n/12),m=n%12;return (y?y+(y==1?" year":" years"):"")+(y&&m?" ":"")+(m?m+(m==1?" month":" months"):"")||"now"};
+function lines2(pts){const W=320,H=140,P=24,mx=Math.max(...pts.map(p=>Math.max(p.w,p.n)))||1,X=i=>P+i*(W-P-6)/(pts.length-1),Y=v=>H-18-(v/mx)*(H-28);
+  const pl=k=>pts.map((p,i)=>X(i).toFixed(1)+","+Y(p[k]).toFixed(1)).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Projected wealth and money needed"><polyline points="${pl("n")}" fill="none" stroke="var(--late)" stroke-width="2" stroke-dasharray="5 4"/><polyline points="${pl("w")}" fill="none" stroke="var(--pri)" stroke-width="2.5"/>
+  ${pts.filter((p,i)=>i%Math.ceil(pts.length/6)==0||i==pts.length-1).map(p=>`<text x="${X(pts.indexOf(p)).toFixed(1)}" y="${H-4}" font-size="9" text-anchor="middle" fill="var(--mute)">${+today().slice(0,4)+p.y}</text>`).join("")}</svg>
+  <p class="note"><span style="color:var(--pri)">━</span> what you’ll have &nbsp; <span style="color:var(--late)">╍</span> what you’d need to stop working</p>`}
+function retCard(){const X=retPlan();if(!X)return `<h2>Return to India</h2><div class="card" style="cursor:pointer" data-act="retForm"><b>Return-to-India plan</b><p class="note">How much you need to settle back home, and how many more years that takes at your current savings.</p></div>`;
+  return `<h2>Return to India</h2><div class="card" style="cursor:pointer" data-act="retForm"><div class="hbl"><b>Return-to-India plan</b><span class="chip">${X.can!=null?(X.can==0?"Ready":ym(X.can)):"40+ years"}</span></div>
+  <p style="margin:6px 0 0">${X.can==0?"Your savings already cover the plan.":X.can!=null?`At this pace you could return around <b>${mlong(X.canDate.slice(0,7))}</b>.`:"At this pace the plan isn’t reached within 40 years."}${X.tgt!=null?(X.gap>0?` For ${mlong(X.P.when.slice(0,7))}, save about <b>${inr(Math.round(X.extra/100)*100)}</b> more a month.`:` Your ${mlong(X.P.when.slice(0,7))} target is covered.`):""}</p></div>`}
+function retForm(){const P=retP(),X=retPlan(),bg=[...P.big,{},{},{}].slice(0,Math.max(3,P.big.length+1));
+  sheet(`<h2>Return-to-India plan</h2><p class="sub">In today’s rupees. The app grows your savings at the return you choose and raises costs with inflation.</p>
+  <div class="two"><div>${F("r_exp","Monthly cost of living in India (₹)",P.exp||"","number",'placeholder="60000"')}</div><div>${F("r_when","Target return date (optional)",P.when,"date")}</div></div>
+  <div class="two"><div>${F("r_save","Saved each month (₹)",P.save??"","number",'placeholder="Auto: '+Math.round(avgSaveINR())+'"')}</div><div>${F("r_yrs","Years the money must last",P.yrs,"number")}</div></div>
+  <div class="two"><div>${F("r_infl","Inflation (% a year)",P.infl,"number")}</div><div>${F("r_r1","Return before (% a year)",P.r1,"number")}</div></div>${F("r_r2","Return after you stop working (% a year)",P.r2,"number")}
+  <h3>Big one-time needs</h3>${bg.map((b,j)=>`<div class="two"><div>${F("rb_n"+j,j?"":"What",b.n||"","text",'placeholder="'+(["House","Children’s education","Wedding"][j]||"Other")+'"')}</div><div>${F("rb_a"+j,j?"":"Amount today (₹)",b.a||"","number")}</div></div>`).join("")}
+  ${X?`<div class="card" style="margin-top:10px"><b>${X.can==0?"Your savings already cover it.":X.can!=null?"Possible around "+mlong(X.canDate.slice(0,7))+" ("+ym(X.can)+")":"Not within 40 years at this pace"}</b>
+  <p class="note">Today: ${inr(Math.round(X.now))} (net worth${S.cfg.grat&&S.cfg.grat.on!==false?", with gratuity":""}). Saving ${inr(Math.round(X.s))} a month. Needed if you stopped today: ${inr(Math.round(X.needNow))}.${X.tgt!=null?(X.gap>0?` For your target, about ${inr(Math.round(X.extra))} more a month.`:" Your target date is covered."):""}</p>${lines2(X.pts)}</div>`:""}
+  <p class="note">Estimate only. It counts your whole net worth, including your home if you added it, so leave out what you won’t sell.</p>${btns("retSave",S.cfg.ret?"r":"",S.cfg.ret?"retDel":"")}`)}
+Object.assign(ACT,{
+  verdict(m){verdictSheet(m||today().slice(0,7))},
+  vBud(cat){bForm(null);setVal("f_cat",cat)},
+  retForm(){retForm()},
+  retSave(){const exp=+v("r_exp");if(!(exp>0))return toast("Add your monthly cost of living in India");const big=[];for(let j=0;j<8;j++){if(!$("#rb_a"+j))break;const a=+v("rb_a"+j);if(a>0)big.push({n:v("rb_n"+j).trim()||"Other",a})}
+    S.cfg.ret={exp,when:v("r_when"),save:v("r_save")===""?null:+v("r_save"),yrs:+v("r_yrs")||30,infl:v("r_infl")===""?6:+v("r_infl"),r1:v("r_r1")===""?8:+v("r_r1"),r2:v("r_r2")===""?7:+v("r_r2"),big};save();render();retForm();toast("Plan updated")},
+  retDel(){S.cfg.ret=null;save();done()}
+});
+{const _vR=vRep;vRep=function(){const h=_vR(),c=verdictCard(mon),f=flowHtml(mon),blk=c+(f?`<h2>Where the money went</h2><div class="card">${f}</div>`:"");const k=h.indexOf('<div class="mon">');if(k<0)return blk+h;const e=h.indexOf("</div>",k)+6;return h.slice(0,e)+blk+h.slice(e)}}
+{const _vW=vWealth;vWealth=function(){const h=_vW(),k="<h2>Gratuity</h2>";return h.includes(k)?h.replace(k,retCard()+k):h+retCard()}}
+{const _sc=smsCard;smsCard=()=>_sc()+verdictCard(today().slice(0,7),true)}
+
+/* ===== Version 23: family members, emergency pack, moi register, hand loans ===== */
+PREFX.push("ep");
+const REL={self:"Me",spouse:"Wife / husband",son:"Son",daughter:"Daughter",father:"Father",mother:"Mother",brother:"Brother",sister:"Sister",other:"Other"};
+const OCC=["Wedding","Engagement","Housewarming","Naming ceremony","Ear piercing","Puberty ceremony","Birthday","Baby shower","Funeral","Festival","Temple function","Other"];
+const famName=id=>{const m=S.fam.find(x=>x.id==id);return m?m.name:"Family / joint"};
+/* ---------- owner and nominee on records ---------- */
+const OWNC={saveAcc:"acc",saveDate:"dates",saveInv:"inv",saveGoal:"goals",saveLoan:"loans",saveDoc:"docs",saveSub:"subs",saSave:"sacc"},NOMC={acc:1,inv:1,sacc:1};
+function ownFields(){if(!S.fam.length)return;for(const [a,c] of Object.entries(OWNC)){const b=$(`#over [data-act="${a}"]`);if(!b||$("#f_own"))continue;const id=b.getAttribute("data-id"),r=id&&S[c].find(x=>x.id==id)||{},box=b.closest(".acts");if(!box)return;
+  box.insertAdjacentHTML("beforebegin",`<div class="two"><div>${SEL("f_own",c=="dates"?"Policy or due belongs to":"Belongs to",[["","Family / joint"],...S.fam.map(m=>[m.id,m.name])],r.own||"")}</div><div>${NOMC[c]?F("f_nomi","Nominee",r.nomi||"","text",'list="dl_fam"'):""}</div></div>${DL("dl_fam",S.fam.map(m=>m.name))}`);return}}
+{const _sh=sheet;sheet=function(h){_sh(h);if(h)try{ownFields()}catch(e){console.warn(e)}}}
+for(const [a,c] of Object.entries(OWNC)){const _f=ACT[a];if(!_f)continue;ACT[a]=async function(id,...r){const has=!!$("#f_own"),own=v("f_own"),nomi=$("#f_nomi")?v("f_nomi").trim():null,before=new Set(S[c].map(x=>x.id)),res=await _f.call(this,id,...r);
+  if(has){const x=id&&S[c].find(q=>q.id==id)||S[c].find(q=>!before.has(q.id));if(x&&(x.own||"")!=own||x&&nomi!=null&&(x.nomi||"")!=nomi){x.own=own;if(nomi!=null)x.nomi=nomi;x.ut=Date.now();save();render()}}return res}}
+/* per-person net worth, in the view currency */
+function ownWorth(id){const to=V(),m=x=>(x.own||"")==id;let a=0;
+  S.acc.filter(m).forEach(x=>a+=cv(bal(x),x.cur,to));S.inv.filter(x=>m(x)&&!x.closed).forEach(x=>a+=cv(invVal(x),x.cur,to));S.sacc.filter(m).forEach(x=>a+=cv(saState(x).now,"INR",to));
+  S.goals.filter(m).forEach(g=>a+=cv(+g.saved||0,g.cur,to));S.loans.filter(m).forEach(l=>a-=cv(loanOut(l),l.cur,to));return a}
+const ownCount=id=>{const m=x=>(x.own||"")==id,n=[[S.acc.filter(m).length,"account"],[S.dates.filter(m).length,"policy or due","policies or dues"],[S.inv.filter(m).length,"investment"],[S.sacc.filter(m).length,"scheme"],[S.docs.filter(m).length,"document"]];return n.filter(x=>x[0]).map(x=>x[0]+" "+(x[0]==1?x[1]:x[2]||x[1]+"s")).join(" · ")};
+/* ---------- hand loans ---------- */
+const lOut=x=>Math.max(0,(+x.amt||0)-(x.pays||[]).reduce((s,p)=>s+(+p.a||0),0));
+function lendTx(x,amt,date,acc,kind){if(!acc)return "";const A=ac(acc);if(!A.id)return "";const sign=x.dir=="lent"?(kind=="start"?-1:1):(kind=="start"?1:-1),cat=x.dir=="lent"?(kind=="start"?"Lent to ":"Repaid by "):(kind=="start"?"Borrowed from ":"Repaid to ");
+  return addTx({kind:"adj",acc,amt:sign*cv(amt,x.cur,A.cur),cur:A.cur,date,cat:cat+x.person,note:"Hand loan",link:{t:"lend",id:x.id}}).id}
+{const _la=linkApply;linkApply=function(x,s){if(x.link&&(x.link.t=="lend"||x.link.t=="moi"))return;return _la(x,s)}}
+{const _nw=nwParts;nwParts=function(to){const p=_nw(to);S.lend.filter(x=>!x.closed).forEach(x=>{const o=cv(lOut(x),x.cur,to);if(x.dir=="lent")p.inv+=o;else p.loan+=o});return p}}
+{const _up=upcoming;upcoming=function(from,to,inc){const L=_up(from,to,inc);S.lend.forEach(x=>{if(x.closed||!x.due||!lOut(x))return;if(x.due<=to&&(x.due>=from||inc))L.push({d:x.due,n:(x.dir=="lent"?"Back from ":"Repay ")+x.person,t:"lend",src:"lend",a:lOut(x),c:x.cur,id:x.id})});return L.sort((a,b)=>a.d.localeCompare(b.d))}}
+function waLink(x){const ph=String(x.phone||"").replace(/[^\d]/g,""),msg=x.dir=="lent"?`Hi ${x.person}, hope you’re doing well. Just a gentle reminder about the ${fmx(lOut(x),x.cur)} from ${fmt(x.date)}. Whenever it’s convenient for you. Thank you!`:`Hi ${x.person}, I haven’t forgotten the ${fmx(lOut(x),x.cur)} from ${fmt(x.date)}. I’ll return it soon. Thank you!`;return `https://wa.me/${ph}?text=${encodeURIComponent(msg)}`}
+async function openExt(u){if(isApp()){try{await NP("DueNative","openUrl",{url:u});return}catch(e){}}try{window.open(u,"_blank","noopener")}catch(e){location.href=u}}
+function lendForm(x,dir){x=x||null;const d=x?x.dir:dir||"lent";sheet(`<h2>${x?"Edit hand loan":"New hand loan"}</h2>${SEL("l_dir","Type",[["lent","I gave money (they owe me)"],["borrowed","I took money (I owe them)"]],d,x?"disabled":"")}
+  <div class="two"><div>${F("l_who","Person",x&&x.person||"","text",'list="dl_ppl"')}</div><div>${F("l_ph","WhatsApp number (optional)",x&&x.phone||"","tel",'placeholder="+91 98xxxxxxxx"')}</div></div>${DL("dl_ppl",[...S.lend.map(l=>l.person),...S.moi.map(m=>m.person),...S.fam.map(m=>m.name)])}
+  <div class="two"><div>${F("l_amt","Amount",x?x.amt:"","number")}</div><div>${SEL("l_cur","Currency",CURS,x?x.cur:"INR")}</div></div>
+  <div class="two"><div>${F("l_date","Date",x?x.date:today(),"date")}</div><div>${F("l_due","Expected back by (optional)",x&&x.due||"","date")}</div></div>
+  ${x?"":SEL("l_acc","Money went through",[["","Don’t change any account"],...ACCS()],"")}${F("l_note","Note (optional)",x&&x.note||"")}
+  <p class="note">If you choose an account, its balance changes; either way the amount counts in your net worth until it’s repaid.</p>${btns("lendSave",x&&x.id,"lendDel")}`)}
+function lendSheet(id){const x=S.lend.find(q=>q.id==id);if(!x)return;const o=lOut(x);sheet(`<h2>${esc(x.person)}</h2><p class="sub">${x.dir=="lent"?"Owes you":"You owe"} <b>${fmx(o,x.cur)}</b> of ${fmx(x.amt,x.cur)} · since ${fmt(x.date)}${x.due?" · expected by "+fmt(x.due):""}</p>
+  ${(x.pays||[]).length?`<h3>Repayments</h3>${x.pays.map(p=>`<div class="row" style="cursor:default"><div><b>${fmx(p.a,x.cur)}</b><small>${fmt(p.d)}${p.acc?" · "+esc(an(p.acc)):""}</small></div><button class="btn sm ghost" data-act="lendPayDel" data-id="${x.id}|${p.id}" aria-label="Delete repayment">✕</button></div>`).join("")}`:""}
+  ${o>0?`<h3>Record a repayment</h3><div class="two"><div>${F("lp_amt","Amount",o,"number")}</div><div>${F("lp_date","Date",today(),"date")}</div></div>${SEL("lp_acc","Money went through",[["","Don’t change any account"],...ACCS()],x.acc||"")}
+  <div class="acts"><button class="btn" data-act="lendPay" data-id="${x.id}">Save repayment</button>${x.dir=="lent"?`<button class="btn ghost" data-act="lendWa" data-id="${x.id}">WhatsApp reminder</button>`:""}</div>`:`<p class="note">Fully repaid.</p>`}
+  <div class="acts"><button class="btn ghost" data-act="lendEdit" data-id="${x.id}">Edit</button></div>`)}
+/* ---------- moi register ---------- */
+function moiForm(x,pre){x=x||null;const g=k=>x?x[k]??"":pre&&pre[k]||"";sheet(`<h2>${x?"Edit gift":"Moi / gift"}</h2>${SEL("m_dir","This is",[["gave","A gift I gave"],["got","A gift I received"]],g("dir")||"gave")}
+  <div class="two"><div>${F("m_who","Person or family",g("person"),"text",'list="dl_ppl2" placeholder="Ravi, Selvi family"')}</div><div>${F("m_place","Place (optional)",g("place"),"text",'placeholder="Madurai"')}</div></div>${DL("dl_ppl2",S.moi.map(m=>m.person))}
+  <div class="two"><div>${SEL("m_occ","Occasion",OCC.map(o=>[o,o]),g("occ")||"Wedding")}</div><div>${F("m_date","Date (future dates remind you)",g("date")||today(),"date")}</div></div>
+  <div class="two"><div>${F("m_cash","Cash",g("cash"),"number")}</div><div>${SEL("m_cur","Currency",CURS,g("cur")||"INR")}</div></div>
+  <div class="two"><div>${F("m_gold","Gold (grams, optional)",g("gold"),"number")}</div><div>${F("m_gift","Gift item (optional)",g("gift"),"text",'placeholder="Silver lamp"')}</div></div>
+  ${x?"":SEL("m_acc","Record the cash in an account?",[["","No"],...ACCS()],"")}${F("m_note","Note (optional)",g("note"))}${btns("moiSave",x&&x.id,"moiDel")}`)}
+function moiPeople(){const P={};S.moi.forEach(m=>{const k=(m.person||"").trim().toLowerCase();if(!k)return;const p=P[k]=P[k]||{name:m.person,place:m.place,gave:0,got:0,L:[]};p.L.push(m);if(m.place)p.place=m.place;const c=cv(+m.cash||0,m.cur,"INR");if(m.date<=today()){if(m.dir=="gave")p.gave+=c;else p.got+=c}});
+  return Object.values(P).map(p=>({...p,L:p.L.sort((a,b)=>b.date.localeCompare(a.date)),last:p.L.map(m=>m.date).sort().pop()})).sort((a,b)=>b.last.localeCompare(a.last))}
+function moiPerson(k){const p=moiPeople().find(x=>x.name.toLowerCase()==k);if(!p)return;const lastGot=p.L.find(m=>m.dir=="got"&&m.date<=today()&&(+m.cash||+m.gold)),lastGave=p.L.find(m=>m.dir=="gave"&&m.date<=today());
+  sheet(`<h2>${esc(p.name)}</h2><p class="sub">${p.place?esc(p.place)+" · ":""}You gave ${inr(Math.round(p.gave))} · received ${inr(Math.round(p.got))}</p>
+  ${lastGot?`<div class="card" style="margin:6px 0"><b>When they invite you</b><p class="note" style="margin:4px 0 0">They gave ${lastGot.cash?fmx(lastGot.cash,lastGot.cur):""}${lastGot.gold?" + "+lastGot.gold+" g gold":""} at your ${esc(lastGot.occ).toLowerCase()} (${fmt(lastGot.date)})${lastGave&&lastGave.date>lastGot.date?`. Your last gift to them: ${fmx(lastGave.cash||0,lastGave.cur)} (${fmt(lastGave.date)})`:""}.</p></div>`:""}
+  ${p.L.map(m=>`<div class="row" data-act="moiEdit" data-id="${m.id}"><div><b>${m.dir=="gave"?"Gave":"Received"} ${m.cash?fmx(m.cash,m.cur):""}${m.gold?" · "+m.gold+" g gold":""}${m.gift?" · "+esc(m.gift):""}</b><small>${esc(m.occ)} · ${fmt(m.date)}${m.date>today()?" · coming up":""}</small></div></div>`).join("")}
+  <div class="acts"><button class="btn" data-act="moiAdd" data-id="${esc(p.name)}">Add for ${esc(p.name)}</button></div>`)}
+/* ---------- emergency pack: a password-protected PDF (RC4 128-bit, PDF standard security) ---------- */
+function md5(m){const K=new Uint32Array(64),R=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)>>>0;
+  const n=m.length,nb=((n+8)>>>6)+1,W=new Uint32Array(nb*16);for(let i=0;i<n;i++)W[i>>2]|=m[i]<<((i%4)*8);W[n>>2]|=0x80<<((n%4)*8);W[nb*16-2]=(n*8)>>>0;W[nb*16-1]=Math.floor(n/536870912)>>>0;
+  let a0=0x67452301,b0=0xefcdab89,c0=0x98badcfe,d0=0x10325476;
+  for(let b=0;b<nb;b++){let A=a0,B=b0,C=c0,Dd=d0;for(let i=0;i<64;i++){let F,g;if(i<16){F=(B&C)|(~B&Dd);g=i}else if(i<32){F=(Dd&B)|(~Dd&C);g=(5*i+1)%16}else if(i<48){F=B^C^Dd;g=(3*i+5)%16}else{F=C^(B|~Dd);g=(7*i)%16}
+    const s=R[(i>>4)*4+(i%4)];F=(F+A+K[i]+W[b*16+g])>>>0;A=Dd;Dd=C;C=B;B=(B+((F<<s)|(F>>>(32-s))))>>>0}a0=(a0+A)>>>0;b0=(b0+B)>>>0;c0=(c0+C)>>>0;d0=(d0+Dd)>>>0}
+  const o=new Uint8Array(16);[a0,b0,c0,d0].forEach((v,i)=>{for(let j=0;j<4;j++)o[i*4+j]=(v>>>(8*j))&255});return o}
+function rc4(k,d){const s=new Uint8Array(256);for(let i=0;i<256;i++)s[i]=i;let j=0;for(let i=0;i<256;i++){j=(j+s[i]+k[i%k.length])&255;const t=s[i];s[i]=s[j];s[j]=t}
+  const o=new Uint8Array(d.length);let i=0;j=0;for(let x=0;x<d.length;x++){i=(i+1)&255;j=(j+s[i])&255;const t=s[i];s[i]=s[j];s[j]=t;o[x]=d[x]^s[(s[i]+s[j])&255]}return o}
+const PDFPAD=new Uint8Array([0x28,0xBF,0x4E,0x5E,0x4E,0x75,0x8A,0x41,0x64,0x00,0x4E,0x56,0xFF,0xFA,0x01,0x08,0x2E,0x2E,0x00,0xB6,0xD0,0x68,0x3E,0x80,0x2F,0x0C,0xA9,0xFE,0x64,0x53,0x69,0x7A]);
+const cat8=(...a)=>{const n=a.reduce((s,x)=>s+x.length,0),o=new Uint8Array(n);let p=0;a.forEach(x=>{o.set(x,p);p+=x.length});return o};
+const lat1=s=>{const o=new Uint8Array(s.length);for(let i=0;i<s.length;i++)o[i]=s.charCodeAt(i)&255;return o};
+const padPw=pw=>{const b=lat1(asc(pw).slice(0,32));return cat8(b,PDFPAD.slice(0,32-b.length))};
+const hex8=u=>[...u].map(b=>b.toString(16).padStart(2,"0")).join("");
+function pdfKeys(user,owner,id0){const P=-4,pb=new Uint8Array([P&255,(P>>8)&255,(P>>16)&255,(P>>>24)&255]);
+  let h=md5(padPw(owner));for(let i=0;i<50;i++)h=md5(h);let O=rc4(h,padPw(user));for(let i=1;i<=19;i++)O=rc4(h.map(b=>b^i),O);
+  let k=md5(cat8(padPw(user),O,pb,id0));for(let i=0;i<50;i++)k=md5(k);let U=rc4(k,md5(cat8(PDFPAD,id0)));for(let i=1;i<=19;i++)U=rc4(k.map(b=>b^i),U);
+  return {O,U:cat8(U,new Uint8Array(16)),key:k,P}}
+function pdfPagesOf(lines){const pe=s=>asc(s).replace(/[^\x00-\xff]/g,"?").replace(/[\\()]/g,"\\$&"),pages=[];let y=800,cur=[];
+  const wrap=(t,size)=>{const max=Math.floor(495/(size*0.5)),out=[];let s=asc(t);while(s.length>max){let k=s.lastIndexOf(" ",max);if(k<10)k=max;out.push(s.slice(0,k));s=s.slice(k).trim()}out.push(s);return out};
+  lines.forEach(([t,size,bold,gap])=>{size=size||11;y-=gap||0;wrap(t,size).forEach(w=>{const h=size*1.5;if(y-h<50){pages.push(cur);cur=[];y=800}y-=h;cur.push(`BT /F${bold?2:1} ${size} Tf 50 ${y.toFixed(1)} Td (${pe(w)}) Tj ET`)})});pages.push(cur);return pages}
+function mkPdfLocked(lines,pw){const pages=pdfPagesOf(lines),id0=md5(lat1(String(Date.now())+Math.random())),K=pdfKeys(pw,pw+"#"+uid()+uid(),id0),parts=[],off=[];let pos=0;
+  const put=x=>{const b=typeof x=="string"?lat1(x):x;parts.push(b);pos+=b.length};const objKey=n=>md5(cat8(K.key,new Uint8Array([n&255,(n>>8)&255,(n>>16)&255,0,0]))).slice(0,16);
+  const obj=[];obj[1]="<< /Type /Catalog /Pages 2 0 R >>";obj[3]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";obj[4]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";const kids=[];
+  pages.forEach((p,i)=>{const pn=5+i*2;kids.push(pn+" 0 R");obj[pn]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${pn+1} 0 R >>`;obj[pn+1]={stream:lat1(p.join("\n"))}});
+  obj[2]=`<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pages.length} >>`;const enc=obj.length;obj[enc]=`<< /Filter /Standard /V 2 /R 3 /Length 128 /P ${K.P} /O <${hex8(K.O)}> /U <${hex8(K.U)}> >>`;
+  put("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");for(let i=1;i<obj.length;i++){off[i]=pos;const o=obj[i];if(o&&o.stream){const e=rc4(objKey(i),o.stream);put(`${i} 0 obj\n<< /Length ${e.length} >>\nstream\n`);put(e);put("\nendstream\nendobj\n")}else put(`${i} 0 obj\n${o}\nendobj\n`)}
+  const x=pos;put(`xref\n0 ${obj.length}\n0000000000 65535 f \n`+off.slice(1).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("")+`trailer\n<< /Size ${obj.length} /Root 1 0 R /Encrypt ${enc} 0 R /ID [<${hex8(id0)}><${hex8(id0)}>] >>\nstartxref\n${x}\n%%EOF\n`);return cat8(...parts)}
+const u8b64=u=>{let s="";for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(s)};
+async function saveBin(name,u8,mime){const b64=u8b64(u8);
+  if(isApp()){try{await NP("DueNative","saveDownload",{name,b64,mime});toast("Saved to Downloads/DueAndSpend");try{await NP("DueNative","openFile",{name,data:b64,mime})}catch(e){}return true}catch(e){}}
+  const f=new File([u8],name,{type:mime});try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return true}}catch(e){if(e&&e.name=="AbortError")return false}
+  try{const u=URL.createObjectURL(f),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),8000);toast("Saving "+name+"…");return true}catch(e){toast("Couldn’t save a file here");return false}}
+function epLines(withBal){const E=S.cfg.ep||{},L=[["Family emergency pack",20,1],["Made on "+fmt(today())+" with Personal Diary. Keep it private.",10,0]],H=t=>L.push([t,14,1,14]),T=(t,s)=>L.push([t,s||11]),own=x=>x.own?" · belongs to "+famName(x.own):"";
+  if(E.note){H("Read this first");String(E.note).split(/\n+/).forEach(x=>T(x))}
+  if(S.fam.length){H("Family");S.fam.forEach(m=>T(m.name+" · "+(REL[m.rel]||"")+(m.dob?" · born "+fmt(m.dob):"")+(m.phone?" · "+m.phone:"")))}
+  if((E.contacts||[]).length){H("People to call");E.contacts.forEach(c=>T(c.n+(c.r?" ("+c.r+")":"")+(c.p?" · "+c.p:"")))}
+  if(S.acc.length){H("Bank accounts and cash");S.acc.forEach(a=>T(a.name+" · "+(ATYPE[a.type]||"Account")+" · "+a.cur+(a.l4?" · ending "+a.l4:"")+((a.l4s||[]).length?" · cards "+a.l4s.join(", "):"")+(a.nomi?" · nominee "+a.nomi:"")+own(a)+(withBal?" · balance "+fmx(Math.round(bal(a)),a.cur):"")))}
+  const pol=S.dates.filter(d=>!d.done);if(pol.length){H("Insurance, premiums and dues");pol.forEach(d=>T(d.name+" · "+(TYPES[d.type]||"Due")+(d.no?" · no. "+d.no:"")+(+d.sa?" · cover "+fmx(d.sa,d.cur):"")+(d.nom?" · nominee "+d.nom:"")+(d.date?" · next "+fmt(d.date):"")+(+d.amt?" · "+fmx(d.amt,d.cur):"")+own(d)))}
+  const inv=S.inv.filter(x=>!x.closed);if(inv.length){H("Investments");inv.forEach(x=>T(x.name+" · "+(IK[x.kind]||"Investment")+(x.no?" · "+x.no:"")+(x.mdate?" · matures "+fmt(x.mdate):"")+(x.nomi?" · nominee "+x.nomi:"")+own(x)+(withBal?" · about "+fmx(Math.round(invVal(x)),x.cur):"")))}
+  if(S.sacc.length){H("Post office and savings schemes");S.sacc.forEach(x=>{const s=saState(x);T(x.name+" · "+SAS[x.type]+(x.no?" · no. "+x.no:"")+(x.holder?" · holder "+x.holder:"")+(x.po?" · "+x.po:"")+" · matures "+fmt(s.mat)+(x.nomi?" · nominee "+x.nomi:"")+(withBal?" · about "+inr(Math.round(s.now)):""))})}
+  if(S.loans.length){H("Loans");S.loans.forEach(l=>T(l.name+" · EMI "+fmx(l.emi,l.cur)+" · left about "+fmx(Math.round(loanOut(l)),l.cur)))}
+  const G=S.cfg.grat,g=G&&gratCalc();if(g){H("Qatar end-of-service gratuity");T("Joined "+fmt(G.join)+" · basic QAR "+nf(G.basic)+" · earned about QAR "+nf(Math.round(g.accr))+" so far (estimate)")}
+  const ln=S.lend.filter(x=>!x.closed&&lOut(x));if(ln.length){H("Hand loans");ln.forEach(x=>T((x.dir=="lent"?x.person+" owes us ":"We owe "+x.person+" ")+fmx(lOut(x),x.cur)+" (since "+fmt(x.date)+")"+(x.phone?" · "+x.phone:"")))}
+  if(S.docs.length){H("Documents");S.docs.forEach(d=>T(d.name+(d.type?" · "+d.type:"")+(d.no?" · no. "+d.no:"")+(d.holder?" · "+d.holder:"")+(d.exp?" · expires "+fmt(d.exp):"")))}
+  const sb=subAct();if(sb.length){H("Subscriptions to cancel or keep");sb.forEach(s=>T(s.name+" · "+fmx(s.price,s.cur)+(s.pay?" · paid from "+an(s.pay):"")))}
+  H("Good to know");["Insurance and bank claims are made by the nominee, with the policy or account number above and the needed certificates.","Keep this file and its password in different places. Make a fresh copy every year or after big changes."].forEach(x=>T(x));return L}
+function epSeg(){const E=S.cfg.ep||{},C=[...(E.contacts||[]),{},{}].slice(0,Math.max(3,(E.contacts||[]).length+1));
+  return `<div class="card"><b>Emergency pack</b><p class="note">One password-protected PDF with your accounts, policies, nominees, schemes, loans, documents and people to call, for your family if something happens to you.${E.at?" Last made "+fmt(E.at)+".":""}</p>
+  <label for="ep_note">Read this first (optional)</label><textarea id="ep_note" rows="3" placeholder="Where the original documents are kept, who to call first…">${esc(E.note||"")}</textarea>
+  <h3>People to call</h3>${C.map((c,j)=>`<div class="two"><div>${F("ec_n"+j,j?"":"Name",c.n||"","text",'placeholder="'+(["Brother","LIC agent","Company HR"][j]||"Name")+'"')}</div><div>${F("ec_p"+j,j?"":"Phone",c.p||"","tel")}</div></div>`).join("")}
+  ${SEL("ep_bal","Include balances?",[["0","No, only names and numbers"],["1","Yes"]],E.bal?"1":"0")}${F("ep_pw","Password for the PDF (6 or more characters)","","password",'autocomplete="new-password"')}
+  <div class="acts"><button class="btn" data-act="epMake">Make the PDF</button><button class="btn ghost" data-act="epSave">Save details</button></div><p class="note">The password isn’t stored anywhere. Tell it to your family separately.</p></div>`}
+/* ---------- the Family screen ---------- */
+function vFam(){const seg=S.cfg.famSeg||"people",lent=S.lend.filter(x=>!x.closed&&x.dir=="lent").reduce((s,x)=>s+iv(lOut(x),x.cur),0),owe=S.lend.filter(x=>!x.closed&&x.dir=="borrowed").reduce((s,x)=>s+iv(lOut(x),x.cur),0);
+  const sg=(k,l)=>`<button class="btn sm ${seg==k?"":"ghost"}" data-act="famSeg" data-id="${k}">${l}</button>`;let h=`<h1>Family</h1><p class="sub">People, gifts, hand loans and the emergency pack.</p><div class="seg" style="flex-wrap:wrap">${sg("people","People")}${sg("moi","Moi register")}${sg("lend","Hand loans")}${sg("ep","Emergency pack")}</div><div style="height:10px"></div>`;
+  if(seg=="people"){h+=S.fam.map(m=>`<div class="card" style="margin-bottom:8px;cursor:pointer" data-act="famView" data-id="${m.id}"><div class="hbl"><b>${esc(m.name)}</b><b>${fm(ownWorth(m.id))}</b></div><small style="color:var(--mute)">${REL[m.rel]||""}${ownCount(m.id)?" · "+ownCount(m.id):""}</small></div>`).join("")+
+    `<div class="card" style="margin-bottom:8px;cursor:pointer" data-act="famView" data-id=""><div class="hbl"><b>Family / joint</b><b>${fm(ownWorth(""))}</b></div><small style="color:var(--mute)">Everything not marked as someone’s${ownCount("")?" · "+ownCount(""):""}</small></div>
+    <div class="acts"><button class="btn" data-act="famAdd">+ Add family member</button></div><p class="note">Open an account, policy, investment, scheme or document and choose who it belongs to and the nominee.</p>`}
+  else if(seg=="moi"){const P=moiPeople(),gave=P.reduce((s,p)=>s+p.gave,0),got=P.reduce((s,p)=>s+p.got,0),up=S.moi.filter(m=>m.date>today()).sort((a,b)=>a.date.localeCompare(b.date));
+    h+=`<div class="stats" style="margin:0 0 10px">${tile("Given",inr(Math.round(gave)))}${tile("Received",inr(Math.round(got)))}${tile("People",P.length)}</div>`+
+    (up.length?`<h2>Coming up</h2>${up.map(m=>`<div class="row" data-act="moiEdit" data-id="${m.id}"><div><b>${esc(m.person)} · ${esc(m.occ)}</b><small>${fmt(m.date)} · ${when(dl(m.date))}</small></div><b>${m.cash?fmx(m.cash,m.cur):""}</b></div>`).join("")}`:"")+
+    `${F("moi_q","Find a person","","search",'placeholder="Name or place" data-moiq="1"')}<div id="moiL">${moiList("")}</div><div class="acts"><button class="btn" data-act="moiAdd">+ Add gift</button></div>`}
+  else if(seg=="lend"){const L=S.lend.filter(x=>!x.closed&&lOut(x)>0),C=S.lend.filter(x=>x.closed||!lOut(x));
+    h+=`<div class="stats" style="margin:0 0 10px">${tile("People owe you",fm(lent))}${tile("You owe",fm(owe))}</div>`+(L.length?L.map(x=>`<div class="row ${x.due?cls(dl(x.due)):""}" data-act="lendView" data-id="${x.id}"><div><b>${esc(x.person)}</b><small>${x.dir=="lent"?"Owes you":"You owe"} · since ${fmt(x.date)}${x.due?" · "+when(dl(x.due)):""}</small></div><b>${fmx(lOut(x),x.cur)}</b></div>`).join(""):`<div class="empty">No open hand loans.</div>`)+
+    `<div class="acts"><button class="btn" data-act="lendAdd" data-id="lent">+ I gave money</button><button class="btn ghost" data-act="lendAdd" data-id="borrowed">+ I took money</button></div>`+(C.length?`<h2>Settled</h2>${C.map(x=>`<div class="row" data-act="lendView" data-id="${x.id}"><div><b>${esc(x.person)}</b><small>${x.dir=="lent"?"Lent":"Borrowed"} ${fmt(x.date)}</small></div><b>${fmx(x.amt,x.cur)}</b></div>`).join("")}`:"")}
+  else h+=epSeg();return h}
+const moiList=q=>{q=String(q||"").toLowerCase().trim();const P=moiPeople().filter(p=>!q||(p.name+" "+(p.place||"")).toLowerCase().includes(q));
+  return P.length?P.map(p=>`<div class="row" data-act="moiPerson" data-id="${esc(p.name.toLowerCase())}"><div><b>${esc(p.name)}</b><small>${p.place?esc(p.place)+" · ":""}${p.L.length} ${p.L.length==1?"entry":"entries"} · last ${fmt(p.last)}</small></div><small style="text-align:right">gave ${inr(Math.round(p.gave))}<br>got ${inr(Math.round(p.got))}</small></div>`).join(""):`<div class="empty">${q?"No one by that name.":"Record moi you give and receive at weddings and functions, so returns are right."}</div>`};
+document.addEventListener("input",e=>{const t=e.target;if(t&&t.dataset&&t.dataset.moiq){const b=$("#moiL");if(b)b.innerHTML=moiList(t.value)}});
+function famForm(m){m=m||null;sheet(`<h2>${m?"Edit family member":"Add family member"}</h2>${F("fm_name","Name",m&&m.name||"")}<div class="two"><div>${SEL("fm_rel","Relation",Object.entries(REL),m?m.rel:"self")}</div><div>${F("fm_dob","Date of birth (optional)",m&&m.dob||"","date")}</div></div>${F("fm_ph","Phone (optional)",m&&m.phone||"","tel")}${btns("famSave",m&&m.id,"famDel")}`)}
+function famView(id){const m=S.fam.find(x=>x.id==id),own=x=>(x.own||"")==(id||""),sec=(t,L,f)=>L.length?`<h3>${t}</h3>`+L.map(f).join(""):"";
+  sheet(`<h2>${m?esc(m.name):"Family / joint"}</h2><p class="sub">${m?(REL[m.rel]||"")+" · ":""}Net worth ${fm(ownWorth(id||""))}</p>
+  ${sec("Accounts",S.acc.filter(own),a=>`<div class="row" data-act="editAcc" data-id="${a.id}"><div><b>${esc(a.name)}</b><small>${a.nomi?"Nominee "+esc(a.nomi):"No nominee noted"}</small></div><b>${fmx(bal(a),a.cur)}</b></div>`)}
+  ${sec("Policies and dues",S.dates.filter(own),d=>`<div class="row" data-act="editDate" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${d.nom?"Nominee "+esc(d.nom):"No nominee noted"}${d.date?" · next "+fmt(d.date):""}</small></div></div>`)}
+  ${sec("Investments",S.inv.filter(x=>own(x)&&!x.closed),x=>`<div class="row" data-act="editInv" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>${x.nomi?"Nominee "+esc(x.nomi):"No nominee noted"}</small></div><b>${fmx(invVal(x),x.cur)}</b></div>`)}
+  ${sec("Schemes",S.sacc.filter(own),x=>`<div class="row" data-act="saInfo" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>${SAS[x.type]}</small></div><b>${inr(Math.round(saState(x).now))}</b></div>`)}
+  ${sec("Documents",S.docs.filter(own),d=>`<div class="row" data-act="editDoc" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${d.exp?"Expires "+fmt(d.exp):""}</small></div></div>`)}
+  ${m?`<div class="acts"><button class="btn ghost" data-act="famEdit" data-id="${m.id}">Edit</button></div>`:""}`)}
+Object.assign(ACT,{
+  famGo(){tab="fam";render();scrollTo(0,0)},famSeg(k){S.cfg.famSeg=k;save();render()},
+  famAdd(){famForm()},famEdit(id){famForm(S.fam.find(x=>x.id==id))},famView(id){famView(id)},
+  famSave(id){const n=v("fm_name").trim();if(!n)return toast("Add a name");const old=S.fam.find(x=>x.id==id);put("fam",stamp({...(old||{}),id:id||uid(),name:n,rel:v("fm_rel"),dob:v("fm_dob"),phone:v("fm_ph").trim()},old));done()},
+  famDel(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete";return}trash("fam",id);[...S.acc,...S.dates,...S.inv,...S.sacc,...S.docs,...S.goals,...S.loans,...S.subs].forEach(x=>{if(x.own==id){x.own="";x.ut=Date.now()}});done()},
+  moiAdd(name){moiForm(null,name?{person:name}:null)},moiEdit(id){moiForm(S.moi.find(x=>x.id==id))},moiPerson(k){moiPerson(k)},
+  moiSave(id){const who=v("m_who").trim(),cash=+v("m_cash")||0,gold=+v("m_gold")||0,gift=v("m_gift").trim();if(!who)return toast("Add the person or family");if(!cash&&!gold&&!gift)return toast("Add the cash, gold or gift");
+    const old=S.moi.find(x=>x.id==id),o=stamp({...(old||{}),id:id||uid(),dir:v("m_dir"),person:who,place:v("m_place").trim(),occ:v("m_occ"),date:v("m_date")||today(),cash,cur:v("m_cur"),gold,gift,note:v("m_note").trim()},old);
+    const acc=$("#m_acc")?v("m_acc"):"";if(!old&&acc&&cash&&o.date<=today()){const A=ac(acc);o.tx=addTx({kind:o.dir=="gave"?"out":"in",acc,amt:cv(cash,o.cur,A.cur),cur:A.cur,date:o.date,cat:"Gifts",payee:who,note:o.occ,link:{t:"moi",id:o.id}}).id}
+    if(old&&old.tx){const x=S.tx.find(t=>t.id==old.tx);if(x&&cash){const A=ac(x.acc);x.amt=cv(cash,o.cur,A.cur);x.date=o.date;x.payee=who;x.ut=Date.now()}}
+    put("moi",o);done();toast("Saved")},
+  moiDel(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete";return}const x=S.moi.find(q=>q.id==id);if(x&&x.tx)removeTx(x.tx);trash("moi",id);done()},
+  lendAdd(dir){lendForm(null,dir)},lendEdit(id){lendForm(S.lend.find(x=>x.id==id))},lendView(id){lendSheet(id)},
+  lendSave(id){const who=v("l_who").trim(),amt=+v("l_amt")||0;if(!who||!amt)return toast("Add the person and amount");const old=S.lend.find(x=>x.id==id);
+    const o=stamp({...(old||{pays:[]}),id:id||uid(),dir:old?old.dir:v("l_dir"),person:who,phone:v("l_ph").trim(),amt,cur:v("l_cur"),date:v("l_date")||today(),due:v("l_due"),note:v("l_note").trim()},old);
+    if(!old){const acc=v("l_acc");if(acc){o.acc=acc;o.tx=lendTx(o,amt,o.date,acc,"start")}}else if(old.tx){const x=S.tx.find(t=>t.id==old.tx);if(x){const A=ac(x.acc);x.amt=(o.dir=="lent"?-1:1)*cv(amt,o.cur,A.cur);x.date=o.date;x.cat=(o.dir=="lent"?"Lent to ":"Borrowed from ")+who;x.ut=Date.now()}}
+    o.closed=lOut(o)<=0.005;put("lend",o);done();toast("Saved")},
+  lendDel(id,t){if(t.getAttribute("data-ok")!="1"){t.setAttribute("data-ok","1");t.textContent="Tap again to delete";return}S.tx.filter(x=>x.link&&x.link.t=="lend"&&x.link.id==id).map(x=>x.id).forEach(removeTx);trash("lend",id);done()},
+  lendPay(id){const x=S.lend.find(q=>q.id==id),a=+v("lp_amt")||0;if(!x||!a)return toast("Enter the amount");const acc=v("lp_acc"),p={id:uid(),d:v("lp_date")||today(),a:Math.min(a,lOut(x)),acc};p.tx=lendTx(x,p.a,p.d,acc,"pay");
+    x.pays=[...(x.pays||[]),p];x.closed=lOut(x)<=0.005;x.ut=Date.now();save();render();if(x.closed){sheet("");toast(x.person+" is settled")}else lendSheet(id)},
+  lendPayDel(key){const [id,pid]=key.split("|"),x=S.lend.find(q=>q.id==id);if(!x)return;const p=(x.pays||[]).find(q=>q.id==pid);if(p&&p.tx)removeTx(p.tx);x.pays=(x.pays||[]).filter(q=>q.id!=pid);x.closed=false;x.ut=Date.now();save();render();lendSheet(id)},
+  lendWa(id){const x=S.lend.find(q=>q.id==id);if(x)openExt(waLink(x))},
+  epSave(){const E={...(S.cfg.ep||{}),note:v("ep_note").trim(),bal:v("ep_bal")=="1",contacts:[]};for(let j=0;j<10;j++){if(!$("#ec_n"+j))break;const n=v("ec_n"+j).trim(),p=v("ec_p"+j).trim();if(n||p)E.contacts.push({n,p})}S.cfg.ep=E;save();render();toast("Saved")},
+  async epMake(){const pw=v("ep_pw");if(pw.length<6)return toast("Choose a password of 6 or more characters");ACT.epSave();const E=S.cfg.ep;const pdf=mkPdfLocked(epLines(!!E.bal),pw);
+    const ok=await saveBin("family-emergency-pack-"+today()+".pdf",pdf,"application/pdf");if(ok!==false){S.cfg.ep={...E,at:today()};save();render()}}
+});
+{const _fab=ACT.fab;ACT.fab=function(...a){const r=_fab.apply(this,a);const g=$("#over .fgrid");if(g)g.insertAdjacentHTML("beforeend",fabTile("moiAdd","🎁","Moi gift")+fabTile("lendAdd","🤝","Hand loan")+fabTile("saAdd","🏤","Scheme account")+fabTile("famGo","👪","Family"));return r}}
+{const _al=alerts;alerts=function(){let h=_al();const A=[];S.lend.forEach(x=>{if(!x.closed&&x.due&&lOut(x)&&dl(x.due)<=7)A.push((x.dir=="lent"?x.person+" to repay ":"Repay "+x.person+" ")+fmx(lOut(x),x.cur)+" · "+when(dl(x.due)))});
+  S.moi.forEach(m=>{const n=dl(m.date);if(n>=0&&n<=7)A.push(m.person+": "+m.occ+" · "+when(n))});const E=S.cfg.ep;if(E&&E.at&&dl(E.at)<-365)A.push("Emergency pack is over a year old. Make a fresh copy in Family");
+  if(!A.length)return h;const add=A.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px"><span>${esc(a)}</span></div>`).join("");
+  return h?h.replace(/<\/div>$/,add+"</div>"):`<div class="card" style="border-color:var(--soon);background:var(--soonbg);margin:0 0 12px"><b>Needs attention</b>${add}</div>`}}
+{const _vH=vHome;vHome=function(){const h=_vH(),o=S.lend.filter(x=>!x.closed&&x.dir=="lent").reduce((s,x)=>s+iv(lOut(x),x.cur),0),up=S.moi.filter(m=>m.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  return h+`<div class="card" style="margin-top:12px;cursor:pointer" data-act="famGo"><div class="hbl"><b>Family</b><span class="chip">Open</span></div><small style="color:var(--mute)">${[S.fam.length?S.fam.length+" people":"Add family members",o?"people owe you "+fm(o):"",up?"next: "+up.person+" "+up.occ.toLowerCase()+" "+when(dl(up.date)).toLowerCase():"","moi register, hand loans, emergency pack"].filter(Boolean).join(" · ")}</small></div>`}}
+{const _vW=vWealth;vWealth=function(){const h=_vW();if(!S.fam.length)return h;const rows=[...S.fam.map(m=>[m.name,ownWorth(m.id),m.id]),["Family / joint",ownWorth(""),""]].filter(r=>Math.abs(r[1])>0.5);if(!rows.length)return h;
+  return h+`<h2>By person</h2><div class="card">${rows.map(r=>`<div class="hbl" style="margin:6px 0;cursor:pointer" data-act="famView" data-id="${r[2]}"><span>${esc(r[0])}</span><b>${fm(r[1])}</b></div>`).join("")}</div>`}}
+
+/* ===== Version 24: Gmail reader inbox, bank statement PDFs, mutual fund statements (CAS) ===== */
+/* ---------- emails that the Gmail script puts in the space's "__mail" document ---------- */
+let mailUnsub=null;
+{const _ln=listen;listen=function(){_ln();try{if(mailUnsub)mailUnsub();const ref=fdb.collection("spaces").doc(SY.space+"__mail");
+  mailUnsub=ref.onSnapshot(sn=>{if(!sn.exists||(sn.metadata&&sn.metadata.hasPendingWrites))return;mailTake(ref,sn.data()||{})},()=>{mailUnsub=null})}catch(e){console.warn("mail",e)}}}
+async function mailTake(ref,d){const L=Array.isArray(d.items)?d.items.filter(Boolean):[];if(!L.length)return;const seen=new Set(S.cfg.mailSeen||[]),q=S.cfg.smsq=S.cfg.smsq||[];let add=0;
+  L.forEach(m=>{if(!m.id||seen.has(m.id))return;seen.add(m.id);const text=normMsg((m.subject?m.subject+". ":"")+(m.body||""));S.cfg.mailN=(S.cfg.mailN||0)+1;S.cfg.mailLast=+m.time||Date.now();
+    if(/\botp\b|one.time password|verification code/i.test(text))return;const p=parseSms(text);
+    if(!p||p.weak){if(/debit|credit|transaction|payment|spent|purchase|txn|transfer/i.test(text))noAmt({id:"m:"+m.id,app:"Email · "+String(m.from||"").replace(/<.*>/,"").trim(),body:text.slice(0,200),time:m.time});return}
+    if(!p.date||Math.abs(dl(p.date))>5)p.date=iso(new Date(+m.time||Date.now()));q.push({id:"m:"+m.id,from:"Email · "+String(m.from||"").replace(/<.*>/,"").trim().slice(0,40),body:text.slice(0,300),p,src:"m"});add++});
+  S.cfg.mailSeen=[...seen].slice(-500);S.cfg.smsq=q.slice(-60);dedupeQ();save();render();if(add)toast(add+(add==1?" payment":" payments")+" from your email to review");
+  try{await ref.update({items:firebase.firestore.FieldValue.arrayRemove(...L)})}catch(e){console.warn("mail clear",e)}}
+function gmailGuide(){const code=setupCode();sheet(`<h2>Read bank emails from Gmail</h2><p class="sub">A small script in your own Google account checks for bank emails every 15 minutes, even when the phone is off, and sends them here to review. Your email password isn’t needed.</p>
+  <ol class="steps"><li>Tap <b>Copy the script</b>, then open <b>script.google.com</b> on a computer or in the phone browser, make a <b>New project</b> and paste it in.</li>
+  <li>Tap <b>Copy setup code</b> and paste it in the script where it says SETUP_CODE. Also fill in EMAIL and PASSWORD, the ones you use for sync here.</li>
+  <li>Choose <b>setup</b> at the top and press <b>Run</b>. Allow access. Google warns because you wrote the script: Advanced → Go to project → Allow.</li>
+  <li>When the log says All set, delete the password from the script and save.</li>
+  <li><b>Outlook:</b> on outlook.com, Settings → Mail → Rules → new rule: from your banks → Forward to your Gmail.</li></ol>
+  <div class="acts"><button class="btn" data-act="gsCopy">Copy the script</button>${code?`<button class="btn ghost" data-act="gsCode">Copy setup code</button>`:""}</div>
+  ${code?"":`<p class="note" style="color:var(--late)">Turn on Google sync first. The script sends emails to your sync space.</p>`}
+  <p class="note">${S.cfg.mailN?`${S.cfg.mailN} emails received so far, the last ${tAgo(S.cfg.mailLast)}.`:"No emails received from the script yet."}</p>`)}
+const copyText=async(t,what)=>{try{await navigator.clipboard.writeText(t);toast(what+" copied")}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast(what+" copied")}catch(x){toast("Couldn’t copy here")}a.remove()}};
+/* ---------- PDF reading (pdf.js, loaded only when needed) ---------- */
+const PDFJS=["https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/","https://unpkg.com/pdfjs-dist@3.11.174/build/"];let pdfjsP=null;
+function loadPdfJs(){if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);if(pdfjsP)return pdfjsP;const B=[...(S.cfg.pdfjsBase?[S.cfg.pdfjsBase]:[]),...PDFJS];
+  pdfjsP=new Promise((res,rej)=>{let i=0;const nx=()=>{if(i>=B.length){pdfjsP=null;return rej(new Error("Couldn’t load the PDF reader. Check the internet connection and try again."))}
+    const b=B[i++],s=document.createElement("script");s.src=b+"pdf.min.js";s.onload=()=>{if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc=b+"pdf.worker.min.js";res(window.pdfjsLib)}else nx()};s.onerror=()=>{s.remove();nx()};document.head.appendChild(s)};nx()});return pdfjsP}
+async function pdfLines(buf,pw){const L=await loadPdfJs(),doc=await L.getDocument({data:new Uint8Array(buf),password:pw||undefined,isEvalSupported:false}).promise,out=[];
+  for(let p=1;p<=doc.numPages;p++){const pg=await doc.getPage(p),tc=await pg.getTextContent(),rows=[];
+    tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const x=it.transform[4],y=it.transform[5];let r=rows.find(q=>Math.abs(q.y-y)<2.5);if(!r){r={y,items:[]};rows.push(r)}r.items.push({x,s:it.str,w:it.width||0})});
+    rows.sort((a,b)=>b.y-a.y).forEach(r=>{r.items.sort((a,b)=>a.x-b.x);let t="",lx=null;r.items.forEach(it=>{if(lx!=null){const g=it.x-lx;t+=g>14?"   ":g>1.2?" ":""}t+=it.s;lx=it.x+(it.w||it.s.length*4.5)});out.push({p,y:r.y,t:t.replace(/\s+$/,""),items:r.items})})}
+  try{doc.destroy()}catch(e){}return out}
+const pdfErr=e=>e&&(e.name=="PasswordException"||/password/i.test(e.message||""))?(e.code==2?"wrong":"need"):"";
+/* ---------- bank statement PDFs ---------- */
+const SDRE=/^\s*(\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4}|\d{4}-\d\d-\d\d)(?=\s|$)/,SAMRE=/\(?-?(?:\d{1,3}(?:,\d{2,3})+|\d+)\.\d{2}\)?(?:\s?(?:Cr|Dr|CR|DR)\b)?/g;
+const amtOf=s=>{s=s.trim();const n=num(s.replace(/\s?(Cr|Dr|CR|DR)$/,""));return /^\(|^-|(Dr|DR)$/.test(s)?-n:n};
+function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=null;
+  for(const L of lines){const t=L.t.trim();if(!t)continue;
+    if(/opening balance|balance b\/f|brought forward/i.test(t)){const a=t.match(SAMRE);if(a){prev=amtOf(a[a.length-1]);if(open==null)open=prev}continue}
+    if(/withdraw|debit|\bdr\b/i.test(t)&&/deposit|credit|\bcr\b/i.test(t)&&/balance/i.test(t)){const f=re=>{const it=L.items.find(i=>re.test(i.s));return it?it.x+(it.w||0)/2:null};hdr={dr:f(/withdraw|debit|\bdr\b/i),cr:f(/deposit|credit|\bcr\b/i)};continue}
+    const dm=t.match(SDRE);
+    if(dm&&!/opening|closing|total/i.test(t)){const am=[...t.matchAll(SAMRE)].filter(m=>m.index>=dm[0].length),d=pDate(dm[1].replace(/\s/g,"-"));if(!d||!am.length){cur=null;continue}
+      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}\s*/,"").replace(/\s+/g," ").trim();
+      const vals=am.map(m=>amtOf(m[0]));let amt=null,dir=null,bal=null;
+      if(vals.length>=2){bal=vals[vals.length-1];const cand=vals.slice(0,-1).filter(v=>Math.abs(v)>0.004);
+        if(prev!=null)for(const a of cand){const x=Math.abs(a);if(Math.abs(prev-x-bal)<0.011){amt=x;dir="out";break}if(Math.abs(prev+x-bal)<0.011){amt=x;dir="in";break}}
+        if(amt==null&&cand.length){amt=Math.abs(cand[0]);if(hdr&&hdr.dr!=null&&hdr.cr!=null){const s=am[0][0].replace(/[()\s]|Cr|Dr|CR|DR/g,""),it=L.items.find(i=>i.s.replace(/\s/g,"").includes(s));dir=it&&Math.abs(it.x+(it.w||0)/2-hdr.cr)<Math.abs(it.x+(it.w||0)/2-hdr.dr)?"in":"out"}else dir=/\bcr\b|credit|deposit|salary|refund|reversal/i.test(desc)?"in":"out"}}
+      else{amt=Math.abs(vals[0]);dir=/\bcr\b|credit|deposit/i.test(t)?"in":"out"}
+      if(amt>0){cur={date:d,amt,dir,desc,bal};rows.push(cur);if(bal!=null)prev=bal}continue}
+    if(cur&&!/^(page|statement|total|closing|account|customer|branch|ifsc|this is|unless|please|registered)/i.test(t)&&!SDRE.test(t)&&!(t.match(SAMRE)||[]).length&&t.length<90)cur.desc=(cur.desc+" "+t).replace(/\s+/g," ").trim()}
+  return {rows,open,close:rows.length&&rows[rows.length-1].bal!=null?rows[rows.length-1].bal:null}}
+const sgn=(x,id)=>{if(x.kind=="tr"){if(x.acc==id)return -((+x.amt||0)+(+x.fee||0));if(x.to==id)return +x.got||0;return 0}if(x.acc!=id)return 0;return (x.kind=="in"||x.kind=="adj")?+x.amt:-x.amt};
+function balAt(acc,d){const A=ac(acc);return bal(A)-S.tx.filter(x=>x.date>d).reduce((s,x)=>s+sgn(x,acc),0)}
+function stmtMatch(P,acc){const used=new Set(),L=S.tx.map(x=>({x,v:sgn(x,acc)})).filter(o=>o.v);
+  const res=P.rows.map(r=>{const want=r.dir=="in"?r.amt:-r.amt,m=L.filter(o=>!used.has(o.x.id)&&Math.abs(o.v-want)<0.011&&Math.abs(dl(o.x.date)-dl(r.date))<=3).sort((a,b)=>Math.abs(dl(a.x.date)-dl(r.date))-Math.abs(dl(b.x.date)-dl(r.date)))[0];if(m)used.add(m.x.id);return {...r,match:m?m.x.id:""}});
+  const D_=P.rows.map(r=>r.date).sort(),from=D_[0],to=D_[D_.length-1],only=from?L.filter(o=>!used.has(o.x.id)&&o.x.date>=from&&o.x.date<=to&&o.x.cat!="Balance correction").map(o=>o.x):[];return {res,only,from,to}}
+const descPayee=d=>{const m=String(d||"").match(/(?:UPI|IMPS|NEFT|RTGS|NACH|ACH|MMT)[\/-](?:[^\/\s]+\/)+([A-Za-z][A-Za-z .&'\-]{1,40})/i);return (m?m[1]:String(d||"").replace(/[\d\/\\:#*-]+/g," ").replace(/\s+/g," ")).trim().slice(0,40)};
+let stPend=null;
+async function stmtFile(f,pw){const o=$("#csvout"),acc=v("f_acc");if(!o)return;o.innerHTML=`<p class="note">Reading the PDF…</p>`;
+  try{const buf=await f.arrayBuffer(),P=stmtParse(await pdfLines(buf,pw));if(!P.rows.length){o.innerHTML=`<p class="note" style="color:var(--late)">No transactions found in this PDF. If it’s a scanned image, it can’t be read; use the bank’s downloaded e-statement instead.</p>`;return}
+    stPend={file:f,acc,P,M:stmtMatch(P,acc)};stmtShow()}
+  catch(e){const k=pdfErr(e);if(k){stPend={file:f,acc};o.innerHTML=`<div class="card" style="margin-top:10px"><b>${k=="wrong"?"That password didn’t work":"This statement has a password"}</b><p class="note">Banks often use part of your customer ID or date of birth. Check the email the statement came with.</p>${F("f_pdfpw","PDF password","","password")}<div class="acts"><button class="btn" data-act="stPw">Open</button></div></div>`;return}
+    o.innerHTML=`<p class="note" style="color:var(--late)">${esc(e.message||e)}</p>`}}
+function stmtShow(){const p=stPend,o=$("#csvout");if(!o||!p||!p.M)return;const A=ac(p.acc),nw=p.M.res.filter(r=>!r.match),app=p.P.close!=null?balAt(p.acc,p.M.to):null;
+  o.innerHTML=`<div class="card" style="margin-top:10px"><b>${fmt(p.M.from)} to ${fmt(p.M.to)}: ${p.M.res.length} transactions</b><small style="display:block;color:var(--mute)">${p.M.res.length-nw.length} already in the app · ${nw.length} new · going into ${esc(A.name)}</small>
+  ${nw.length?nw.map((r,i)=>`<label class="hbl" style="margin:8px 0;gap:8px;align-items:flex-start"><span style="display:flex;gap:8px"><input type="checkbox" data-sti="${p.M.res.indexOf(r)}" checked style="width:auto;margin-top:3px"><span>${fmt(r.date)} · ${esc(descPayee(r.desc)||"No description")}<small style="display:block;color:var(--mute)">${esc(catFor(descPayee(r.desc))||"No category")}</small></span></span><b>${r.dir=="out"?"−":"+"}${fmx(r.amt,A.cur)}</b></label>`).join(""):`<p class="note">Everything in this statement is already in the app.</p>`}
+  ${app!=null?`<p class="note">Balance on ${fmt(p.M.to)}: statement ${fmx(p.P.close,A.cur)} · app ${fmx(app,A.cur)}${Math.abs(app-p.P.close)>0.009?" (after adding the new ones it is checked again)":" ✓"}</p>`:""}
+  ${p.M.only.length?`<details><summary>${p.M.only.length} in the app but not in the statement</summary>${p.M.only.map(x=>`<div class="hbl" style="margin:6px 0"><span>${fmt(x.date)} · ${esc(x.payee||x.cat||KIND[x.kind])}</span><b>${fmx(Math.abs(sgn(x,p.acc)),A.cur)}</b></div>`).join("")}<p class="note">These may be cash, typed twice, or from another account.</p></details>`:""}</div>
+  ${nw.length?`<div class="acts"><button class="btn" data-act="stImportGo">Add the ticked ones</button></div>`:""}${app!=null?`<div class="acts"><button class="btn ghost" data-act="stFixBal">Make the balance match the statement</button></div>`:""}`}
+/* ---------- mutual fund statements (CAMS / KFintech CAS) ---------- */
+function casParse(lines){const F=[];let cur=null,folio="";const T=lines.map(l=>l.t.replace(/\s+/g," ").trim()).filter(Boolean),dnum=/\(?-?(?:\d{1,3}(?:,\d{2,3})+|\d+)(?:\.\d+)?\)?/g;
+  for(let i=0;i<T.length;i++){const t=T[i];const fm=t.match(/Folio No\s*:?\s*([A-Za-z0-9]+(?:\s*\/\s*[A-Za-z0-9]+)?)/i);if(fm){folio=fm[1].replace(/\s/g,"");if(!/ISIN/i.test(t))continue}
+    const im=t.match(/ISIN\s*:?\s*(INF[A-Z0-9]{9})/i);
+    if(im){let name=t.slice(0,t.search(/[-–]?\s*ISIN/i)).replace(/Folio No\s*:?\s*\S+(\s*\/\s*\S+)?/i,"").replace(/^[A-Z0-9]{2,10}\s*-\s*/,"").replace(/\((?:Non-Demat|Demat|formerly[^)]*)\)/ig,"").replace(/[-–\s]+$/,"").trim();
+      if(name.length<6&&i>0&&!/ISIN|Folio/i.test(T[i-1]))name=(T[i-1]+" "+name).trim();cur={name,isin:im[1].toUpperCase(),folio,units:0,nav:0,value:0,cost:0,navDate:"",tx:[]};F.push(cur);continue}
+    if(!cur)continue;let hit=false;
+    let m=t.match(/Closing Unit Balance\s*:?\s*([\d,]*\.?\d+)/i);if(m){cur.units=num(m[1]);hit=true}
+    m=t.match(/NAV on\s*(\d{1,2}-[A-Za-z]{3}-\d{4})\s*:?\s*(?:INR|Rs\.?|₹)?\s*([\d,]*\.?\d+)/i);if(m){cur.nav=num(m[2]);cur.navDate=pDate(m[1])||cur.navDate;hit=true}
+    m=t.match(/(?:Market Value|Valuation)\s*on\s*(\d{1,2}-[A-Za-z]{3}-\d{4})\s*:?\s*(?:INR|Rs\.?|₹)?\s*([\d,]*\.?\d+)/i);if(m){cur.value=num(m[2]);cur.navDate=pDate(m[1])||cur.navDate;hit=true}
+    m=t.match(/(?:Total )?Cost Value\s*:?\s*(?:INR|Rs\.?|₹)?\s*([\d,]*\.?\d+)/i);if(m){cur.cost=num(m[1]);hit=true}
+    if(hit)continue;
+    const dm=t.match(/^(\d{2}-[A-Za-z]{3}-\d{4})\s+(.*)$/);if(dm){const N=[...dm[2].matchAll(dnum)].filter(x=>/\d/.test(x[0])&&/[.,]/.test(x[0])).map(x=>({v:/^\(|^-/.test(x[0])?-num(x[0]):num(x[0]),i:x.index}));
+      if(N.length>=3){const desc=dm[2].slice(0,N[0].i).trim();if(/stamp duty|\bstt\b|\btds\b/i.test(desc))continue;const d=pDate(dm[1]);if(d)cur.tx.push({d,amt:N[0].v,units:N[1].v,price:N[2].v,desc})}}}
+  F.forEach(f=>{if(!f.value&&f.units&&f.nav)f.value=Math.round(f.units*f.nav*100)/100;if(!f.cost)f.cost=Math.round(f.tx.reduce((s,x)=>s+x.amt,0)*100)/100;f.xirr=fundXirr(f)});return F.filter(f=>f.units>0||f.tx.length)}
+function xirr(cf){cf=cf.filter(c=>c.d&&isFinite(c.a)&&c.a).sort((a,b)=>a.d.localeCompare(b.d));if(cf.length<2||!cf.some(c=>c.a<0)||!cf.some(c=>c.a>0))return null;const t0=D(cf[0].d),yr=c=>(D(c.d)-t0)/31557600000;
+  const f=r=>cf.reduce((s,c)=>s+c.a/Math.pow(1+r,yr(c)),0);let lo=-0.99,hi=10,flo=f(lo);if(flo*f(hi)>0)return null;for(let i=0;i<200;i++){const m=(lo+hi)/2,fm_=f(m);if(Math.abs(fm_)<1e-6)return m*100;if(flo*fm_<0)hi=m;else{lo=m;flo=fm_}}return (lo+hi)/2*100}
+const fundXirr=f=>xirr([...f.tx.map(t=>({d:t.d,a:-t.amt})),{d:f.navDate||today(),a:f.value}]);
+{const _ir=invRet;invRet=function(x){const r=_ir(x);if(Array.isArray(x.cf)&&x.cf.length&&invVal(x)>0){const y=xirr([...x.cf.map(c=>({d:c.d,a:-c.a})),{d:today(),a:invVal(x)}]);if(y!=null&&isFinite(y))r.yr=y}return r}}
+let casPend=null;
+function casForm(){casPend=null;sheet(`<h2>Mutual fund statement</h2><p class="sub">Request a Consolidated Account Statement (CAS) from CAMS or KFintech; it arrives by email as a PDF. The app adds each fund with its units, cost and value, and keeps the NAV updated.</p>
+  ${F("f_caspw","PDF password (often your PAN in capitals)","","password",'autocomplete="off"')}<label for="f_cas">CAS PDF</label><input id="f_cas" type="file" accept=".pdf,application/pdf" data-cas="1"><div id="casout"></div>`)}
+let casFileLast=null;
+async function casFile(f){const o=$("#casout");if(!o)return;casFileLast=f;o.innerHTML=`<p class="note">Reading the statement…</p>`;
+  try{const L=await pdfLines(await f.arrayBuffer(),v("f_caspw")),F=casParse(L);if(!F.length){o.innerHTML=`<p class="note" style="color:var(--late)">No funds found. Use the detailed CAS from CAMS or KFintech.</p>`;return}casPend=F;casShow()}
+  catch(e){const k=pdfErr(e);o.innerHTML=`<p class="note" style="color:var(--late)">${k?(k=="wrong"?"That password didn’t work. Change it above and try again.":"This PDF needs its password. Enter it above and try again."):esc(e.message||e)}</p>${k?`<div class="acts"><button class="btn" data-act="casRetry">Try again</button></div>`:""}`}}
+const casMatch=f=>S.inv.find(q=>q.isin&&q.isin==f.isin&&(!f.folio||!q.no||q.no==f.folio))||S.inv.find(q=>q.kind=="mf"&&!q.isin&&same(q.name,f.name));
+function casShow(){const F=casPend,o=$("#casout");if(!o||!F)return;const tv=F.reduce((s,f)=>s+f.value,0),tc=F.reduce((s,f)=>s+f.cost,0);
+  o.innerHTML=`<div class="card" style="margin-top:10px"><b>${F.length} ${F.length==1?"fund":"funds"} · value ${inr(Math.round(tv))}</b><small style="display:block;color:var(--mute)">Cost ${inr(Math.round(tc))} · gain ${inr(Math.round(tv-tc))}</small>
+  ${F.map(f=>`<div style="margin-top:8px"><div class="hbl"><span>${esc(f.name)}</span><b>${inr(Math.round(f.value))}</b></div><small style="color:var(--mute)">${f.folio?"Folio "+esc(f.folio)+" · ":""}${nf(f.units,3)} units${f.nav?" · NAV "+nf(f.nav,4):""}${f.xirr!=null?" · "+f.xirr.toFixed(1)+"% a year":""} · ${casMatch(f)?"updates the existing one":"new"}</small></div>`).join("")}</div>
+  <div class="acts"><button class="btn" data-act="casGo">Add to my investments</button></div>`}
+async function mfCode(name){try{const L=await getJSON("https://api.mfapi.in/mf/search?q="+encodeURIComponent(name.replace(/\s*-\s*/g," ").split(" ").slice(0,6).join(" ")));if(!Array.isArray(L)||!L.length)return null;
+  const W=s=>new Set(String(s).toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(w=>w.length>2)),a=W(name);let best=null,bs=0;
+  L.slice(0,40).forEach(x=>{const b=W(x.schemeName);let s=0;a.forEach(w=>{if(b.has(w))s++});if(/direct/i.test(name)!=/direct/i.test(x.schemeName))s-=2;if(/growth/i.test(name)!=/growth/i.test(x.schemeName))s-=2;if(s>bs){bs=s;best=x}});return bs>=3?best:null}catch(e){return null}}
+Object.assign(ACT,{
+  gmail(){gmailGuide()},gsCopy(){copyText(GSCRIPT,"Script")},gsCode(){copyText(setupCode(),"Setup code")},
+  stPw(){const p=stPend;if(p&&p.file)stmtFile(p.file,v("f_pdfpw"))},
+  stImport(id){csvForm();setVal("f_acc",id)},
+  stImportGo(){const p=stPend;if(!p||!p.M)return;const A=ac(p.acc),batch="imp_"+uid(),ids=[];
+    $$("#csvout input[data-sti]").forEach(c=>{if(!c.checked)return;const r=p.M.res[+c.dataset.sti];if(!r||r.match)return;const py=descPayee(r.desc);ids.push(addTx({kind:r.dir=="in"?"in":"out",acc:A.id,amt:r.amt,cur:A.cur,date:r.date,cat:catFor(py),payee:py,note:r.desc.slice(0,80),imp:batch}).id)});
+    p.M=stmtMatch(p.P,p.acc);save();render();stmtShow();toast(`Added ${ids.length} ${ids.length==1?"entry":"entries"}`,()=>{ids.forEach(i=>removeTx(i));S.bin=S.bin.filter(b=>!ids.includes(b.r.id));save();render();if(stPend&&stPend.P){stPend.M=stmtMatch(stPend.P,stPend.acc);stmtShow()}})},
+  stFixBal(){const p=stPend;if(!p||!p.M||p.P.close==null)return;const d=p.P.close-balAt(p.acc,p.M.to);if(Math.abs(d)<0.005)return toast("Already matches");const A=ac(p.acc);addTx({kind:"adj",acc:A.id,amt:d,cur:A.cur,date:p.M.to,cat:"Balance correction",note:"Matched to the bank statement"});save();render();stmtShow();toast("Balance now matches the statement")},
+  casOpen(){casForm()},casRetry(){if(casFileLast)casFile(casFileLast)},
+  async casGo(){const F=casPend;if(!F)return;let n=0,u=0;for(const f of F){const x=casMatch(f),cf=f.tx.map(t=>({d:t.d,a:t.amt}));
+      const o=stamp({...(x||{att:[]}),id:x?x.id:uid(),name:x?x.name:f.name,kind:"mf",no:f.folio||(x&&x.no)||"",inv:Math.round(f.cost*100)/100,val:Math.round(f.value*100)/100,units:f.units,isin:f.isin,cf,cas:f.navDate||today(),sd:(x&&x.sd)||(cf.length?cf.map(c=>c.d).sort()[0]:today()),cur:"INR"},x);
+      if(f.nav&&f.navDate){o.nav=f.nav;o.navAt=f.navDate}put("inv",o);x?u++:n++}
+    casPend=null;done();toast(`${n} added, ${u} updated. Looking up NAV codes…`);
+    for(const x of S.inv.filter(q=>q.kind=="mf"&&q.isin&&!q.mf)){const c=await mfCode(x.name);if(c){x.mf=String(c.schemeCode);x.mfn=c.schemeName;x.ut=Date.now()}}save();try{await refreshFunds(true)}catch(e){}render()}
+});
+document.addEventListener("change",e=>{const t=e.target;if(!t||!t.files||!t.files[0])return;
+  if(t.dataset&&t.dataset.csv){const f=t.files[0];if(/\.pdf$/i.test(f.name)||f.type=="application/pdf"){e.stopImmediatePropagation();stPend=null;stmtFile(f,"")}}
+  else if(t.dataset&&t.dataset.cas)casFile(t.files[0])},true);
+{const _cf=csvForm;csvForm=function(){_cf();const i=$("#f_csv");if(i){i.accept=".csv,.pdf,text/csv,application/pdf,text/plain";const l=$('label[for="f_csv"]');if(l)l.textContent="Statement file (PDF or CSV)"}const s=$("#over .sub");if(s)s.textContent="Choose the statement PDF from your bank’s email, or a CSV. The app adds what’s missing, skips what’s already here and checks the balance."}}
+{const _vA=vAcc;vAcc=function(){return _vA().replace(/(<button class="btn sm ghost" data-act="stmt" data-id="([^"]+)">Statement<\/button>)/g,'$1<button class="btn sm ghost" data-act="stImport" data-id="$2">Import PDF</button>')}}
+{const _vW=vWealth;vWealth=function(){const h=_vW(),c=`<div class="card" style="margin-top:12px"><b>Import from statements</b><p class="note">Mutual funds from a CAMS or KFintech statement (CAS PDF).</p><div class="acts"><button class="btn sm" data-act="casOpen">Import mutual fund statement</button></div></div>`,k="<h2>Return to India</h2>";return h.includes(k)?h.replace(k,c+k):h+c}}
+{const _rc=readCheck;readCheck=async function(){await _rc();const sh=$("#over .sheet");if(sh)sh.insertAdjacentHTML("beforeend",`<h3>Gmail reader</h3><p class="note">${S.cfg.mailN?S.cfg.mailN+" bank emails received, the last "+tAgo(S.cfg.mailLast)+".":"Read bank emails even when the phone is off."}</p><div class="acts"><button class="btn sm ghost" data-act="gmail">Set up the Gmail reader</button></div>`)}}
+
+/* the Gmail reader script, so it can be copied from inside the app */
+const GSCRIPT="/**\n * Personal Diary: Gmail bank alert reader (Google Apps Script).\n *\n * It runs inside YOUR Google account. Every 15 minutes it looks for new bank alert\n * emails and puts their text into your Personal Diary sync space. The app then shows\n * them under \"Payments to review\" on both phones. Nothing is sent anywhere else.\n *\n * Setup (about 5 minutes, once):\n *  1. In Personal Diary: Settings > Google sync > copy the setup code (it starts with DS1.).\n *  2. Open script.google.com > New project. Delete what is there and paste this whole file.\n *  3. Fill in CONFIG below: SETUP_CODE, EMAIL and PASSWORD (the same email and password\n *     you use for sync in the app).\n *  4. At the top, choose the function \"setup\" and press Run. Allow access when Google asks.\n *     Google warns because you wrote the script yourself: Advanced > Go to project > Allow.\n *  5. When the log says \"All set\", delete the password from CONFIG and press Save.\n *     The script keeps a sign-in token instead, so it keeps working.\n * Outlook: create a rule in Outlook that forwards emails from your banks to this Gmail.\n */\nvar CONFIG = {\n  SETUP_CODE: \"DS1.paste-your-setup-code-here\",\n  EMAIL: \"\",\n  PASSWORD: \"\",\n  // Bank alert senders to read. Add or remove addresses as you like.\n  SENDERS: [\"alerts@axis.bank.in\", \"cbqsms@cbq.com.qa\", \"alerts@hdfcbank.net\", \"alerts@icicibank.com\",\n            \"cbssbi.cas@alerts.sbi.co.in\", \"donotreply.sbiatm@alerts.sbi.co.in\", \"alerts@kotak.com\",\n            \"qnbalerts@qnb.com\", \"noreply@dohabank.com.qa\", \"alerts@dukhanbank.com\"],\n  // Extra Gmail search words, for example: 'OR subject:(debited OR credited)'\n  EXTRA_QUERY: \"\",\n  DAYS_BACK: 2\n};\n\nfunction readSetupCode_(code) {\n  var m = String(code || \"\").match(/DS1\\.([A-Za-z0-9_-]{20,})/);\n  if (!m) throw new Error(\"Paste the setup code from the app into CONFIG.SETUP_CODE\");\n  var b64 = m[1];\n  while (b64.length % 4) b64 += \"=\";\n  var json = Utilities.newBlob(Utilities.base64DecodeWebSafe(b64)).getDataAsString();\n  var o = JSON.parse(json);\n  if (!o.k || !o.p || !o.s) throw new Error(\"That setup code is incomplete\");\n  return { apiKey: o.k, projectId: o.p, space: String(o.s).replace(/[^\\w-]/g, \"\") };\n}\n\nfunction post_(url, body, token, form) {\n  var opt = { method: \"post\", muteHttpExceptions: true };\n  if (form) { opt.payload = body; } else { opt.contentType = \"application/json\"; opt.payload = JSON.stringify(body); }\n  if (token) opt.headers = { Authorization: \"Bearer \" + token };\n  var r = UrlFetchApp.fetch(url, opt), txt = r.getContentText(), j = {};\n  try { j = JSON.parse(txt); } catch (e) {}\n  if (r.getResponseCode() >= 300) throw new Error(\"HTTP \" + r.getResponseCode() + \": \" + (j.error && (j.error.message || j.error.status) || txt).toString().slice(0, 200));\n  return j;\n}\n\nfunction signIn_(cfg) {\n  if (!CONFIG.EMAIL || !CONFIG.PASSWORD) throw new Error(\"Fill in CONFIG.EMAIL and CONFIG.PASSWORD for the first run\");\n  var j = post_(\"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=\" + cfg.apiKey,\n                { email: CONFIG.EMAIL, password: CONFIG.PASSWORD, returnSecureToken: true });\n  PropertiesService.getUserProperties().setProperty(\"pd_refresh\", j.refreshToken);\n  return j.idToken;\n}\n\nfunction idToken_(cfg) {\n  var rt = PropertiesService.getUserProperties().getProperty(\"pd_refresh\");\n  if (!rt) return signIn_(cfg);\n  var j = post_(\"https://securetoken.googleapis.com/v1/token?key=\" + cfg.apiKey,\n                \"grant_type=refresh_token&refresh_token=\" + encodeURIComponent(rt), null, true);\n  if (j.refresh_token) PropertiesService.getUserProperties().setProperty(\"pd_refresh\", j.refresh_token);\n  return j.id_token;\n}\n\nfunction docUrl_(cfg, id) {\n  return \"https://firestore.googleapis.com/v1/projects/\" + cfg.projectId + \"/databases/(default)/documents/spaces/\" + id;\n}\n\nfunction members_(cfg, token) {\n  var r = UrlFetchApp.fetch(docUrl_(cfg, cfg.space), { headers: { Authorization: \"Bearer \" + token }, muteHttpExceptions: true });\n  if (r.getResponseCode() >= 300) throw new Error(\"Can't open your sync space (\" + r.getResponseCode() + \"). Check the setup code and that this email is a member.\");\n  var d = JSON.parse(r.getContentText()), v = d.fields && d.fields.members && d.fields.members.arrayValue && d.fields.members.arrayValue.values || [];\n  return v.map(function (x) { return x.stringValue; }).filter(String);\n}\n\nfunction query_() {\n  var from = CONFIG.SENDERS.map(function (s) { return \"from:\" + s; }).join(\" OR \");\n  return \"(\" + from + (CONFIG.EXTRA_QUERY ? \" \" + CONFIG.EXTRA_QUERY : \"\") + \") newer_than:\" + (CONFIG.DAYS_BACK || 2) + \"d\";\n}\n\nfunction clean_(t) {\n  return String(t || \"\").replace(/\u00a0/g, \" \").replace(/[ \\t]+/g, \" \").replace(/\\s*\\n\\s*/g, \"\\n\").trim().slice(0, 1500);\n}\n\nfunction collect_() {\n  var props = PropertiesService.getUserProperties(), seen = JSON.parse(props.getProperty(\"pd_seen\") || \"[]\"), set = {}, out = [];\n  seen.forEach(function (id) { set[id] = 1; });\n  GmailApp.search(query_(), 0, 50).forEach(function (th) {\n    th.getMessages().forEach(function (m) {\n      var id = m.getId();\n      if (set[id]) return;\n      set[id] = 1; seen.push(id);\n      out.push({ id: id, from: String(m.getFrom()).slice(0, 120), subject: String(m.getSubject()).slice(0, 200),\n                 body: clean_(m.getPlainBody()), time: m.getDate().getTime() });\n    });\n  });\n  props.setProperty(\"pd_seen\", JSON.stringify(seen.slice(-500)));\n  return out;\n}\n\nfunction str_(s) { return { stringValue: String(s) }; }\n\nfunction send_(cfg, token, items) {\n  if (!items.length) return 0;\n  var mem = members_(cfg, token);\n  var body = { writes: [{\n    update: { name: \"projects/\" + cfg.projectId + \"/databases/(default)/documents/spaces/\" + cfg.space + \"__mail\",\n              fields: { members: { arrayValue: { values: mem.map(str_) } }, ts: { integerValue: String(Date.now()) } } },\n    updateMask: { fieldPaths: [\"members\", \"ts\"] },\n    updateTransforms: [{ fieldPath: \"items\", appendMissingElements: { values: items.map(function (x) {\n      return { mapValue: { fields: { id: str_(x.id), from: str_(x.from), subject: str_(x.subject), body: str_(x.body), time: { integerValue: String(x.time) } } } };\n    }) } }]\n  }] };\n  post_(\"https://firestore.googleapis.com/v1/projects/\" + cfg.projectId + \"/databases/(default)/documents:commit\", body, token);\n  return items.length;\n}\n\nfunction runWith_(token) {\n  var cfg = readSetupCode_(CONFIG.SETUP_CODE), items = collect_();\n  if (!items.length) { console.log(\"No new bank emails\"); return 0; }\n  var n = send_(cfg, token || idToken_(cfg), items);\n  console.log(\"Sent \" + n + \" bank emails to Personal Diary\");\n  return n;\n}\n\n/** Runs every 15 minutes once setup has been run. */\nfunction run() { return runWith_(null); }\n\n/** Run this once by hand. */\nfunction setup() {\n  var cfg = readSetupCode_(CONFIG.SETUP_CODE), token = signIn_(cfg), mem = members_(cfg, token);\n  if (mem.indexOf(CONFIG.EMAIL) < 0 && mem.indexOf(CONFIG.EMAIL.toLowerCase()) < 0) throw new Error(CONFIG.EMAIL + \" isn't a member of space \" + cfg.space + \". Invite it from the app first.\");\n  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() == \"run\") ScriptApp.deleteTrigger(t); });\n  ScriptApp.newTrigger(\"run\").timeBased().everyMinutes(15).create();\n  var n = runWith_(token);\n  console.log(\"All set. Checking every 15 minutes. \" + n + \" recent bank emails sent now. You can delete the password from CONFIG.\");\n}\n";
 
 /* ===== start ===== */
 let pq=null,pshare="";try{const U=new URLSearchParams(location.search);pq=U.get("add");pshare=[U.get("title"),U.get("text")].filter(Boolean).join(" ")}catch(e){}

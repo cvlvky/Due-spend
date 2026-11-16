@@ -1,18 +1,65 @@
-PERSONAL DIARY (version 19, formerly Due & Spend)
+PERSONAL DIARY (version 24, formerly Due & Spend)
 
-UPDATE THE ANDROID APP (widget, SMS, fingerprint and more)
+UPDATE TO VERSION 24
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
-     index.html, manifest.json, sw.js, icon-192.png, icon-512.png
+     index.html, sw.js, rules.json, ci-check.py, gmail-reader.gs
+   (manifest.json and the icons are unchanged, uploading them again is fine)
 2. Open .github/workflows/build-apk.yml in the repo, tap the pencil (Edit),
    delete everything, paste the whole of the new build-apk.yml, and commit.
 3. Actions tab > "Build Android app" > wait for the green tick (5-10 minutes).
-   If it does not start by itself, tap Run workflow.
-4. Releases page > download due-and-spend.apk > open it > Update.
-   Your data stays, because the app is signed with the same key.
-5. Open the app once. Home should end with "Version 19".
+   It now checks the app first and stops if something is broken.
+4. Releases page > download personal-diary.apk > open it > Update. Your data stays.
+5. Open the app once. Home should end with "Version 24".
+6. Settings: under "App updates", check your GitHub repo name is shown.
+   From now on the app tells you when a new version is ready and installs it itself
+   (Android asks once to "Allow from this source").
+Install Version 24 on your wife's phone too. Large data is now compressed and split
+when it grows, and older versions can't read that form.
 If the build shows a red cross, open it and send Claude the red error lines.
 
-WHAT IS NEW IN THE PHONE APP
+NEW IN VERSION 24
+- Gmail reader: Settings > Check SMS and alert reading > Set up the Gmail reader.
+  A script in your own Google account reads bank emails every 15 minutes, even when
+  the phone is off, and sends them to review. Outlook: forward bank emails to Gmail.
+- Bank statement PDFs: Accounts > Import PDF on an account. Password PDFs work.
+  Adds what's missing, skips what's already in the app, lists entries the bank
+  doesn't have, and can make the balance match the statement.
+- Mutual funds: Wealth > Import mutual fund statement (CAMS / KFintech CAS PDF).
+  Adds each fund with units, cost, value and true yearly return (XIRR); NAV updates daily.
+
+NEW IN VERSION 23
+- Family screen (Home > Family, or the + menu): family members, who owns each account,
+  policy, investment, scheme and document, nominees, and net worth per person.
+- Moi register: gifts given and received at functions, per person, with what they gave
+  you last time and upcoming functions.
+- Hand loans: money lent or borrowed, repayments, due-date reminders, WhatsApp reminder.
+- Emergency pack: one password-protected PDF with accounts, policies, nominees, schemes,
+  loans, documents and people to call. The password isn't stored.
+
+NEW IN VERSION 22
+- Monthly verdict on Home and Reports: good, OK or tough month, what changed, what's
+  coming and one thing to do.
+- Where the money went: a flow chart from income in Qatar to living costs, money sent
+  home and what it paid for in India.
+- Return-to-India plan (Wealth): how much you need and when you could return.
+- Cloud sync compresses and splits data when it gets big (Firebase's 1 MB limit).
+
+NEW IN VERSION 21
+- Top-up radar: warns which Indian account needs money for upcoming dues, and when.
+- Money sent home: real rate, fees and cost of each transfer, best channel, and a
+  QAR rate alert. Add "Sent through" on transfers.
+- QAR debit + rupee credit a few days apart can be merged into one transfer.
+- End-of-service gratuity (Wealth), counted in net worth.
+
+NEW IN VERSION 20
+- Teach once: tap "Wrong? Teach" on a message read wrongly; that format is then read
+  right on both phones.
+- Categories learned from your history and common shops; regular payments spotted and
+  turned into subscriptions or dues.
+- rules.json in your repo: change scheme rates or add bank formats without a new app.
+- Tax label now says section 123 (old 80C), India's Income-tax Act 2025.
+
+PHONE APP FEATURES (from earlier versions)
 - Widget: long-press the home screen > Widgets > Due & Spend. It shows the next due
   date and safe-to-spend, with buttons for Expense, Income and Bank SMS.
 - Long-press the app icon for Add expense, Add income, Paste bank SMS.
