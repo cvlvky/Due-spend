@@ -33,9 +33,9 @@ try:
     pg.mouse.click(180,20); pg.wait_for_timeout(80); ok('tap outside closes sheet',pg.locator('#over .sheet').count()==0)
     # accounts
     tab('acc'); pg.click('button[data-act="addAcc"]'); pg.fill('#f_name','HDFC Card'); pg.select_option('#f_type','card'); pg.fill('#f_open','-1200'); sv('saveAcc'); nowrong('add account')
-    pg.click('button[data-act="addMoney"][data-id="a3"]'); ok('add money opens as income with category',pg.input_value('#f_k')=='in' and pg.input_value('#f_cat')=='Deposit' and pg.input_value('#f_acc')=='a3'); pg.fill('#f_amt','700'); sv('saveTx'); nowrong('add money')
-    pg.click('button[data-act="stmt"][data-id="a1"]'); pg.click('#over .row >> text=Transfer from'); ok('statement row opens the transfer',pg.locator('#over #f_from').count()==1); pg.fill('#f_note','edited'); sv('saveTr'); nowrong('edit transfer')
-    pg.click('button[data-act="fixBal"][data-id="a1"]'); sv('okBal'); ok('confirm balance matches',E('ac("a1").rcd')==E('today()'))
+    pg.click('.arow[data-id="a3"]'); pg.click('#over [data-act="addMoney"][data-id="a3"]'); ok('add money opens as income with category',pg.input_value('#f_k')=='in' and pg.input_value('#f_cat')=='Deposit' and pg.input_value('#f_acc')=='a3'); pg.fill('#f_amt','700'); sv('saveTx'); nowrong('add money')
+    pg.click('.arow[data-id="a1"]'); pg.click('#over [data-act="stmt"][data-id="a1"]'); pg.click('#over .row >> text=Transfer from'); ok('statement row opens the transfer',pg.locator('#over #f_from').count()==1); pg.fill('#f_note','edited'); sv('saveTr'); nowrong('edit transfer')
+    pg.click('.arow[data-id="a1"]'); pg.click('#over [data-act="fixBal"][data-id="a1"]'); sv('okBal'); ok('confirm balance matches',E('ac("a1").rcd')==E('today()'))
     # wealth forms
     tab('invest'); pg.click('button[data-act="addGoal"]'); pg.fill('#f_name','Laptop'); pg.fill('#f_tg','90000'); sv('saveGoal'); nowrong('add goal')
     pg.click('button[data-act="addLoan"]'); pg.fill('#f_name','Gold loan'); pg.fill('#f_emi','5000'); pg.fill('#f_tot','12'); pg.fill('#f_rate','9'); sv('saveLoan'); nowrong('add loan')

@@ -56,8 +56,8 @@ try:
     ok('transfer moves money',abs(E('bal(ac("a2"))')-(a2-1015))<1e-6 and abs(E('bal(ac("a1"))')-(a1+26350))<1e-6)
     ok('transfer not counted as spending',E('mSum(today().slice(0,7),"out")')==E('sumV(S.tx.filter(x=>x.kind=="out"&&x.date.startsWith(today().slice(0,7))))'))
     # --- statement, correct balance
-    pg.click('button[data-act="stmt"][data-id="a1"]'); ok('statement opens',pg.locator('#over .row').count()>5); close(pg)
-    pg.click('button[data-act="fixBal"][data-id="a3"]'); pg.fill('#f_bal','4800'); pg.click('#over button[data-act="saveFix"]'); pg.wait_for_timeout(80)
+    pg.click('.arow[data-id="a1"]'); pg.click('#over [data-act="stmt"][data-id="a1"]'); ok('statement opens',pg.locator('#over .row').count()>5); close(pg)
+    pg.click('.arow[data-id="a3"]'); pg.click('#over [data-act="fixBal"][data-id="a3"]'); pg.fill('#f_bal','4800'); pg.click('#over button[data-act="saveFix"]'); pg.wait_for_timeout(80)
     ok('correct balance',abs(E('bal(ac("a3"))')-4800)<1e-6 and E('ac("a3").rcd')==E('today()'))
     # --- paid on repeating due, undo
     tabto(pg,'dates'); d1=E('S.dates.find(d=>d.id=="d1").date'); a1=E('bal(ac("a1"))')

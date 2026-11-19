@@ -1,4 +1,14 @@
-PERSONAL DIARY (version 26, formerly Due & Spend)
+PERSONAL DIARY (version 27, formerly Due & Spend)
+
+NEW IN VERSION 27
+- Type or say an expense in one line ("Lulu 120 riyal groceries"); mic uses the
+  phone's voice typing. Budget check shows while adding.
+- Accounts: compact rows grouped by QAR / INR; tap an account for its actions.
+- Cheques: post-dated cheques with balance-short warnings, reminders, series.
+- Days in India this financial year (Wealth > Plans), for NRI tax status.
+- Until payday card on Home. Add all dues and cheques to the calendar.
+- Home-screen widget shows the top of Needs attention, plus a mic button.
+- Tamil option in Settings. "What's new" shows once after each update.
 
 HOW UPDATES WORK NOW
 - Changes are made in this GitHub repo. GitHub checks the app, builds the APK and

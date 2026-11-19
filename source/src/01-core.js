@@ -1,8 +1,8 @@
 "use strict";
 /* ===== core: constants, state, small helpers ===== */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const K="due-and-spend.v1",DEFRATE=26,VER="26";
-const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs","sacc","tpl","fam","moi","lend"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
+const K="due-and-spend.v1",DEFRATE=26,VER="27";
+const COLLS=["acc","tx","dates","inv","loans","goals","bud","rec","docs","subs","sacc","tpl","fam","moi","lend","chq","trips"],LOCAL=["cfg","nw","bin","del","mk","mkh"];
 const blank=()=>({acc:[],tx:[],dates:[],inv:[],loans:[],goals:[],bud:[],rec:[],docs:[],subs:[],sacc:[],tpl:[],fam:[],moi:[],lend:[],bin:[],del:[],mk:null,mkh:{},nw:{},cfg:{rate:DEFRATE,view:"INR"}});
 let S=blank(),tab="home",mon="",qs="",sstat="Sync off";
 

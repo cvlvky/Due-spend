@@ -125,6 +125,13 @@ write(os.path.join(JAVA, "DueNativePlugin.java"), r'''
 package com.personaldiary.app;
 
 import android.Manifest;
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import androidx.activity.result.ActivityResult;
+import com.getcapacitor.annotation.ActivityCallback;
+import java.util.ArrayList;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -172,9 +179,41 @@ public class DueNativePlugin extends Plugin {
         getContext().getSharedPreferences("due_widget", Context.MODE_PRIVATE).edit()
             .putString("l1", call.getString("line1", ""))
             .putString("l2", call.getString("line2", ""))
+            .putString("l3", call.getString("line3", ""))
             .apply();
         DueWidget.refresh(getContext());
         call.resolve();
+    }
+
+    /** Speech to text through the phone's own voice typing screen (no microphone permission needed). */
+    @PluginMethod
+    public void listen(PluginCall call) {
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, call.getString("lang", "en-IN"));
+        i.putExtra(RecognizerIntent.EXTRA_PROMPT, call.getString("prompt", "Say the amount, place and category"));
+        i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+        try {
+            startActivityForResult(call, i, "listenDone");
+        } catch (ActivityNotFoundException e) {
+            call.reject("No voice typing app on this phone");
+        } catch (Exception e) {
+            call.reject("Couldn't start voice typing");
+        }
+    }
+
+    @ActivityCallback
+    private void listenDone(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        Intent d = result.getData();
+        if (result.getResultCode() != Activity.RESULT_OK || d == null) { call.reject("cancelled"); return; }
+        ArrayList<String> r = d.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+        JSObject o = new JSObject();
+        JSArray a = new JSArray();
+        if (r != null) for (String x : r) a.put(x);
+        o.put("text", r != null && !r.isEmpty() ? r.get(0) : "");
+        o.put("all", a);
+        call.resolve(o);
     }
 
     @PluginMethod
@@ -530,6 +569,10 @@ public class DueWidget extends AppWidgetProvider {
         SharedPreferences p = c.getSharedPreferences("due_widget", Context.MODE_PRIVATE);
         v.setTextViewText(R.id.w_l1, p.getString("l1", "Personal Diary"));
         v.setTextViewText(R.id.w_l2, p.getString("l2", "Open the app once to fill this in"));
+        String l3 = p.getString("l3", "");
+        v.setTextViewText(R.id.w_l3, l3);
+        v.setViewVisibility(R.id.w_l3, l3.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE);
+        v.setOnClickPendingIntent(R.id.w_mic, open(c, 4, "voice"));
         v.setOnClickPendingIntent(R.id.w_root, open(c, 0, null));
         v.setOnClickPendingIntent(R.id.w_out, open(c, 1, "out"));
         v.setOnClickPendingIntent(R.id.w_in, open(c, 2, "in"));
@@ -710,6 +753,9 @@ write(os.path.join(RES, "layout/due_widget.xml"), '''
         android:maxLines="1" android:ellipsize="end" />
     <TextView android:id="@+id/w_l2" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="" android:textColor="#D6F0E8" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/w_l3" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:text="" android:textColor="#FFFFFF" android:textSize="12sp"
+        android:maxLines="3" android:ellipsize="end" android:visibility="gone" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:layout_marginTop="8dp">
         <TextView android:id="@+id/w_out" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
@@ -721,6 +767,10 @@ write(os.path.join(RES, "layout/due_widget.xml"), '''
         <TextView android:id="@+id/w_sms" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:layout_marginStart="6dp" android:gravity="center" android:padding="8dp" android:text="Bank SMS"
             android:textColor="#0F6B5C" android:textSize="13sp" android:textStyle="bold" android:background="@drawable/due_widget_btn" />
+        <TextView android:id="@+id/w_mic" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="6dp" android:gravity="center" android:paddingTop="8dp" android:paddingBottom="8dp"
+            android:paddingStart="12dp" android:paddingEnd="12dp" android:text="&#x1F3A4;" android:textColor="#0F6B5C"
+            android:textSize="13sp" android:background="@drawable/due_widget_btn" android:contentDescription="Add by voice" />
     </LinearLayout>
 </LinearLayout>
 ''')
@@ -739,7 +789,7 @@ write(os.path.join(RES, "drawable/due_widget_btn.xml"), '''
 write(os.path.join(RES, "xml/due_widget_info.xml"), '''
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="90dp" android:updatePeriodMillis="0"
+    android:minWidth="250dp" android:minHeight="110dp" android:updatePeriodMillis="0"
     android:initialLayout="@layout/due_widget" android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />
 ''')
@@ -804,7 +854,11 @@ edit(MAN, '''    <uses-permission android:name="android.permission.INTERNET" />'
      '''    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />''')
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <queries>
+        <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
+        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
+    </queries>''')
 edit(os.path.join(A, "app/build.gradle"),
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"''',
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
