@@ -1,0 +1,46 @@
+{
+ "v": 1,
+ "updated": "2026-11-16",
+ "notes": "Edit this file on GitHub to change scheme rates or add bank message formats. Phones download it twice a day, or from Settings > Download rules now. Keep it valid JSON.",
+ "schemes": {
+  "quarter": {
+   "from": "2026-10-01",
+   "to": "2026-12-31",
+   "label": "1 Oct – 31 Dec 2026"
+  },
+  "rates": {
+   "ppf": 7.1,
+   "ssy": 8.2,
+   "scss": 8.2,
+   "nsc": 7.7,
+   "kvp": 7.5,
+   "mis": 7.4,
+   "td1": 6.9,
+   "td2": 7.0,
+   "td3": 7.1,
+   "td5": 7.5,
+   "rd": 6.7,
+   "sb": 4.0
+  }
+ },
+ "rateHist": {
+  "ssy": [],
+  "ppf": [],
+  "rd": []
+ },
+ "sms": [
+  {
+   "name": "Example: Dukhan Bank card",
+   "re": "Dukhan Bank: purchase of QAR ([\\d,.]+) at (.+?) on",
+   "amt": 1,
+   "payee": 2,
+   "kind": "out",
+   "cur": "QAR",
+   "cat": ""
+  }
+ ],
+ "skip": [
+  "\\bwin\\b.*\\bprize\\b",
+  "\\bcashback offer\\b"
+ ]
+}

@@ -1,4 +1,35 @@
-PERSONAL DIARY (version 24, formerly Due & Spend)
+PERSONAL DIARY (version 26, formerly Due & Spend)
+
+HOW UPDATES WORK NOW
+- Changes are made in this GitHub repo. GitHub checks the app, builds the APK and
+  publishes it with a version.json note of what's new.
+- When you open the app and a newer build exists, an "Update available" prompt appears
+  in front. Tap Update now (Android asks you to confirm the install). Tick
+  "Next time, update without asking" to skip the prompt from then on.
+- The source code is in the source/ folder (build with: python3 build.py).
+
+VERSION 26: CLEARER SCREENS
+- Home: one header with Quick add, Hide amounts and Settings; one hero with net worth,
+  money in accounts, dues in 30 days and safe to spend; one "Needs attention" list
+  (payments to review, top-ups, overdue dues with a Paid button, rate alert, budgets,
+  documents, family dates, duplicates, backups) folding after five rows; This month;
+  Coming up; Accounts; rates; shortcuts to Family, Reports and Backup.
+- Home > Choose what Home shows: turn sections on or off.
+- Wealth is split into Overview, Investments, Schemes, Goals & loans and Plans.
+- Find duplicates (Settings, or from Needs attention): same amount, account and day.
+- Share the monthly summary on WhatsApp or copy it (from the month's verdict).
+- Theme and Hide amounts moved into Settings and the header.
+
+
+VERSION 25: SMOOTHER SCREEN (upload index.html and sw.js only)
+- Fixes the flickering. Background updates (sync, SMS, email alerts, prices, update check)
+  used to rebuild the whole screen and replay the animations each time. Now only the
+  card that changed is updated; animations play only when you switch tabs.
+- Text you're typing in search, and sections you opened, stay as they are during updates.
+Install: upload index.html and sw.js to the repo; the APK build starts by itself.
+Then in the app: Settings > App updates > Check for update > Install latest.
+(build-apk.yml, rules.json, ci-check.py and gmail-reader.gs are unchanged from Version 24.)
+
 
 UPDATE TO VERSION 24
 1. In your GitHub repo: Add file > Upload files. Upload these from the zip:
@@ -9,7 +40,7 @@ UPDATE TO VERSION 24
 3. Actions tab > "Build Android app" > wait for the green tick (5-10 minutes).
    It now checks the app first and stops if something is broken.
 4. Releases page > download personal-diary.apk > open it > Update. Your data stays.
-5. Open the app once. Home should end with "Version 24".
+5. Open the app once. Home should end with "Version 25".
 6. Settings: under "App updates", check your GitHub repo name is shown.
    From now on the app tells you when a new version is ready and installs it itself
    (Android asks once to "Allow from this source").
