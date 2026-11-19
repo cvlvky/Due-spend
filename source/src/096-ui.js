@@ -1,0 +1,48 @@
+/* ===== interface: icons, one add button, search, calendar, shortcuts ===== */
+const NAVI={home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',dates:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',invest:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',acc:'<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l12-4v4M17 13.5h2"/>',spend:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>',rep:'<path d="M5 20V10M12 20V4M19 20v-7"/>'};
+const navHtml=()=>TABS.map(([k,l])=>`<button class="${tab==k?"on":""}" data-act="tab" data-id="${k}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAVI[k]}</svg><span>${l}</span></button>`).join("");
+const FABBTN='<button class="fab2" data-act="fab" aria-label="Add something">+</button>';
+const CICON=[[/food|grocer|restaurant|dining|lulu|carrefour|cafe|tea|snack/i,"🍽️"],[/rent|house|home|villa|flat/i,"🏠"],[/travel|flight|taxi|uber|karwa|fuel|petrol|metro|bus/i,"🚕"],[/bill|electric|water|kahramaa|recharge|mobile|internet|ooredoo|vodafone/i,"💡"],[/shop|cloth|amazon|mall/i,"🛍️"],[/health|medic|doctor|pharma|hospital/i,"🩺"],[/salary|income|bonus|deposit/i,"💼"],[/emi|loan/i,"🏦"],[/premium|insur|lic/i,"🛡️"],[/invest|sip|fund|gold|goal|saving/i,"🌱"],[/family|remit|parents|school|fee|education/i,"👪"],[/subscri|netflix|spotify|prime/i,"📺"],[/gift|charity|zakat|donat/i,"🎁"]];
+const catIcon=x=>{const t=(x.cat||"")+" "+(x.sub||"");for(const [re,ic] of CICON)if(re.test(t))return ic;return x.kind=="in"?"💼":x.kind=="save"?"🌱":"🧾"};
+function dayGroups(t){const by=new Map();t.forEach(x=>{if(!by.has(x.date))by.set(x.date,[]);by.get(x.date).push(x)});
+  return [...by].map(([d,L])=>{const n=dl(d),o=sumV(L.filter(x=>x.kind=="out"));return `<div class="dh"><span>${n==0?"Today":n==-1?"Yesterday":fmt(d)}</span><span>${o?"−"+fm(o):""}</span></div>`+L.map(txRow).join("")}).join("")}
+/* Home pieces */
+const searchBox=()=>`<input data-gs="1" type="search" placeholder="Search everything" aria-label="Search everything" style="margin:0 0 12px">`;
+const accStrip=()=>`<div class="strip">${S.acc.map(k=>{const b=bal(k);return `<div class="sc" data-act="stmt" data-id="${k.id}"><small>${esc(k.name)}</small><b style="color:${b<0?"var(--late)":"inherit"}">${fmx(Math.round(b),k.cur)}</b></div>`}).join("")}<div class="sc add" data-act="addAcc"><small>New</small><b>+ Account</b></div></div>`;
+function startCard(){if(S.cfg.gs)return "";const st=[["Add your bank accounts",S.acc.length>1||S.acc.some(a=>a.ut),"addAcc"],["Add a due date (premium, EMI, FD)",S.dates.length>0,"addDate"],["Add your first entry",S.tx.some(x=>x.kind!="adj"),"quick"],["Add salary or rent as a recurring entry",S.rec.length>0,"addRec"],["Export a backup file",!!S.cfg.lastBk,"settings"]],left=st.filter(s=>!s[1]).length;if(!left)return "";
+  return `<div class="card" style="margin:0 0 12px"><div class="hbl"><b>Get set up</b><span class="note">${st.length-left} of ${st.length} done</span></div>${st.map(s=>`<div class="hrow" ${s[1]?"":`data-act="${s[2]}" style="cursor:pointer"`}><span class="dot ${s[1]?"good":""}"></span><div><b style="font-weight:${s[1]?400:700};${s[1]?"text-decoration:line-through;color:var(--mute)":""}">${s[0]}</b></div></div>`).join("")}<div class="acts"><button class="btn ghost sm" data-act="gsHide">Hide this</button></div></div>`}
+function searchAll(q){q=String(q||"").trim().toLowerCase();if(q.length<2)return;const hit=(...a)=>a.join(" ").toLowerCase().includes(q),R=[];
+  S.acc.forEach(k=>{if(hit(k.name))R.push(`<div class="row" data-act="stmt" data-id="${k.id}"><div><b>${esc(k.name)}</b><small>Account</small></div><b>${fmx(bal(k),k.cur)}</b></div>`)});
+  S.dates.forEach(i=>{if(hit(i.name,i.no,i.nom,TYPES[i.type]))R.push(dRow(i))});
+  S.inv.forEach(x=>{if(hit(x.name,x.no,IK[x.kind]))R.push(iRow(x))});
+  S.loans.forEach(l=>{if(hit(l.name))R.push(`<div class="row" data-act="editLoan" data-id="${l.id}"><div><b>${esc(l.name)}</b><small>Loan · ${loanLeft(l)} EMIs left</small></div><b>${fmx(Math.round(loanOut(l)),l.cur)}</b></div>`)});
+  S.docs.forEach(d=>{if(hit(d.name,d.no,d.type,d.note))R.push(`<div class="row" data-act="editDoc" data-id="${d.id}"><div><b>${esc(d.name)}</b><small>${esc(d.type||"Document")}${d.exp?" · expires "+fmt(d.exp):""}</small></div></div>`)});
+  S.subs.forEach(x=>{if(hit(x.name,x.plan,x.cat,x.note))R.push(`<div class="row" data-act="editSub" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>Subscription${x.end?" · "+(x.cancelled?"ended ":"renews ")+fmt(x.end):""}</small></div><b>${fmx(+x.price||0,x.cur)}</b></div>`)});
+  S.moi.forEach(m=>{if(hit(m.person,m.place,m.occ))R.push(`<div class="row" data-act="moiEdit" data-id="${m.id}"><div><b>${esc(m.person)}</b><small>${m.dir=="gave"?"Gave":"Received"} · ${esc(m.occ)} · ${fmt(m.date)}</small></div><b>${m.cash?fmx(m.cash,m.cur):""}</b></div>`)});
+  S.lend.forEach(x=>{if(hit(x.person,x.note))R.push(`<div class="row" data-act="lendView" data-id="${x.id}"><div><b>${esc(x.person)}</b><small>Hand loan · ${x.dir=="lent"?"owes you":"you owe"}</small></div><b>${fmx(lOut(x),x.cur)}</b></div>`)});
+  S.sacc.forEach(x=>{if(hit(x.name,x.holder,x.no,SAS[x.type]))R.push(`<div class="row" data-act="saInfo" data-id="${x.id}"><div><b>${esc(x.name)}</b><small>${SAT[x.type]}</small></div><b>${inr(Math.round(saState(x).now))}</b></div>`)});
+  S.goals.forEach(g=>{if(hit(g.name))R.push(`<div class="row" data-act="editGoal" data-id="${g.id}"><div><b>${esc(g.name)}</b><small>Goal</small></div><b>${fmx(g.saved,g.cur)}</b></div>`)});
+  const T=S.tx.filter(x=>x.kind!="tr"&&x.kind!="adj"&&hit(x.cat,x.sub,x.payee,x.note,(x.tags||[]).join(" "),an(x.acc),x.amt,x.date)).sort((a,b)=>b.date.localeCompare(a.date));
+  sheet(`<h2>Results for “${esc(q)}”</h2>${R.join("")}${T.length?`<p class="note">${T.length} ${T.length==1?"entry":"entries"}, ${fm(sumV(T.filter(x=>x.kind=="out")))} spent</p>`+T.slice(0,80).map(txRow).join(""):""}${R.length||T.length?"":`<div class="empty">Nothing matches.</div>`}`)}
+/* month calendar of what is due */
+let dmon="";
+function dueCal(){if(!dmon)dmon=today().slice(0,7);const t=today(),U=upcoming(dmon+"-01",mEnd(dmon),false),by={};U.filter(u=>u.t!="rec"&&u.t!="recin").forEach(u=>{(by[+u.d.slice(8)]=by[+u.d.slice(8)]||[]).push(u)});
+  S.docs.forEach(d=>{if(d.exp&&d.exp.startsWith(dmon))(by[+d.exp.slice(8)]=by[+d.exp.slice(8)]||[]).push({d:d.exp,n:d.name+" expires",a:0,c:"INR",t:"doc",late:d.exp<t})});
+  activeDues().forEach(i=>{if(i.date<t&&i.date.startsWith(dmon)){const d=+i.date.slice(8);if(!(by[d]||[]).some(u=>u.id==i.id))(by[d]=by[d]||[]).push({d:i.date,n:i.name,a:+i.amt||0,c:i.cur,t:"due",late:1})}});
+  const off=(new Date(+dmon.slice(0,4),+dmon.slice(5)-1,1).getDay()+6)%7,tot=Object.values(by).flat().filter(u=>u.t!="fd").reduce((s,u)=>s+iv(u.a,u.c),0);
+  return `<div class="card" style="margin-bottom:12px"><div class="mon" style="margin:0 0 8px"><button class="btn ghost sm" data-act="dmon" data-id="-1" aria-label="Previous month">‹</button><b>${mlong(dmon)} · ${fmr(tot)}</b><button class="btn ghost sm" data-act="dmon" data-id="1" aria-label="Next month">›</button></div><div class="hm cal">${"MTWTFSS".split("").map(c=>`<i>${c}</i>`).join("")}${Array(off).fill("<i></i>").join("")}${Array.from({length:dim(dmon)},(_,k)=>{const d=k+1,L=by[d],iso_=dmon+"-"+p2(d);return `<i class="${L?(L.some(u=>u.late||u.d<t)?"late":"has"):""}${iso_==t?" tod":""}" ${L?tip(L.map(u=>u.n+(u.a?" "+fmx(u.a,u.c):"")).join(" · ")):""}>${d}</i>`}).join("")}</div><p class="note" style="margin-top:6px">Tap a marked day to see what is due.</p></div>`}
+/* frequent entries, one tap */
+let FREQ=[];
+function freqHtml(k){const m=new Map();S.tx.filter(x=>x.kind==k&&!x.link&&!x.rec&&(x.payee||x.cat)).slice(-300).forEach(x=>{const key=[x.acc,x.cat,x.payee,x.amt].join("|"),o=m.get(key)||{n:0,x};o.n++;o.x=x;m.set(key,o)});
+  FREQ=[...m.values()].filter(o=>o.n>=2).sort((a,b)=>b.n-a.n).slice(0,4).map(o=>o.x);
+  return FREQ.length?`<div class="chips">${FREQ.map((x,i)=>`<button data-act="qf" data-id="${i}" style="border-style:dashed">${esc(x.payee||x.cat)} ${fmx(x.amt,x.cur)}</button>`).join("")}</div>`:""}
+const fabTile=(act,ic,l)=>`<button class="ft" data-act="${act}"><span>${ic}</span>${l}</button>`;
+Object.assign(ACT,{
+  fab(){sheet(`<h2>Add</h2><div class="fgrid">${fabTile("qOut","🧾","Expense")}${fabTile("qIn","💼","Income")}${fabTile("trf","🔁","Transfer")}${fabTile("addDate","📅","Due date")}${fabTile("addSub","🎬","Subscription")}${fabTile("addDoc","🪪","Document")}${fabTile("smsOpen","💬","Bank SMS")}${fabTile("addInv","🌱","Investment")}${fabTile("addGoal","🎯","Goal")}${fabTile("addLoan","🏦","Loan")}${fabTile("addAcc","👛","Account")}</div>`)},
+  qOut(){qForm("out")},qIn(){qForm("in")},
+  qf(id){const x=FREQ[+id];if(!x)return;$("#f_amt").value=x.amt;$("#f_cat").value=x.cat||"";$("#f_acc").value=x.acc;const p=$("#f_payee");if(p)p.value=x.payee||"";const s=$("#f_sub");if(s)s.value=x.sub||""},
+  repeatTx(id){const x=S.tx.find(q=>q.id==id);if(!x)return;const n=addTx({kind:x.kind,acc:x.acc,amt:x.amt,cur:x.cur,date:today(),cat:x.cat,sub:x.sub,payee:x.payee,tags:[...(x.tags||[])],note:x.note});mon=today().slice(0,7);done();undoDel(n.id,"Added again for today");},
+  dmon(id){dmon=addMon(dmon||today().slice(0,7),+id);render()},
+  gsHide(){S.cfg.gs=true;save();render()}
+});
+document.addEventListener("change",e=>{const t=e.target;if(t.getAttribute&&t.getAttribute("data-gs")){const q=t.value;t.value="";try{searchAll(q)}catch(x){console.error(x)}}});

@@ -36,9 +36,9 @@ try:
         for t in ["home", "dates", "invest", "acc", "spend", "rep", "fam"]:
             E('tab="%s";render()' % t)
             ok("screen " + t, "couldn’t be shown" not in pg.inner_text("#app"))
-        p1 = E('parseSms("Your card ending **0379 used for QAR 7.00 at Ananas Restaurant at 07:06 11-Nov-26 Available Limit: QAR 3,193.00")')
-        ok("reads a Qatar card alert", p1 and p1["amt"] == 7 and p1["cur"] == "QAR" and p1["payee"] == "Ananas Restaurant", p1)
-        p2 = E('parseSms("Amount Debited: INR 266.00 Account Number: XX1555 Date & Time: 14-11-26, 12:42:28 IST Transaction Info: UPI/P2M/668408529092/Meesho")')
+        p1 = E('parseSms("Your card ending **4821 used for QAR 7.00 at Saffron Cafe at 07:06 11-Nov-26 Available Limit: QAR 3,193.00")')
+        ok("reads a Qatar card alert", p1 and p1["amt"] == 7 and p1["cur"] == "QAR" and p1["payee"] == "Saffron Cafe", p1)
+        p2 = E('parseSms("Amount Debited: INR 266.00 Account Number: XX7730 Date & Time: 14-11-26, 12:42:28 IST Transaction Info: UPI/P2M/600000000101/Meesho")')
         ok("reads an Axis email", p2 and p2["amt"] == 266 and p2["payee"] == "Meesho", p2)
         rd = E('rdRun({open:"2020-01-01",rate:6.7,dep:Array.from({length:60},(_,k)=>({d:addM("2020-01-01",k),a:1000}))},"2025-01-01").bal')
         ok("RD maturity maths", abs(rd - 71369) <= 60, rd)

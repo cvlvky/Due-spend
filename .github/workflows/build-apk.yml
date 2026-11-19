@@ -600,7 +600,8 @@ jobs:
         run: |
           cp build/android/app/build/outputs/apk/debug/app-debug.apk personal-diary.apk
           VER=$(grep -o 'VER="[0-9]*"' index.html | head -1 | grep -o '[0-9]*')
-          echo "{\"code\":${{ github.run_number }},\"ver\":\"$VER\",\"date\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > version.json
+          # version.json tells the app a newer build exists; the commit message becomes "What's new"
+          RUN=${{ github.run_number }} VER=$VER python3 -c "import json,os,subprocess,datetime;import re;m=subprocess.run(['git','log','-1','--pretty=%B'],capture_output=True,text=True).stdout;m='\\n'.join(l for l in m.splitlines() if not re.match(r'(co-authored-by|claude-session|signed-off-by):',l.strip(),re.I)).strip();json.dump({'code':int(os.environ['RUN']),'ver':os.environ['VER'],'date':datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'notes':m[:800]},open('version.json','w'))"
           cat version.json
           gh release delete app --yes --cleanup-tag || true
           gh release create app personal-diary.apk version.json --title "Personal Diary Android app" --notes "Download personal-diary.apk on your phone and open it to install. Version $VER, build ${{ github.run_number }}."

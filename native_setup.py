@@ -8,7 +8,7 @@ import os, re, sys
 A = sys.argv[1] if len(sys.argv) > 1 else "build/android"
 ICON = sys.argv[2] if len(sys.argv) > 2 else "icon-512.png"
 MAIN = os.path.join(A, "app/src/main")
-JAVA = os.path.join(MAIN, "java/com/duespend/app")
+JAVA = os.path.join(MAIN, "java/com/personaldiary/app")
 RES = os.path.join(MAIN, "res")
 GREEN = "#0F6B5C"
 
@@ -30,7 +30,7 @@ def edit(path, old, new, count=1):
 
 # ---------------------------------------------------------------- Java
 write(os.path.join(JAVA, "MainActivity.java"), r'''
-package com.duespend.app;
+package com.personaldiary.app;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -122,7 +122,7 @@ public class MainActivity extends BridgeActivity {
 ''')
 
 write(os.path.join(JAVA, "DueNativePlugin.java"), r'''
-package com.duespend.app;
+package com.personaldiary.app;
 
 import android.Manifest;
 import android.content.ContentResolver;
@@ -202,7 +202,8 @@ public class DueNativePlugin extends Plugin {
                 new String[] { "_id", "address", "body", "date" }, "date > ?",
                 new String[] { String.valueOf(since) }, "date DESC");
             int n = 0;
-            while (c != null && c.moveToNext() && n < 80) {
+            int max = call.getInt("max", 150);
+            while (c != null && c.moveToNext() && n < max) {
                 JSObject m = new JSObject();
                 m.put("id", c.getString(0));
                 m.put("address", c.getString(1));
@@ -234,18 +235,221 @@ public class DueNativePlugin extends Plugin {
             ContentResolver cr = getContext().getContentResolver();
             ContentValues v = new ContentValues();
             v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
-            v.put(MediaStore.MediaColumns.MIME_TYPE, "application/json");
+            v.put(MediaStore.MediaColumns.MIME_TYPE, call.getString("mime", "application/json"));
             v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/DueAndSpend");
             Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
             if (uri == null) { call.reject("Could not create the file"); return; }
+            String b64 = call.getString("b64", "");
+            byte[] bytes = b64 != null && !b64.isEmpty() ? android.util.Base64.decode(b64, android.util.Base64.DEFAULT) : text.getBytes(StandardCharsets.UTF_8);
             try (OutputStream os = cr.openOutputStream(uri)) {
                 if (os == null) { call.reject("Could not open the file"); return; }
-                os.write(text.getBytes(StandardCharsets.UTF_8));
+                os.write(bytes);
             }
             call.resolve();
         } catch (Exception e) {
             call.reject("Backup failed: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void notifStatus(PluginCall call) {
+        JSObject r = new JSObject();
+        boolean on = false;
+        try {
+            on = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(getContext())
+                .contains(getContext().getPackageName());
+        } catch (Exception ignored) {}
+        r.put("enabled", on);
+        r.put("conn", String.valueOf(DueNotifListener.getLong(getContext(), "conn")));
+        r.put("disc", String.valueOf(DueNotifListener.getLong(getContext(), "disc")));
+        r.put("seen", String.valueOf(DueNotifListener.getLong(getContext(), "seen")));
+        r.put("sms", getPermissionState("sms") == PermissionState.GRANTED);
+        if (on && call.getBoolean("rebind", false)) {
+            try {
+                android.content.ComponentName cn = new android.content.ComponentName(getContext(), DueNotifListener.class);
+                android.content.pm.PackageManager pm = getContext().getPackageManager();
+                pm.setComponentEnabledSetting(cn, android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED, android.content.pm.PackageManager.DONT_KILL_APP);
+                pm.setComponentEnabledSetting(cn, android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED, android.content.pm.PackageManager.DONT_KILL_APP);
+                if (Build.VERSION.SDK_INT >= 24) android.service.notification.NotificationListenerService.requestRebind(cn);
+            } catch (Exception ignored) {}
+        }
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void notifLog(PluginCall call) {
+        try {
+            JSObject r = new JSObject();
+            r.put("items", new JSArray(DueNotifListener.getLog(getContext())));
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("Could not read the alert log");
+        }
+    }
+
+    @PluginMethod
+    public void readClip(PluginCall call) {
+        JSObject r = new JSObject();
+        String t = "";
+        try {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+                CharSequence c = cm.getPrimaryClip().getItemAt(0).coerceToText(getContext());
+                if (c != null) t = c.toString();
+            }
+        } catch (Exception ignored) {}
+        r.put("text", t.length() > 2000 ? t.substring(0, 2000) : t);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void openNotifSettings(PluginCall call) {
+        try {
+            android.content.Intent i = new android.content.Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+            i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open notification settings");
+        }
+    }
+
+    @PluginMethod
+    public void readNotifs(PluginCall call) {
+        try {
+            JSObject r = new JSObject();
+            r.put("items", new JSArray(DueNotifListener.take(getContext())));
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("Could not read payment alerts");
+        }
+    }
+
+    /** Deletes this app's older backup files in Downloads, keeping the newest ones. */
+    @PluginMethod
+    public void pruneBackups(PluginCall call) {
+        int removed = 0;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            int keep = call.getInt("keep", 14);
+            String prefix = call.getString("prefix", "due-and-spend-backup-");
+            Cursor c = null;
+            try {
+                ContentResolver cr = getContext().getContentResolver();
+                Uri base = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                c = cr.query(base, new String[] { MediaStore.MediaColumns._ID },
+                    MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?", new String[] { prefix + "%" },
+                    MediaStore.MediaColumns.DATE_ADDED + " DESC");
+                int n = 0;
+                while (c != null && c.moveToNext()) {
+                    n++;
+                    if (n <= keep) continue;
+                    try {
+                        removed += cr.delete(android.content.ContentUris.withAppendedId(base, c.getLong(0)), null, null);
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {
+            } finally {
+                if (c != null) c.close();
+            }
+        }
+        JSObject r = new JSObject();
+        r.put("removed", removed);
+        call.resolve(r);
+    }
+
+    /** Opens an attached file in another app (PDF viewer, gallery). */
+    @PluginMethod
+    public void openFile(PluginCall call) {
+        try {
+            String name = call.getString("name", "file").replaceAll("[^A-Za-z0-9._ -]", "_");
+            String mime = call.getString("mime", "*/*");
+            byte[] data = android.util.Base64.decode(call.getString("data", ""), android.util.Base64.DEFAULT);
+            java.io.File dir = new java.io.File(getContext().getCacheDir(), "shared");
+            if (!dir.exists()) dir.mkdirs();
+            java.io.File f = new java.io.File(dir, name);
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) { out.write(data); }
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+            android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            i.setDataAndType(uri, mime == null || mime.isEmpty() ? "*/*" : mime);
+            i.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            android.content.Intent chooser = android.content.Intent.createChooser(i, "Open with");
+            chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(chooser);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open the file: " + e.getMessage());
+        }
+    }
+
+    /** Opens a web link (WhatsApp, a download) outside the app. */
+    @PluginMethod
+    public void openUrl(PluginCall call) {
+        try {
+            android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(call.getString("url", "")));
+            i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open the link");
+        }
+    }
+
+    /** Downloads the newer APK from the GitHub release and opens Android's installer. */
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        final String url = call.getString("url", "");
+        if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
+            try {
+                android.content.Intent s = new android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
+                s.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(s);
+            } catch (Exception ignored) {}
+            JSObject r = new JSObject();
+            r.put("needPermission", true);
+            call.resolve(r);
+            return;
+        }
+        new Thread(() -> {
+            try {
+                java.io.File dir = new java.io.File(getContext().getCacheDir(), "shared");
+                if (!dir.exists()) dir.mkdirs();
+                java.io.File f = new java.io.File(dir, "personal-diary-update.apk");
+                String u = url;
+                java.net.HttpURLConnection c = null;
+                for (int hop = 0; hop < 6; hop++) {
+                    c = (java.net.HttpURLConnection) new java.net.URL(u).openConnection();
+                    c.setInstanceFollowRedirects(false);
+                    c.setConnectTimeout(20000);
+                    c.setReadTimeout(60000);
+                    int code = c.getResponseCode();
+                    if (code >= 300 && code < 400 && c.getHeaderField("Location") != null) { u = new java.net.URL(new java.net.URL(u), c.getHeaderField("Location")).toString(); c.disconnect(); continue; }
+                    if (code != 200) throw new Exception("HTTP " + code);
+                    break;
+                }
+                try (java.io.InputStream in = c.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                if (f.length() < 100000) throw new Exception("The download looks incomplete");
+                Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+                android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                i.setDataAndType(uri, "application/vnd.android.package-archive");
+                i.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(i);
+                JSObject r = new JSObject();
+                r.put("started", true);
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject("Update download failed: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void exitApp(PluginCall call) {
+        call.resolve();
+        getActivity().runOnUiThread(() -> getActivity().moveTaskToBack(true));
     }
 
     @PluginMethod
@@ -289,7 +493,7 @@ public class DueNativePlugin extends Plugin {
                         }
                     });
                 BiometricPrompt.PromptInfo info = new BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("Unlock Due & Spend")
+                    .setTitle("Unlock Personal Diary")
                     .setNegativeButtonText("Use PIN")
                     .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
                     .build();
@@ -303,7 +507,7 @@ public class DueNativePlugin extends Plugin {
 ''')
 
 write(os.path.join(JAVA, "DueWidget.java"), r'''
-package com.duespend.app;
+package com.personaldiary.app;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -324,7 +528,7 @@ public class DueWidget extends AppWidgetProvider {
     static RemoteViews build(Context c) {
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.due_widget);
         SharedPreferences p = c.getSharedPreferences("due_widget", Context.MODE_PRIVATE);
-        v.setTextViewText(R.id.w_l1, p.getString("l1", "Due & Spend"));
+        v.setTextViewText(R.id.w_l1, p.getString("l1", "Personal Diary"));
         v.setTextViewText(R.id.w_l2, p.getString("l2", "Open the app once to fill this in"));
         v.setOnClickPendingIntent(R.id.w_root, open(c, 0, null));
         v.setOnClickPendingIntent(R.id.w_out, open(c, 1, "out"));
@@ -335,7 +539,7 @@ public class DueWidget extends AppWidgetProvider {
 
     private static PendingIntent open(Context c, int request, String add) {
         Intent i = new Intent(c, MainActivity.class);
-        i.setAction("com.duespend.app.WIDGET_" + request);
+        i.setAction("com.personaldiary.app.WIDGET_" + request);
         i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         if (add != null) i.putExtra("add", add);
         return PendingIntent.getActivity(c, request, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -351,6 +555,150 @@ public class DueWidget extends AppWidgetProvider {
 }
 ''')
 
+write(os.path.join(JAVA, "DueNotifListener.java"), r'''
+package com.personaldiary.app;
+
+import android.app.Notification;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.service.notification.NotificationListenerService;
+import android.service.notification.StatusBarNotification;
+import java.util.regex.Pattern;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+/** Keeps notifications that look like payments (bank apps, Gmail, Outlook, SMS) for the app to review. */
+public class DueNotifListener extends NotificationListenerService {
+    static final String PREFS = "due_notifs";
+    private static final Pattern MONEY = Pattern.compile(
+        "(?i)(inr|rs\\.?|\\u20B9|qar|qr|usd|aed|sar|\\$|\\u0631\\.?\\s?\\u0642)\\s?[0-9][0-9,]*(\\.[0-9]+)?|[0-9][0-9,]*(\\.[0-9]+)?\\s?(inr|qar|qr|rs|\\u0631\\.?\\s?\\u0642|\\u0631\\u064A\\u0627\\u0644)");
+    private static final Pattern BANKY = Pattern.compile(
+        "(?i)bank|alert|transaction|txn|card|a/c|account|credit|debit|upi|imps|neft|sms service|payment|purchase|\\u0628\\u0637\\u0627\\u0642\\u0629|\\u062D\\u0633\\u0627\\u0628");
+    private static final java.util.Set<String> MAIL = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.google.android.gm", "com.microsoft.office.outlook", "com.samsung.android.email.provider", "com.yahoo.mobile.client.android.mail",
+        "com.google.android.apps.messaging", "com.samsung.android.messaging", "com.android.mms", "com.truecaller"));
+    private static final Pattern WORDS = Pattern.compile(
+        "(?i)debited|credited|debit|credit|spent|paid|payment|purchase|received|withdrawn|withdrawal|transaction|txn|charged|refund|deducted|transferred|sent|used|approved|\\u0634\\u0631\\u0627\\u0621|\\u062E\\u0635\\u0645|\\u0625\\u064A\\u062F\\u0627\\u0639|\\u0633\\u062D\\u0628");
+    private static final Pattern SKIP = Pattern.compile("(?i)\\botp\\b|one[ -]time password|verification code|passcode");
+
+    @Override
+    public void onNotificationPosted(StatusBarNotification sbn) {
+        try {
+            if (sbn == null || getPackageName().equals(sbn.getPackageName())) return;
+            Notification n = sbn.getNotification();
+            if (n == null || n.extras == null) return;
+            if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
+            Bundle e = n.extras;
+            String title = str(e.getCharSequence(Notification.EXTRA_TITLE));
+            String text = str(e.getCharSequence(Notification.EXTRA_BIG_TEXT));
+            if (text.isEmpty()) text = str(e.getCharSequence(Notification.EXTRA_TEXT));
+            CharSequence[] lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
+            if (text.isEmpty() && lines != null) {
+                StringBuilder b = new StringBuilder();
+                for (CharSequence l : lines) if (l != null) b.append(l).append(". ");
+                text = b.toString();
+            }
+            String sub = str(e.getCharSequence(Notification.EXTRA_SUB_TEXT));
+            String all = (title + ". " + text + (sub.isEmpty() ? "" : ". " + sub)).trim();
+            if (all.length() > 1500) all = all.substring(0, 1500);
+            String pkg = sbn.getPackageName();
+            boolean mail = MAIL.contains(pkg), money = MONEY.matcher(all).find(), words = WORDS.matcher(all).find(), bank = BANKY.matcher(all).find();
+            if (!mail && !money && !bank) return;
+            String why;
+            if (SKIP.matcher(all).find()) why = "code";
+            else if (money && (words || bank)) why = "kept";
+            else if (mail && bank) why = "noamt";
+            else why = money ? "nowords" : "noamt0";
+            log(this, label(pkg), all, sbn.getPostTime(), why);
+            if (why.equals("kept") || why.equals("noamt")) save(this, pkg, label(pkg), all, sbn.getPostTime());
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onListenerConnected() {
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("conn", System.currentTimeMillis()).apply();
+    }
+
+    @Override
+    public void onListenerDisconnected() {
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("disc", System.currentTimeMillis()).apply();
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 24)
+                requestRebind(new android.content.ComponentName(this, DueNotifListener.class));
+        } catch (Exception ignored) {}
+    }
+
+    /** The last 40 notifications that looked money-related, with what happened to each. Stays on the phone. */
+    private static synchronized void log(Context c, String app, String body, long time, String why) {
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONArray a = new JSONArray(p.getString("log", "[]"));
+            JSONObject o = new JSONObject();
+            o.put("app", app);
+            o.put("body", body.length() > 220 ? body.substring(0, 220) : body);
+            o.put("time", String.valueOf(time));
+            o.put("why", why);
+            a.put(o);
+            JSONArray out = new JSONArray();
+            for (int i = Math.max(0, a.length() - 40); i < a.length(); i++) out.put(a.get(i));
+            p.edit().putString("log", out.toString()).putLong("seen", time).apply();
+        } catch (Exception ignored) {}
+    }
+
+    static String getLog(Context c) {
+        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("log", "[]");
+    }
+
+    static long getLong(Context c, String k) {
+        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(k, 0);
+    }
+
+    private static String str(CharSequence c) {
+        return c == null ? "" : c.toString().trim();
+    }
+
+    private String label(String pkg) {
+        try {
+            PackageManager pm = getPackageManager();
+            ApplicationInfo ai = pm.getApplicationInfo(pkg, 0);
+            return String.valueOf(pm.getApplicationLabel(ai));
+        } catch (Exception e) {
+            return pkg;
+        }
+    }
+
+    private static synchronized void save(Context c, String pkg, String app, String body, long time) throws Exception {
+        SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        JSONArray a = new JSONArray(p.getString("q", "[]"));
+        String id = pkg + ":" + Integer.toHexString(body.hashCode());
+        for (int i = 0; i < a.length(); i++) {
+            if (id.equals(a.getJSONObject(i).optString("id"))) return;
+        }
+        JSONObject o = new JSONObject();
+        o.put("id", id);
+        o.put("pkg", pkg);
+        o.put("app", app);
+        o.put("body", body);
+        o.put("time", String.valueOf(time));
+        a.put(o);
+        JSONArray out = new JSONArray();
+        for (int i = Math.max(0, a.length() - 100); i < a.length(); i++) out.put(a.get(i));
+        p.edit().putString("q", out.toString()).apply();
+    }
+
+    /** Returns everything kept so far and clears the list. */
+    static synchronized String take(Context c) {
+        SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String s = p.getString("q", "[]");
+        p.edit().putString("q", "[]").apply();
+        return s;
+    }
+}
+''')
+
 # ---------------------------------------------------------------- resources
 write(os.path.join(RES, "layout/due_widget.xml"), '''
 <?xml version="1.0" encoding="utf-8"?>
@@ -358,7 +706,7 @@ write(os.path.join(RES, "layout/due_widget.xml"), '''
     android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:padding="12dp" android:background="@drawable/due_widget_bg">
     <TextView android:id="@+id/w_l1" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Due &amp; Spend" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold"
+        android:text="Personal Diary" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold"
         android:maxLines="1" android:ellipsize="end" />
     <TextView android:id="@+id/w_l2" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="" android:textColor="#D6F0E8" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
@@ -408,8 +756,8 @@ write(os.path.join(RES, "values/due_strings.xml"), '''
 def shortcut(sid, label, add):
     return ('''    <shortcut android:shortcutId="%s" android:enabled="true" android:icon="@mipmap/ic_launcher"
         android:shortcutShortLabel="@string/%s" android:shortcutLongLabel="@string/%s">
-        <intent android:action="android.intent.action.VIEW" android:targetPackage="com.duespend.app"
-            android:targetClass="com.duespend.app.MainActivity">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="com.personaldiary.app"
+            android:targetClass="com.personaldiary.app.MainActivity">
             <extra android:name="add" android:value="%s" />
         </intent>
     </shortcut>
@@ -436,7 +784,14 @@ edit(MAN, '''                <category android:name="android.intent.category.LAU
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 ''')
 edit(MAN, '''        <provider
-            android:name="androidx.core.content.FileProvider"''', '''        <receiver android:name=".DueWidget" android:exported="true" android:label="Due &amp; Spend">
+            android:name="androidx.core.content.FileProvider"''', '''        <service android:name=".DueNotifListener" android:label="Personal Diary payment alerts"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver android:name=".DueWidget" android:exported="true" android:label="Personal Diary">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -448,7 +803,8 @@ edit(MAN, '''        <provider
 edit(MAN, '''    <uses-permission android:name="android.permission.INTERNET" />''',
      '''    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-permission android:name="android.permission.USE_BIOMETRIC" />''')
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />''')
 edit(os.path.join(A, "app/build.gradle"),
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"''',
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"

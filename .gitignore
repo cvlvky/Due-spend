@@ -1,0 +1,4 @@
+dist/
+__pycache__/
+source/test/fixtures/*.pdf
+source/shots/
