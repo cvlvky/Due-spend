@@ -44,7 +44,7 @@ try:
   # ---------- bank statement PDF ----------
   c,pg=h.page();E=pg.evaluate
   E('S.cfg.pdfjsBase="pdfjs/";S.acc.push({id:"ax",name:"Axis NRO",type:"bank",cur:"INR",open:50000});addTx({kind:"out",acc:"ax",amt:266,cur:"INR",date:plus(-19),cat:"Shopping",payee:"Meesho"});addTx({kind:"out",acc:"ax",amt:999,cur:"INR",date:plus(-8),cat:"Food",payee:"Cash lunch"});save();tab="acc";render()')
-  pg.click('[data-act="stImport"][data-id="ax"]');pg.wait_for_selector('#f_csv');ok('import PDF button opens with the account chosen',pg.input_value('#f_acc')=='ax' and 'PDF' in pg.inner_text('#over'))
+  pg.click('.arow[data-id="ax"]'); pg.click('#over [data-act="stImport"][data-id="ax"]');pg.wait_for_selector('#f_csv');ok('import PDF button opens with the account chosen',pg.input_value('#f_acc')=='ax' and 'PDF' in pg.inner_text('#over'))
   pg.set_input_files('#f_csv','test/fixtures/axis.pdf');pg.wait_for_selector('#csvout .card',timeout=20000);t=pg.inner_text('#csvout')
   R=E('stPend.P.rows.map(r=>[r.dir,r.amt,r.bal])');ok('all 6 transactions read with direction from the balance',[r[0] for r in R]==['out','in','out','in','out','out'] and [r[1] for r in R]==[266,85250.75,1450.5,45000,3400,28450],R)
   ok('opening and closing balance read',E('stPend.P.open')==50000 and abs(E('stPend.P.close')-146684.25)<0.01)

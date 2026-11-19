@@ -57,3 +57,26 @@ main>.nofx{animation:none}
 .top h1{font-size:25px;line-height:1.15}
 .segs button{padding:7px 11px;font-size:13px}
 .mini3 .stat{background:none;border:0;padding:0;box-shadow:none;cursor:pointer;min-width:0}
+/* Version 27 */
+.lineq{display:flex;gap:8px;align-items:center;margin-top:10px}
+.lineq input{flex:1;margin:0}
+.lineq .ib{flex:none;border:1px solid var(--line);border-radius:12px;width:44px;height:44px}
+.agrp{margin-top:12px}
+.agrp>.hbl{padding:0 4px 4px}
+.agrp>.hbl small{color:var(--mute);font-weight:600}
+.arow{display:flex;align-items:center;gap:10px;padding:11px 0;cursor:pointer;border-bottom:1px solid var(--line)}
+.arow:last-child{border-bottom:0}
+.arow .aic{font-size:20px;width:28px;text-align:center}
+.arow .an{flex:1;min-width:0}
+.arow .an b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .an small{color:var(--mute);font-size:12px}
+.arow .ab{font-size:16px;white-space:nowrap}
+.arow .ab.neg{color:var(--late)}
+.arow .dots{color:var(--mute);font-size:18px;padding-left:2px}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.mgrid button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:inherit;font:inherit;font-size:13px;cursor:pointer}
+.mgrid button span{font-size:20px}
+.dbar{position:relative;height:10px;border-radius:6px;background:var(--line);margin:10px 0 2px;overflow:visible}
+.dbar i{display:block;height:100%;border-radius:6px}
+.dbar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--mute)}
+.card.pay{cursor:pointer}

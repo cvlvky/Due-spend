@@ -9,7 +9,7 @@ window.Capacitor={isNativePlatform:()=>true,addListener(){},nativePromise:async(
  if(p=="CapacitorHttp"){const u=o.url;for(const k of Object.keys(window.__http))if(u.includes(k)){const r=window.__http[k];if(r&&r.status>=400)return r;return {status:200,data:typeof r=="string"?r:JSON.stringify(r)}}throw new Error("offline in test: "+u)}
  if(m=="readSms")return {messages:N.sms};if(m=="readNotifs"){const i=N.items;N.items=[];return {items:i}}if(m=="notifLog")return {items:N.log};
  if(m=="notifStatus")return {enabled:true,conn:String(Date.now()),disc:"0",seen:"0",sms:true};if(m=="readClip")return {text:N.clip};
- if(m=="installApk")return N.install;if(m=="saveDownload"||m=="openFile"||m=="openUrl"||m=="pruneBackups"||m=="setWidget")return {};if(m=="getLaunch")return {data:""};
+ if(m=="installApk")return N.install;if(m=="saveDownload"||m=="openFile"||m=="openUrl"||m=="pruneBackups"||m=="setWidget")return {};if(m=="getLaunch")return {data:""};if(m=="listen"){if(N.sayErr)throw new Error(N.sayErr);return {text:N.say||""}}
  return {}}};'''
 class H:
     def __init__(s):
@@ -23,7 +23,7 @@ class H:
         d=json.loads(json.dumps(legacy if seed is None else seed))
         SEED="if(!localStorage.getItem('seeded')){localStorage.setItem('due-and-spend.v1',%s);localStorage.setItem('seeded','1')}"%json.dumps(json.dumps(d))
         c=s.b.new_context(viewport={'width':width,'height':height},device_scale_factor=2,accept_downloads=True)
-        c.add_init_script(pre+(NATIVE if native else '')+SEED)
+        c.add_init_script('window.__noNews=1;'+pre+(NATIVE if native else '')+SEED)
         pg=c.new_page();pg.on('pageerror',lambda e: s.errs.append(('pageerror',str(e))))
         pg.on('console',lambda m: s.errs.append((m.type,m.text)) if m.type=='error' and 'Failed to load' not in m.text and 'net::' not in m.text else None)
         pg.goto('http://localhost:8765/'+url);pg.wait_for_selector('#nav button');return c,pg
