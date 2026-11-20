@@ -17,7 +17,7 @@ def gmail(route):
     x=MSG[m.group(1)];part={'mimeType':'text/plain','body':{'data':enc(x['plain'])}} if 'plain' in x else {'mimeType':'text/html','body':{'data':enc(x['html'])}}
     return route.fulfill(status=200,content_type='application/json',body=json.dumps({'id':m.group(1),'internalDate':str(now),'snippet':'','payload':{'mimeType':'multipart/alternative','headers':[{'name':'From','value':x['from']},{'name':'Subject','value':x['subject']}],'parts':[part]}}))
   if '/messages?' in u:
-    h.q=u;return route.fulfill(status=200,content_type='application/json',body=json.dumps({'messages':[{'id':k} for k in MSG]}))
+    h.qs=getattr(h,'qs',[])+[u];h.q=u;return route.fulfill(status=200,content_type='application/json',body=json.dumps({'messages':[{'id':k} for k in MSG]}))
   route.fulfill(status=404,body='{}')
 try:
   c,pg=h.page(native=True);E=pg.evaluate
@@ -31,7 +31,7 @@ try:
   ax=[x for x in Q if 'MEESHO' in x['body'].upper()];cb=[x for x in Q if 'SAFFRON' in x['body'].upper()]
   ok('axis email parsed',ax and ax[0]['p']['amt']==266,ax[:1])
   ok('html email parsed',cb and cb[0]['p']['amt']==7,cb[:1])
-  ok('only payment emails searched','debited' in h.q and 'newer_than' in h.q)
+  ok('only payment emails searched',any('debited' in q and 'newer_than' in q for q in h.qs))
   E('localStorage.removeItem("ds-gm-last")');n=E('gmScan(false)');ok('same emails never added twice',n==0 and len(E('S.cfg.smsq'))==len(Q))
   E('GM.tok="";window.__n.gdDeny=1;localStorage.setItem("ds-gm-last",new Date(Date.now()-3600e3).toISOString())');E('gmAuto()');pg.wait_for_timeout(600)
   ok('asks to sign in again',E('todoItems().some(x=>/Gmail reading needs/.test(x.tx))'));E('window.__n.gdDeny=0')

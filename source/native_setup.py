@@ -277,6 +277,48 @@ public class DueNativePlugin extends Plugin {
         }).start();
     }
 
+    /* ---- background check of payment emails (MailWorker) ---- */
+    @PluginMethod
+    public void mailBg(PluginCall call) {
+        Context c = getContext();
+        SharedPreferences sp = c.getSharedPreferences(MailWorker.PREFS, Context.MODE_PRIVATE);
+        SharedPreferences.Editor e = sp.edit();
+        boolean on = call.getBoolean("on", false);
+        e.putBoolean("on", on);
+        e.putString("gmail", call.getString("gmail", ""));
+        e.putString("mscid", call.getString("mscid", ""));
+        e.putBoolean("hide", call.getBoolean("hide", false));
+        String rt = call.getString("msrt", null);
+        long at = call.getLong("msrtAt", 0L);
+        if (rt != null && (rt.isEmpty() || at >= sp.getLong("msrtAt", 0L))) e.putString("msrt", rt).putLong("msrtAt", at);
+        e.apply();
+        try {
+            androidx.work.WorkManager wm = androidx.work.WorkManager.getInstance(c);
+            if (on) {
+                androidx.work.Constraints k = new androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build();
+                androidx.work.PeriodicWorkRequest w = new androidx.work.PeriodicWorkRequest.Builder(MailWorker.class, 1, java.util.concurrent.TimeUnit.HOURS).setConstraints(k).build();
+                wm.enqueueUniquePeriodicWork("pd-mail", androidx.work.ExistingPeriodicWorkPolicy.KEEP, w);
+            } else {
+                wm.cancelUniqueWork("pd-mail");
+            }
+        } catch (Exception ex) {
+            call.reject("Couldn't schedule the email check");
+            return;
+        }
+        call.resolve();
+    }
+
+    /** The Outlook sign-in may have been renewed by the background check. */
+    @PluginMethod
+    public void mailBgGet(PluginCall call) {
+        SharedPreferences sp = getContext().getSharedPreferences(MailWorker.PREFS, Context.MODE_PRIVATE);
+        JSObject o = new JSObject();
+        o.put("msrt", sp.getString("msrt", ""));
+        o.put("msrtAt", sp.getLong("msrtAt", 0L));
+        o.put("on", sp.getBoolean("on", false));
+        call.resolve(o);
+    }
+
     /** Access token for files this app creates in the user's Google Drive. */
     @PluginMethod
     public void driveToken(PluginCall call) {
@@ -695,6 +737,175 @@ public class DueNativePlugin extends Plugin {
 }
 ''')
 
+write(os.path.join(JAVA, "MailWorker.java"), r'''
+package com.personaldiary.app;
+
+import android.accounts.Account;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Build;
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
+import com.google.android.gms.auth.api.identity.AuthorizationRequest;
+import com.google.android.gms.auth.api.identity.AuthorizationResult;
+import com.google.android.gms.auth.api.identity.Identity;
+import com.google.android.gms.common.api.Scope;
+import com.google.android.gms.tasks.Tasks;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+/** Checks Gmail and Outlook for new bank payment emails about once an hour and shows one notification. */
+public class MailWorker extends Worker {
+    static final String PREFS = "due_mail";
+    static final String GMAIL = "https://www.googleapis.com/auth/gmail.readonly";
+    static final String Q = "(debited OR credited OR spent OR \"transaction\" OR purchase OR \"card ending\" OR \"a/c\" OR \"has been used\" OR \"payment of\" OR transferred OR UPI OR IMPS OR NEFT) -category:promotions -category:social";
+    static final Pattern PAY = Pattern.compile("(?i)(debit|credit|spent|transaction|purchase|card ending|a/c|used for|payment|transferred|upi|imps|neft|withdraw)");
+    static final Pattern AMT = Pattern.compile("(?i)(INR|Rs\\.?|₹|QAR|QR|USD|AED)\\s*[\\d,]*\\d");
+
+    public MailWorker(@NonNull Context c, @NonNull WorkerParameters p) { super(c, p); }
+
+    private static String http(String url, String token, String method, String form) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setConnectTimeout(20000);
+        c.setReadTimeout(20000);
+        c.setRequestMethod(method);
+        if (token != null) c.setRequestProperty("Authorization", "Bearer " + token);
+        if (form != null) {
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            c.getOutputStream().write(form.getBytes("UTF-8"));
+        }
+        int code = c.getResponseCode();
+        InputStream in = code < 400 ? c.getInputStream() : c.getErrorStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] b = new byte[8192];
+        int n;
+        while (in != null && (n = in.read(b)) > 0) out.write(b, 0, n);
+        c.disconnect();
+        if (code >= 400) throw new Exception("HTTP " + code);
+        return out.toString("UTF-8");
+    }
+
+    private static String enc(String s) throws Exception { return URLEncoder.encode(s, "UTF-8"); }
+
+    @NonNull
+    @Override
+    public Result doWork() {
+        Context ctx = getApplicationContext();
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (!sp.getBoolean("on", false)) return Result.success();
+        List<String> seen = new ArrayList<>();
+        try {
+            JSONArray a = new JSONArray(sp.getString("seen", "[]"));
+            for (int i = 0; i < a.length(); i++) seen.add(a.getString(i));
+        } catch (Exception ignored) {}
+        List<String[]> found = new ArrayList<>();
+
+        String gm = sp.getString("gmail", "");
+        if (gm.contains("@")) {
+            try {
+                AuthorizationRequest req = AuthorizationRequest.builder()
+                    .setRequestedScopes(Collections.singletonList(new Scope(GMAIL)))
+                    .setAccount(new Account(gm, "com.google")).build();
+                AuthorizationResult r = Tasks.await(Identity.getAuthorizationClient(ctx).authorize(req), 40, TimeUnit.SECONDS);
+                String tok = r.hasResolution() ? null : r.getAccessToken();
+                if (tok != null) {
+                    JSONObject list = new JSONObject(http("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15&q=" + enc(Q + " newer_than:2d"), tok, "GET", null));
+                    JSONArray ms = list.optJSONArray("messages");
+                    for (int i = 0; ms != null && i < ms.length(); i++) {
+                        String id = "g" + ms.getJSONObject(i).getString("id");
+                        if (seen.contains(id)) continue;
+                        JSONObject m = new JSONObject(http("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + ms.getJSONObject(i).getString("id") + "?format=metadata&metadataHeaders=Subject", tok, "GET", null));
+                        found.add(new String[]{id, m.optString("snippet", "")});
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        String rt = sp.getString("msrt", ""), cid = sp.getString("mscid", "");
+        if (!rt.isEmpty() && !cid.isEmpty()) {
+            try {
+                JSONObject t = new JSONObject(http("https://login.microsoftonline.com/consumers/oauth2/v2.0/token", null, "POST",
+                    "client_id=" + enc(cid) + "&grant_type=refresh_token&refresh_token=" + enc(rt) + "&scope=" + enc("offline_access Mail.Read")));
+                String tok = t.optString("access_token", "");
+                if (t.has("refresh_token")) sp.edit().putString("msrt", t.getString("refresh_token")).putLong("msrtAt", System.currentTimeMillis()).apply();
+                if (!tok.isEmpty()) {
+                    SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+                    f.setTimeZone(TimeZone.getTimeZone("UTC"));
+                    String since = f.format(new Date(System.currentTimeMillis() - 2L * 86400000L));
+                    JSONObject list = new JSONObject(http("https://graph.microsoft.com/v1.0/me/messages?$top=15&$select=id,subject,bodyPreview&$filter=" + enc("receivedDateTime ge " + since), tok, "GET", null));
+                    JSONArray ms = list.optJSONArray("value");
+                    for (int i = 0; ms != null && i < ms.length(); i++) {
+                        JSONObject m = ms.getJSONObject(i);
+                        String id = m.getString("id");
+                        String key = "o" + (id.length() > 40 ? id.substring(id.length() - 40) : id);
+                        if (seen.contains(key)) continue;
+                        String txt = m.optString("subject", "") + ": " + m.optString("bodyPreview", "");
+                        found.add(new String[]{key, txt});
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        List<String> pay = new ArrayList<>();
+        for (String[] x : found) {
+            seen.add(x[0]);
+            if (PAY.matcher(x[1]).find() && AMT.matcher(x[1]).find() && !x[1].toLowerCase(Locale.US).contains("otp")) pay.add(x[1]);
+        }
+        while (seen.size() > 300) seen.remove(0);
+        sp.edit().putString("seen", new JSONArray(seen).toString()).apply();
+        boolean primed = sp.getBoolean("primed", false);
+        if (!primed) { sp.edit().putBoolean("primed", true).apply(); return Result.success(); }
+        if (pay.isEmpty()) return Result.success();
+        try {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel("pd_mail") == null)
+                nm.createNotificationChannel(new NotificationChannel("pd_mail", "Payment emails", NotificationManager.IMPORTANCE_DEFAULT));
+            Intent i = new Intent(ctx, MainActivity.class);
+            i.setAction("com.personaldiary.app.REVIEW");
+            i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            i.putExtra("add", "review");
+            PendingIntent pi = PendingIntent.getActivity(ctx, 77, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            boolean hide = sp.getBoolean("hide", false);
+            String title = pay.size() == 1 ? "New payment email" : pay.size() + " new payment emails";
+            String body = hide ? "Tap to review in Personal Diary" : pay.get(0);
+            if (body.length() > 160) body = body.substring(0, 157) + "...";
+            NotificationCompat.Builder nb = new NotificationCompat.Builder(ctx, "pd_mail")
+                .setSmallIcon(ctx.getApplicationInfo().icon)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setContentIntent(pi)
+                .setAutoCancel(true);
+            NotificationManagerCompat.from(ctx).notify(7701, nb.build());
+        } catch (SecurityException ignored) {
+        } catch (Exception ignored) {}
+        return Result.success();
+    }
+}
+''')
+
 write(os.path.join(JAVA, "DueWidget.java"), r'''
 package com.personaldiary.app;
 
@@ -1019,7 +1230,8 @@ edit(os.path.join(A, "app/build.gradle"),
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"''',
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.biometric:biometric:1.1.0"
-    implementation "com.google.android.gms:play-services-auth:21.2.0"''')
+    implementation "com.google.android.gms:play-services-auth:21.2.0"
+    implementation "androidx.work:work-runtime:2.9.1"''')
 edit(os.path.join(RES, "values/styles.xml"),
      '''        <item name="windowNoTitle">true</item>''',
      '''        <item name="windowNoTitle">true</item>

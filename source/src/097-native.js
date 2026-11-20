@@ -27,7 +27,7 @@ async function nativeLaunch(n){if(!isApp())return;n=n||0;if($("#lock").innerHTML
     if(txt&&/^\s*\{/.test(txt)&&txt.includes('"due-and-spend"')){window.__dsFile=txt;sheet(`<h2>Restore this backup?</h2><p class="sub">You shared a Personal Diary backup file. Restoring replaces what is in this app now. A copy of the current data is kept under Automatic backups.</p><div class="acts"><button class="btn" data-act="fileRestore">Restore</button></div>`);return}
     if(o.text&&readSetup(o.text)){syncForm();const f=$("#f_scode");if(f)f.value=o.text.trim();return}
     if(o.text){if(!smsOpen(o.text))qForm();return}
-    if(o.add=="sms")smsForm();else if(o.add)qForm(o.add=="in"?"in":"out")}catch(e){console.warn("launch",e)}}
+    if(o.add=="sms")smsForm();else if(o.add=="voice"){qForm("out");setTimeout(()=>voice(),500)}else if(o.add=="review"){if(typeof reviewLaunch=="function")reviewLaunch();else smsReview()}else if(o.add)qForm(o.add=="in"?"in":"out")}catch(e){console.warn("launch",e)}}
 window.__dsLaunch=()=>nativeLaunch();
 /* phone back button: close what is open, then go Home, then leave the app */
 window.__dsBack=()=>{try{if($("#lock").innerHTML)return false;if($("#view").innerHTML){$("#view").innerHTML="";return true}if($("#over").innerHTML){ACT.closeX();return true}if(tab!="home"){tab="home";render();return true}}catch(e){}return false};

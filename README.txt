@@ -1,4 +1,13 @@
-PERSONAL DIARY (version 28, formerly Due & Spend)
+PERSONAL DIARY (version 29, formerly Due & Spend)
+
+NEW IN VERSION 29
+- Gmail and Outlook are checked about once an hour even when the app is
+  closed; a notification opens Payments to review.
+- Card bills in statement emails become due dates in one tap.
+- Warning when the balance in a bank alert doesn't match the app.
+- Payments to review: Save, Save all ready, or always save from a sender.
+- Suggested budgets from the last 3 months; Tamil voice entry.
+- Widget mic button starts voice entry straight away.
 
 NEW IN VERSION 28
 - Automatic daily backup to your own Google Drive (Settings > Drive backup),
