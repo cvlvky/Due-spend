@@ -5412,7 +5412,7 @@ Object.assign(ACT,{
 });
 
 /* ===== Read bank emails straight from Outlook / Hotmail (Microsoft sign-in, read-only) ===== */
-const MS_CLIENT_DEF="";/* filled in once the Microsoft app registration exists */
+const MS_CLIENT_DEF="79f02921-9159-47a2-a1e9-80222b3e2eca";/* filled in once the Microsoft app registration exists */
 const MS={tok:"",exp:0,busy:false,auth:"https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",graph:"https://graph.microsoft.com/v1.0/me",redirect:"personaldiary://auth",scope:"offline_access Mail.Read"};
 const msLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-ms-"+k)||"";if(v2===null)localStorage.removeItem("ds-ms-"+k);else localStorage.setItem("ds-ms-"+k,v2)}catch(e){return ""}};
 const msOn=()=>msLS("on")=="1"&&!!msLS("rt");
