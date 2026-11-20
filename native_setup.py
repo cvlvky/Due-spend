@@ -132,6 +132,15 @@ import android.speech.RecognizerIntent;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.annotation.ActivityCallback;
 import java.util.ArrayList;
+import java.util.Collections;
+import android.app.PendingIntent;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
+import com.google.android.gms.auth.api.identity.AuthorizationRequest;
+import com.google.android.gms.auth.api.identity.AuthorizationResult;
+import com.google.android.gms.auth.api.identity.Identity;
+import com.google.android.gms.common.api.Scope;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -161,6 +170,60 @@ import java.nio.charset.StandardCharsets;
     permissions = { @Permission(alias = "sms", strings = { Manifest.permission.READ_SMS }) }
 )
 public class DueNativePlugin extends Plugin {
+
+    /* Google Drive backup: sign-in screen result comes back here */
+    private ActivityResultLauncher<IntentSenderRequest> authL;
+    private PluginCall authCall;
+
+    @Override
+    public void load() {
+        try {
+            authL = getActivity().registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), r -> {
+                PluginCall c = authCall;
+                authCall = null;
+                if (c == null) return;
+                try {
+                    AuthorizationResult a = Identity.getAuthorizationClient(getActivity()).getAuthorizationResultFromIntent(r.getData());
+                    JSObject o = new JSObject();
+                    o.put("token", a.getAccessToken());
+                    o.put("email", "");
+                    c.resolve(o);
+                } catch (Exception e) {
+                    c.reject("cancelled");
+                }
+            });
+        } catch (Exception e) {
+            authL = null;
+        }
+    }
+
+    /** Access token for files this app creates in the user's Google Drive. */
+    @PluginMethod
+    public void driveToken(PluginCall call) {
+        final boolean ask = call.getBoolean("interactive", true);
+        AuthorizationRequest req = AuthorizationRequest.builder()
+            .setRequestedScopes(Collections.singletonList(new Scope("https://www.googleapis.com/auth/drive.file")))
+            .build();
+        try {
+            Identity.getAuthorizationClient(getActivity()).authorize(req)
+                .addOnSuccessListener(res -> {
+                    if (res.hasResolution()) {
+                        PendingIntent pi = res.getPendingIntent();
+                        if (!ask || pi == null || authL == null) { call.reject("needs-consent"); return; }
+                        if (authCall != null) { authCall.reject("cancelled"); }
+                        authCall = call;
+                        authL.launch(new IntentSenderRequest.Builder(pi.getIntentSender()).build());
+                    } else {
+                        JSObject o = new JSObject();
+                        o.put("token", res.getAccessToken());
+                        call.resolve(o);
+                    }
+                })
+                .addOnFailureListener(e -> call.reject("Google sign-in failed: " + e.getMessage()));
+        } catch (Exception e) {
+            call.reject("Google sign-in isn't available on this phone");
+        }
+    }
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences("due_native", Context.MODE_PRIVATE);
@@ -862,7 +925,8 @@ edit(MAN, '''    <uses-permission android:name="android.permission.INTERNET" />'
 edit(os.path.join(A, "app/build.gradle"),
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"''',
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
-    implementation "androidx.biometric:biometric:1.1.0"''')
+    implementation "androidx.biometric:biometric:1.1.0"
+    implementation "com.google.android.gms:play-services-auth:21.2.0"''')
 edit(os.path.join(RES, "values/styles.xml"),
      '''        <item name="windowNoTitle">true</item>''',
      '''        <item name="windowNoTitle">true</item>

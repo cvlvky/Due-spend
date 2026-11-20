@@ -1,6 +1,9 @@
 PERSONAL DIARY (version 28, formerly Due & Spend)
 
 NEW IN VERSION 28
+- Automatic daily backup to your own Google Drive (Settings > Drive backup),
+  last 15 kept, restore from any. Uses the Android OAuth client in the
+  Google Cloud project 'Personal diary' (drive.file access only).
 - Receipt photo on any expense (stored on the phone that took it).
 - Shared costs: who paid, half each, who owes whom per month (Family).
 - Insurance grace period warning and reminder before a policy lapses.

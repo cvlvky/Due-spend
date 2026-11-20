@@ -9,7 +9,7 @@ window.Capacitor={isNativePlatform:()=>true,addListener(){},nativePromise:async(
  if(p=="CapacitorHttp"){const u=o.url;for(const k of Object.keys(window.__http))if(u.includes(k)){const r=window.__http[k];if(r&&r.status>=400)return r;return {status:200,data:typeof r=="string"?r:JSON.stringify(r)}}throw new Error("offline in test: "+u)}
  if(m=="readSms")return {messages:N.sms};if(m=="readNotifs"){const i=N.items;N.items=[];return {items:i}}if(m=="notifLog")return {items:N.log};
  if(m=="notifStatus")return {enabled:true,conn:String(Date.now()),disc:"0",seen:"0",sms:true};if(m=="readClip")return {text:N.clip};
- if(m=="installApk")return N.install;if(m=="saveDownload"||m=="openFile"||m=="openUrl"||m=="pruneBackups"||m=="setWidget")return {};if(m=="getLaunch")return {data:""};if(m=="listen"){if(N.sayErr)throw new Error(N.sayErr);return {text:N.say||""}}
+ if(m=="installApk")return N.install;if(m=="saveDownload"||m=="openFile"||m=="openUrl"||m=="pruneBackups"||m=="setWidget")return {};if(m=="getLaunch")return {data:""};if(m=="driveToken"){if(N.gdDeny&&!(o&&o.interactive))throw new Error("needs-consent");if(N.gdCancel)throw new Error("cancelled");N.tokAsk=(N.tokAsk||0)+1;return {token:"tok"+N.tokAsk}}if(m=="listen"){if(N.sayErr)throw new Error(N.sayErr);return {text:N.say||""}}
  return {}}};'''
 class H:
     def __init__(s):
