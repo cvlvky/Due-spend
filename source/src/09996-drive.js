@@ -15,7 +15,7 @@ const u8b64x=u=>{let t="";for(let i=0;i<u.length;i+=8192)t+=String.fromCharCode.
 async function gdList(ask){const dir=await gdFolder(ask),q=encodeURIComponent(`'${dir}' in parents and trashed=false`);
   return (await (await gdFetch(GD.api+"/files?q="+q+"&orderBy=createdTime desc&pageSize=100&fields=files(id,name,size,createdTime)",{},ask)).json()).files||[]}
 async function gdBackup(ask,why){if(GD.busy)return false;GD.busy=true;try{
-  const dir=await gdFolder(ask),z=b64u8(await gz(bk())),d=new Date(),p=n=>String(n).padStart(2,"0"),name=`personal-diary-${today()}-${p(d.getHours())}${p(d.getMinutes())}.json.gz`,B="pdb"+Date.now();
+  const dir=await gdFolder(ask),z=b64u8(await gz(bkSync())),d=new Date(),p=n=>String(n).padStart(2,"0"),name=`personal-diary-${today()}-${p(d.getHours())}${p(d.getMinutes())}.json.gz`,B="pdb"+Date.now();
   const meta={name,parents:[dir],mimeType:"application/gzip",description:"Personal Diary backup, version "+VER+(why?" ("+why+")":"")};
   const body=new Blob([`--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${B}\r\nContent-Type: application/gzip\r\n\r\n`,z,`\r\n--${B}--`]);
   await gdFetch(GD.up+"/files?uploadType=multipart&fields=id",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+B},body},ask);
@@ -47,5 +47,5 @@ Object.assign(ACT,{
   gdRestore(){gdRestoreSheet()},
   async gdPick(id){if(!confirm("Replace the data on this phone with this backup?"))return;toast("Downloading backup…");
     try{const r=await gdFetch(GD.api+"/files/"+id+"?alt=media",{},true),u=new Uint8Array(await r.arrayBuffer()),txt=u[0]==0x1f&&u[1]==0x8b?await gunz(u8b64x(u)):new TextDecoder().decode(u);
-      await restoreFrom(txt);sheet("");render();toast("Restored from Google Drive")}catch(e){toast(String(e.message||e))}}
+      syncFromBackup(txt);await restoreFrom(txt);sheet("");render();toast("Restored from Google Drive")}catch(e){toast(String(e.message||e))}}
 });

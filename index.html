@@ -5320,7 +5320,7 @@ const u8b64x=u=>{let t="";for(let i=0;i<u.length;i+=8192)t+=String.fromCharCode.
 async function gdList(ask){const dir=await gdFolder(ask),q=encodeURIComponent(`'${dir}' in parents and trashed=false`);
   return (await (await gdFetch(GD.api+"/files?q="+q+"&orderBy=createdTime desc&pageSize=100&fields=files(id,name,size,createdTime)",{},ask)).json()).files||[]}
 async function gdBackup(ask,why){if(GD.busy)return false;GD.busy=true;try{
-  const dir=await gdFolder(ask),z=b64u8(await gz(bk())),d=new Date(),p=n=>String(n).padStart(2,"0"),name=`personal-diary-${today()}-${p(d.getHours())}${p(d.getMinutes())}.json.gz`,B="pdb"+Date.now();
+  const dir=await gdFolder(ask),z=b64u8(await gz(bkSync())),d=new Date(),p=n=>String(n).padStart(2,"0"),name=`personal-diary-${today()}-${p(d.getHours())}${p(d.getMinutes())}.json.gz`,B="pdb"+Date.now();
   const meta={name,parents:[dir],mimeType:"application/gzip",description:"Personal Diary backup, version "+VER+(why?" ("+why+")":"")};
   const body=new Blob([`--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${B}\r\nContent-Type: application/gzip\r\n\r\n`,z,`\r\n--${B}--`]);
   await gdFetch(GD.up+"/files?uploadType=multipart&fields=id",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+B},body},ask);
@@ -5352,8 +5352,20 @@ Object.assign(ACT,{
   gdRestore(){gdRestoreSheet()},
   async gdPick(id){if(!confirm("Replace the data on this phone with this backup?"))return;toast("Downloading backup…");
     try{const r=await gdFetch(GD.api+"/files/"+id+"?alt=media",{},true),u=new Uint8Array(await r.arrayBuffer()),txt=u[0]==0x1f&&u[1]==0x8b?await gunz(u8b64x(u)):new TextDecoder().decode(u);
-      await restoreFrom(txt);sheet("");render();toast("Restored from Google Drive")}catch(e){toast(String(e.message||e))}}
+      syncFromBackup(txt);await restoreFrom(txt);sheet("");render();toast("Restored from Google Drive")}catch(e){toast(String(e.message||e))}}
 });
+
+/* ===== Family sync is built in: the Firebase project and space are already filled in ===== */
+const SYNC_DEF={cfg:{apiKey:"AIzaSyBxGRtRGdv23Krs_5wO-640-iLXMnfbgO4",authDomain:"due-and-spend-2fa3f.firebaseapp.com",projectId:"due-and-spend-2fa3f"},space:"Home-expenses"};
+if(!SY.noDef&&!navigator.webdriver&&(!SY.cfg||!SY.cfg.apiKey)){SY={...SY,cfg:SYNC_DEF.cfg,space:SY.space||SYNC_DEF.space,on:true,members:SY.members||[],builtin:1};syv()}
+/* Drive backups carry the sync settings (never the password), so a restore on a new phone reconnects too */
+function bkSync(){return JSON.stringify({...bkObj(),__sync:{cfg:SY.cfg||null,space:SY.space||"",email:SY.email||""}})}
+function syncFromBackup(txt){try{const o=JSON.parse(txt),s=o&&o.__sync;if(s&&s.cfg&&s.cfg.apiKey&&(SY.builtin||!SY.cfg||!SY.cfg.apiKey)){SY={...SY,cfg:s.cfg,space:s.space||SY.space,email:SY.email||s.email,on:true,builtin:0};syv()}}catch(e){}}
+{const _sf=syncForm;syncForm=function(...a){const r=_sf(...a);try{if(SY.on&&SY.cfg&&SY.cfg.apiKey){const det=document.createElement("details"),box=$("#f_scode")&&$("#f_scode").closest(".fld,div");
+  const els=[...$$("#over .sheet > *")],i0=els.findIndex(e=>e.contains($("#f_scode"))),i1=els.findIndex(e=>e.contains($('#over [data-act="syncSave"]')));
+  if(i0>=0&&i1>=i0){det.innerHTML=`<summary>Change the sync project (not needed)</summary>`;els[i0].before(det);for(let i=i0;i<=i1;i++)det.appendChild(els[i]);
+    det.insertAdjacentHTML("beforebegin",`<p class="note" style="margin:6px 0 10px">Sync is set up in the app: ${esc(SY.space)}. Just sign in below with your email and password. You stay signed in after updates.</p>`)}}}catch(e){console.warn(e)}return r}}
+{const _so=ACT.syncOff;ACT.syncOff=function(...a){const r=_so.apply(this,a);SY.noDef=1;syv();return r}}
 
 /* ===== start ===== */
 let pq=null,pshare="";try{const U=new URLSearchParams(location.search);pq=U.get("add");pshare=[U.get("title"),U.get("text")].filter(Boolean).join(" ")}catch(e){}
