@@ -201,9 +201,13 @@ public class DueNativePlugin extends Plugin {
     @PluginMethod
     public void driveToken(PluginCall call) {
         final boolean ask = call.getBoolean("interactive", true);
-        AuthorizationRequest req = AuthorizationRequest.builder()
-            .setRequestedScopes(Collections.singletonList(new Scope("https://www.googleapis.com/auth/drive.file")))
-            .build();
+        java.util.List<Scope> scopes = new ArrayList<>();
+        try {
+            JSArray want = call.getArray("scopes");
+            if (want != null) for (int i = 0; i < want.length(); i++) scopes.add(new Scope(want.getString(i)));
+        } catch (Exception e) { scopes.clear(); }
+        if (scopes.isEmpty()) scopes.add(new Scope("https://www.googleapis.com/auth/drive.file"));
+        AuthorizationRequest req = AuthorizationRequest.builder().setRequestedScopes(scopes).build();
         try {
             Identity.getAuthorizationClient(getActivity()).authorize(req)
                 .addOnSuccessListener(res -> {
