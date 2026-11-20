@@ -1,5 +1,5 @@
 /* ===== Read bank emails straight from Outlook / Hotmail (Microsoft sign-in, read-only) ===== */
-const MS_CLIENT_DEF="74658136-14ec-4630-ad9b-26e160ff0fc6";/* filled in once the Microsoft app registration exists */
+const MS_CLIENT_DEF="";/* filled in once the Microsoft app registration exists */
 const MS={tok:"",exp:0,busy:false,auth:"https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",graph:"https://graph.microsoft.com/v1.0/me",redirect:"personaldiary://auth",scope:"offline_access Mail.Read"};
 const msLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-ms-"+k)||"";if(v2===null)localStorage.removeItem("ds-ms-"+k);else localStorage.setItem("ds-ms-"+k,v2)}catch(e){return ""}};
 const msOn=()=>msLS("on")=="1"&&!!msLS("rt");
@@ -43,7 +43,7 @@ NEW27.unshift("Reads bank emails straight from Outlook (Settings → 📨 Outloo
 Object.assign(ACT,{
   msSheet(){msSheet()},
   async msStart(){const em=v("f_msa").trim().toLowerCase(),cid=$("#f_msc")?v("f_msc").trim():"";if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(em))return toast("Enter your Outlook email");
-    if(!MS_CLIENT_DEF){if(!/^[0-9a-f-]{36}$/i.test(cid||msLS("client")))return toast("Enter the Microsoft app ID first");if(cid)msLS("client",cid)}
+    if(!MS_CLIENT_DEF){if(!/^[0-9a-f-]{36}$/i.test(cid||msLS("client")))return toast("Enter the Microsoft app ID first");if(/^74658136-14ec-4630-ad9b-26e160ff0fc6$/i.test(cid||msLS("client"))){msLS("client",null);return toast("That ID is Microsoft’s admin website, not your app. Use the ID from your app registration.")}if(cid)msLS("client",cid)}
     if(em!=msLS("acct")){msLS("acct",em);msLS("last",null)}toast("Opening Microsoft sign-in…");
     try{await msSignIn(em);msLS("on","1");const n=await msScan(7);toast(n?n+(n==1?" payment":" payments")+" found in Outlook":"Outlook connected. No new payment emails in the last 7 days");msSheet()}
     catch(e){const m=String(e.message||e);toast(/cancel/i.test(m)?"Microsoft sign-in was cancelled":m);msSheet()}},
