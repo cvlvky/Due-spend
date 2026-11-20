@@ -15,10 +15,9 @@ try:
   c,pg=h.page(native=True);E=pg.evaluate
   pg.route(re.compile(r'https://graph\.microsoft\.com/.*'),graph)
   E('settings()');ok('outlook in settings',pg.locator('#over #set_ms').count()==1);pg.click('#over #set_ms')
-  ok('asks for outlook email and app id',pg.locator('#over #f_msa').count()==1 and pg.locator('#over #f_msc').count()==1)
-  pg.fill('#f_msa','arun.home@outlook.com');pg.click('#over [data-act="msStart"]');ok('needs app id first',not E('msOn()'))
-  pg.fill('#f_msc','11111111-2222-3333-4444-555555555555');q0=len(E('S.cfg.smsq||[]'));pg.click('#over [data-act="msStart"]');pg.wait_for_timeout(2000)
-  u=E('window.__n.authUrl');ok('microsoft sign-in for that address with PKCE',u and 'login.microsoftonline.com/consumers' in u and 'login_hint=arun.home%40outlook.com' in u and 'code_challenge_method=S256' in u and 'Mail.Read' in u,u)
+  ok('asks only for the outlook email, app id built in',pg.locator('#over #f_msa').count()==1 and pg.locator('#over #f_msc').count()==0 and E('msClient()')=='74658136-14ec-4630-ad9b-26e160ff0fc6')
+  pg.fill('#f_msa','arun.home@outlook.com');q0=len(E('S.cfg.smsq||[]'));pg.click('#over [data-act="msStart"]');pg.wait_for_timeout(2000)
+  u=E('window.__n.authUrl');ok('microsoft sign-in for that address with PKCE',u and 'login.microsoftonline.com/consumers' in u and 'login_hint=arun.home%40outlook.com' in u and 'code_challenge_method=S256' in u and 'client_id=74658136' in u and 'Mail.Read' in u,u)
   b=E('window.__n.msBodies[0]');ok('code exchanged with verifier',b and 'grant_type=authorization_code' in b and 'code_verifier=' in b and 'code=CODE1' in b,b)
   ok('connected',E('msOn()') and E('msLS("rt")')=='rt1')
   Q=E('S.cfg.smsq||[]');ok('two outlook payments, sale skipped',len(Q)-q0==2,[x['body'][:50] for x in Q])
