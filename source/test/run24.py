@@ -45,6 +45,6 @@ try:
   E('S.cfg.lang="ta";langApply();S.cfg.famSeg="split";tab="fam";lastNav="";render()');t=pg.inner_text('#app');ok('family in Tamil','பகிர்ந்த செலவுகள்' in t and 'நபர்கள்' in t,t[:200])
   h1=E('document.querySelector("#app").innerHTML');E('render()');ok('Tamil still stable',E('document.querySelector("#app").innerHTML')==h1)
   E('S.cfg.lang="";langApply();render()')
-  ok('version 28',E('VER')=='28')
+  ok('version 28 or later',int(E('VER'))>=28)
 finally:
   h.done()

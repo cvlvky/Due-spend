@@ -54,9 +54,9 @@ document.addEventListener("change",e=>{const id=e.target&&e.target.id;if(id=="f_
     $$("#over [data-act='voice']").forEach((b,i)=>{if(i>0||!b.classList.contains("ib"))b.remove()});budHint()}}catch(e){console.warn(e)}return r}}
 async function voice(){if(!$("#f_line"))qForm("out");
   const put1=s=>{const e=$("#f_line");if(!e)return;e.value=s;lineApply();if(!parseLine(s).amt)toast("Heard: "+s+". Add the amount.")};
-  if(isApp()){try{const r=await NP("DueNative","listen",{lang:"en-IN",prompt:"Say amount, place and category"});if(r&&r.text)put1(r.text)}catch(e){const m=String(e&&e.message||e);if(!/cancel/i.test(m))toast(/No voice/i.test(m)?"Install or turn on Google voice typing to use this":"Couldn’t start voice typing. Update the app if this keeps happening.")}return}
+  if(isApp()){try{const ta=S.cfg.vlang=="ta",r=await NP("DueNative","listen",{lang:ta?"ta-IN":"en-IN",prompt:ta?"தொகை, இடம், வகை சொல்லுங்கள்":"Say amount, place and category"});if(r&&r.text)put1(r.text)}catch(e){const m=String(e&&e.message||e);if(!/cancel/i.test(m))toast(/No voice/i.test(m)?"Install or turn on Google voice typing to use this":"Couldn’t start voice typing. Update the app if this keeps happening.")}return}
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R)return toast("Voice isn’t supported here. Type the line instead.");
-  const r=new R();r.lang="en-IN";r.onerror=()=>toast("Couldn’t hear that");r.onresult=e=>put1(e.results[0][0].transcript);try{r.start()}catch(e){toast("Couldn’t start voice entry")}}
+  const r=new R();r.lang=S.cfg.vlang=="ta"?"ta-IN":"en-IN";r.onerror=()=>toast("Couldn’t hear that");r.onresult=e=>put1(e.results[0][0].transcript);try{r.start()}catch(e){toast("Couldn’t start voice entry")}}
 
 /* ---------- Accounts: compact rows, actions behind ⋯ ---------- */
 const AICON={bank:"🏦",cash:"💵",card:"💳",wallet:"👛",loan:"🏠"};
