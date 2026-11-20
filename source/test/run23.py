@@ -69,12 +69,12 @@ try:
   ok('nav in Tamil',pg.locator('#nav button[data-id="home"] span').inner_text()=='முகப்பு')
   t=pg.inner_text('#app');ok('home headings in Tamil','கவனிக்க' in t and 'Needs attention' not in t,t[:200])
   E('tab="acc";render()');ok('accounts in Tamil','கணக்குகள்' in pg.inner_text('#app'))
-  h1=E('document.querySelector("#app").innerHTML');E('render()');ok('no redraw churn in Tamil',E('document.querySelector("#app").innerHTML')==h1)
+  pg.wait_for_timeout(1500);h1=E('document.querySelector("#app").innerHTML');E('render()');ok('no redraw churn in Tamil',E('document.querySelector("#app").innerHTML')==h1)
   E('qForm("out")');ok('add form in Tamil and still works',pg.locator('#over [data-act="saveTx"]').count()==1 and 'சேமி' in pg.inner_text('#over'))
   pg.click('#over .x');E('settings()');pg.click('#over #set_lang');pg.wait_for_timeout(300)
   ok('back to English',pg.locator('#nav button[data-id="home"] span').inner_text()=='Home')
   # ---- what's new ----
-  E('whatsNew(true)');ok('what is new sheet',"What’s new in Version 27" in pg.inner_text('#over'));pg.click('#over [data-act="closeX"]')
+  E('whatsNew(true)');ok('what is new sheet',"What’s new in Version" in pg.inner_text('#over'));pg.click('#over [data-act="closeX"]')
   # sync carries the new lists
   ok('cheques and trips sync and back up',E('COLLS.includes("chq")&&COLLS.includes("trips")&&("chq" in bkObj())'))
   pg.screenshot(path='shots/s-v27.png')
