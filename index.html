@@ -5308,7 +5308,7 @@ const GD={tok:"",at:0,busy:false,api:"https://www.googleapis.com/drive/v3",up:"h
 const gdLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-gd-"+k)||"";if(v2===null)localStorage.removeItem("ds-gd-"+k);else localStorage.setItem("ds-gd-"+k,v2)}catch(e){return ""}};
 const gdOn=()=>gdLS("on")=="1";
 async function gdToken(ask){if(GD.tok&&Date.now()-GD.at<45*60e3)return GD.tok;if(!isApp())throw new Error("Google Drive backup works in the Android app");
-  const r=await NP("DueNative","driveToken",{interactive:!!ask});if(!r||!r.token)throw new Error("No access to Google Drive");GD.tok=r.token;GD.at=Date.now();gdLS("need",null);return GD.tok}
+  const r=await NP("DueNative","driveToken",{interactive:!!ask,account:gdLS("acct")});if(!r||!r.token)throw new Error("No access to Google Drive");GD.tok=r.token;GD.at=Date.now();gdLS("need",null);return GD.tok}
 async function gdFetch(url,opt,ask){opt=opt||{};for(let i=0;i<2;i++){const t=await gdToken(ask);const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),Authorization:"Bearer "+t}});
   if(r.status==401&&i==0){GD.tok="";continue}if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw new Error("Google Drive: "+(m||r.status))}return r}}
 async function gdFolder(ask){let id=gdLS("dir");if(id){try{const r=await gdFetch(GD.api+"/files/"+id+"?fields=id,trashed",{},ask);const j=await r.json();if(!j.trashed)return id}catch(e){}}
@@ -5333,6 +5333,7 @@ function gdStatus(){const last=gdLS("last");if(!gdOn())return "Off";if(gdLS("nee
 function gdSheet(){if(!isApp())return sheet(`<h2>Google Drive backup</h2><p class="sub">This works in the Android app. In the browser, use Settings → Backup now to save a backup file.</p>`);
   sheet(`<h2>Google Drive backup</h2><p class="sub">Backs up once a day to a “${GD.dir}” folder in your own Google Drive and keeps the last ${GD.keep}. The app can only see files it made there, nothing else in your Drive.</p>
   <div class="card"><div class="hbl"><span>Status</span><b>${esc(gdStatus())}</b></div>${gdLS("err")&&gdOn()?`<p class="note" style="color:var(--late);margin:6px 0 0">Last try failed: ${esc(gdLS("err"))}</p>`:""}</div>
+  ${F("f_gda","Google account to back up to",gdLS("acct"),"email",'placeholder="name@gmail.com (leave empty to choose)" autocomplete="off"')}
   <div class="acts">${gdOn()?`<button class="btn" data-act="gdNow">Back up now</button><button class="btn ghost" data-act="gdRestore">Restore from Drive</button><button class="btn ghost" data-act="gdOff">Turn off</button>`:`<button class="btn" data-act="gdStart">Connect Google Drive</button><button class="btn ghost" data-act="gdRestore">Restore from Drive</button>`}</div>
   <p class="note">Your wife can turn it on in her phone too; each phone backs up to its own Drive.</p>`)}
 async function gdRestoreSheet(){sheet(`<h2>Restore from Drive</h2><div class="empty">Loading backups…</div>`);let L;try{L=await gdList(true)}catch(e){return sheet(`<h2>Restore from Drive</h2><div class="empty">${esc(e.message||e)}</div>`)}
@@ -5346,7 +5347,7 @@ Object.assign(TA,{"Google Drive backup":"Google Drive காப்புப்�
 NEW27.unshift("Automatic daily backup to your Google Drive (Settings → ☁️ Drive backup)");
 Object.assign(ACT,{
   gdSheet(){gdSheet()},
-  async gdStart(){toast("Opening Google sign-in…");const was=gdOn();try{gdLS("on","1");await gdBackup(true,"first");toast("Google Drive backup is on");gdSheet()}catch(e){if(!was)gdLS("on",null);const m=String(e.message||e);toast(/cancel|needs-consent/i.test(m)?"Google sign-in was cancelled":m);gdSheet()}},
+  async gdStart(){const em=($("#f_gda")?v("f_gda"):"").trim().toLowerCase();if(em!=gdLS("acct")){if(em)gdLS("acct",em);else gdLS("acct",null);GD.tok="";gdLS("dir",null)}toast("Opening Google sign-in…");const was=gdOn();try{gdLS("on","1");await gdBackup(true,"first");toast("Google Drive backup is on");gdSheet()}catch(e){if(!was)gdLS("on",null);const m=String(e.message||e);toast(/cancel|needs-consent/i.test(m)?"Google sign-in was cancelled":m);gdSheet()}},
   async gdNow(){if(!isApp())return gdSheet();toast("Backing up to Google Drive…");try{await gdBackup(true,"manual");toast("Backed up to Google Drive");if($("#over").innerHTML)gdSheet();render()}catch(e){toast(String(e.message||e))}},
   gdOff(){gdLS("on",null);gdLS("need",null);GD.tok="";sheet("");toast("Drive backup turned off. Backups already in Drive stay there.")},
   gdRestore(){gdRestoreSheet()},
@@ -5373,7 +5374,7 @@ const gmLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-gm-"+k
 const gmOn=()=>gmLS("on")=="1";
 const GMQ='(debited OR credited OR spent OR "transaction" OR purchase OR "card ending" OR "a/c" OR "account no" OR "has been used" OR "payment of" OR transferred OR UPI OR IMPS OR NEFT) -category:promotions -category:social -subject:(statement OR newsletter OR offer)';
 async function gmToken(ask){if(GM.tok&&Date.now()-GM.at<45*60e3)return GM.tok;if(!isApp())throw new Error("Reading Gmail works in the Android app");
-  const r=await NP("DueNative","driveToken",{interactive:!!ask,scopes:[GM.scope]});if(!r||!r.token)throw new Error("No access to Gmail");GM.tok=r.token;GM.at=Date.now();gmLS("need",null);return GM.tok}
+  const r=await NP("DueNative","driveToken",{interactive:!!ask,scopes:[GM.scope],account:gmLS("acct")});if(!r||!r.token)throw new Error("No access to Gmail");GM.tok=r.token;GM.at=Date.now();gmLS("need",null);return GM.tok}
 async function gmGet(path,ask){for(let i=0;i<2;i++){const t=await gmToken(ask),r=await fetch(GM.api+path,{headers:{Authorization:"Bearer "+t}});if(r.status==401&&i==0){GM.tok="";continue}
   if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw new Error("Gmail: "+(m||r.status))}return r.json()}}
 const b64url=s=>{try{const b=atob(String(s||"").replace(/-/g,"+").replace(/_/g,"/")),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new TextDecoder().decode(u)}catch(e){return ""}};
@@ -5394,9 +5395,9 @@ function gmStatus(){if(!gmOn())return "Off";if(gmLS("need"))return "Needs you to
 function gmSheet(){if(!isApp())return sheet(`<h2>Read Gmail</h2><p class="sub">This works in the Android app.</p>`);
   sheet(`<h2>Read bank emails from Gmail</h2><p class="sub">The app looks only for payment emails (debited, credited, card used) from the last few days, every time you open it. They go to “Payments to review”, the same as bank SMS. Read-only: it can’t send, delete or change mail.</p>
   <div class="card"><div class="hbl"><span>Status</span><b>${esc(gmStatus())}</b></div>${gmLS("err")&&gmOn()?`<p class="note" style="color:var(--late);margin:6px 0 0">${esc(gmLS("err"))}</p>`:""}</div>
-  <div class="acts">${gmOn()?`<button class="btn" data-act="gmNow">Check now</button><button class="btn ghost" data-act="gmOff">Turn off</button>`:`<button class="btn" data-act="gmStart">Connect Gmail</button>`}</div>
-  <h3>Outlook emails</h3><p class="note">Forward bank emails from Outlook to this Gmail once, and the app reads them here too: on outlook.com open Settings → Mail → Forwarding → Enable forwarding, enter your Gmail, tick “Keep a copy”, Save.</p>
-  <p class="note">If you also set up the Gmail script earlier, you can leave it; the same email is never added twice.</p>`)}
+  ${F("f_gma","Gmail that gets your bank emails",gmLS("acct"),"email",'placeholder="name@gmail.com" autocomplete="off"')}<p class="note" style="margin-top:-4px">This can be different from the email you sign in to the app with. It must be added on this phone (Android Settings → Accounts) and as a test user in Google Cloud.</p>
+  <div class="acts">${gmOn()?`<button class="btn" data-act="gmNow">Check now</button><button class="btn ghost" data-act="gmStart">Change Gmail</button><button class="btn ghost" data-act="gmOff">Turn off</button>`:`<button class="btn" data-act="gmStart">Connect Gmail</button>`}</div>
+  <p class="note">Outlook is connected separately: Settings → 📨 Outlook. If you set up the Gmail script earlier you can leave it; the same email is never added twice.</p>`)}
 {const _ti=todoItems;todoItems=function(){const L=_ti();if(gmOn()&&gmLS("need"))L.push({k:-880,ic:"📧",tx:"Gmail reading needs you to sign in",sub:"Tap to reconnect",act:"gmNow",tone:"soon"});return L.sort((a,b)=>a.k-b.k)}}
 {const _st=settings;settings=function(...a){const r=_st(...a);try{const box=$("#set_more");if(box&&!$("#set_gm")){box.insertAdjacentHTML("afterbegin",`<button id="set_gm" data-act="gmSheet">📧 Gmail: ${esc(gmOn()?(gmLS("need")?"sign in":"on"):"off")}</button>`);if(taOn())taNode(box)}}catch(e){}return r}}
 {const _s=start;start=function(...a){const r=_s(...a);setTimeout(()=>gmAuto(),6000);return r}}
@@ -5404,10 +5405,63 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState=="
 NEW27.unshift("Reads bank emails straight from Gmail (Settings → 📧 Gmail)");
 Object.assign(ACT,{
   gmSheet(){gmSheet()},
-  async gmStart(){const was=gmOn();toast("Opening Google sign-in…");try{gmLS("on","1");const n=await gmScan(true,7);toast(n?n+(n==1?" payment":" payments")+" found":"Connected. No new payment emails in the last 7 days");gmSheet()}
+  async gmStart(){const was=gmOn(),em=v("f_gma").trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(em))return toast("Enter the Gmail that gets your bank emails");if(em!=gmLS("acct")){gmLS("acct",em);GM.tok="";gmLS("last",null)}toast("Opening Google sign-in…");try{gmLS("on","1");const n=await gmScan(true,7);toast(n?n+(n==1?" payment":" payments")+" found":"Connected. No new payment emails in the last 7 days");gmSheet()}
     catch(e){if(!was)gmLS("on",null);const m=String(e.message||e);toast(/cancel|needs-consent/i.test(m)?"Google sign-in was cancelled":/has not been used|disabled/i.test(m)?"Turn on the Gmail API in Google Cloud first":m);gmSheet()}},
   async gmNow(){toast("Checking Gmail…");try{const n=await gmScan(true);toast(n?n+(n==1?" payment":" payments")+" to review":"No new payment emails");if($("#over").innerHTML&&$("#over h2")&&/Gmail/.test($("#over h2").textContent))gmSheet();render()}catch(e){toast(String(e.message||e))}},
   gmOff(){gmLS("on",null);gmLS("need",null);GM.tok="";sheet("");toast("Gmail reading turned off")}
+});
+
+/* ===== Read bank emails straight from Outlook / Hotmail (Microsoft sign-in, read-only) ===== */
+const MS_CLIENT_DEF="";/* filled in once the Microsoft app registration exists */
+const MS={tok:"",exp:0,busy:false,auth:"https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",graph:"https://graph.microsoft.com/v1.0/me",redirect:"personaldiary://auth",scope:"offline_access Mail.Read"};
+const msLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-ms-"+k)||"";if(v2===null)localStorage.removeItem("ds-ms-"+k);else localStorage.setItem("ds-ms-"+k,v2)}catch(e){return ""}};
+const msOn=()=>msLS("on")=="1"&&!!msLS("rt");
+const msClient=()=>MS_CLIENT_DEF||msLS("client");
+const b64urlB=u=>btoa(String.fromCharCode(...new Uint8Array(u))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rnd=n=>b64urlB(crypto.getRandomValues(new Uint8Array(n)));
+async function msPost(form){const body=Object.entries(form).map(([k,x])=>encodeURIComponent(k)+"="+encodeURIComponent(x)).join("&"),r=await NP("DueNative","msToken",{body});let j={};try{j=JSON.parse(r.body||"{}")}catch(e){}
+  if(!r||r.status>=400||!j.access_token){const m=j.error_description||j.error||("status "+(r&&r.status));if(/invalid_grant|AADSTS700082|AADSTS70000/i.test(m))msLS("need","1");throw new Error("Microsoft: "+String(m).split("\n")[0].slice(0,160))}
+  MS.tok=j.access_token;MS.exp=Date.now()+((+j.expires_in||3600)-120)*1000;if(j.refresh_token)msLS("rt",j.refresh_token);msLS("need",null);return MS.tok}
+async function msFinish(url){const u=new URL(url.replace(/^personaldiary:/,"https:")),q=u.searchParams,st=JSON.parse(msLS("pk")||"{}");msLS("pk",null);
+  if(q.get("error"))throw new Error(/access_denied/.test(q.get("error"))?"cancelled":"Microsoft: "+(q.get("error_description")||q.get("error")));
+  if(!st.v||q.get("state")!=st.s)throw new Error("Sign-in didn’t match. Try again.");
+  await msPost({client_id:msClient(),grant_type:"authorization_code",code:q.get("code"),redirect_uri:MS.redirect,code_verifier:st.v,scope:MS.scope});return true}
+async function msSignIn(email){if(!isApp())throw new Error("Outlook reading works in the Android app");if(!msClient())throw new Error("The Microsoft app ID isn’t set yet");
+  const v0=rnd(48),ch=b64urlB(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v0))),s0=rnd(16);msLS("pk",JSON.stringify({v:v0,s:s0}));
+  const url=MS.auth+"?"+new URLSearchParams({client_id:msClient(),response_type:"code",redirect_uri:MS.redirect,response_mode:"query",scope:MS.scope,code_challenge:ch,code_challenge_method:"S256",state:s0,login_hint:email||"",prompt:"select_account"}).toString();
+  const r=await NP("DueNative","webAuth",{url});return msFinish(r.url)}
+async function msToken(){if(MS.tok&&Date.now()<MS.exp)return MS.tok;const rt=msLS("rt");if(!rt)throw new Error("needs-consent");return msPost({client_id:msClient(),grant_type:"refresh_token",refresh_token:rt,scope:MS.scope})}
+async function msGet(path){for(let i=0;i<2;i++){const t=await msToken(),r=await fetch(MS.graph+path,{headers:{Authorization:"Bearer "+t,Prefer:'outlook.body-content-type="text"'}});if(r.status==401&&i==0){MS.tok="";continue}
+  if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw new Error("Outlook: "+(m||r.status))}return r.json()}}
+const MSPAYW=/debit|credit|spent|transaction|purchase|card ending|a\/c|account|used for|payment|transferred|upi|imps|neft|withdraw/i;
+async function msScan(days){if(MS.busy)return 0;MS.busy=true;try{
+  const last=msLS("last"),from=new Date(last?Math.max(Date.parse(last)-36e5,Date.now()-14*864e5):Date.now()-(days||3)*864e5).toISOString().slice(0,19)+"Z";
+  const L=(await msGet("/messages?"+new URLSearchParams({"$filter":"receivedDateTime ge "+from,"$orderby":"receivedDateTime desc","$top":"60","$select":"id,subject,from,receivedDateTime,body,bodyPreview"}).toString())).value||[];
+  const items=L.filter(m=>MSPAYW.test((m.subject||"")+" "+(m.bodyPreview||""))).map(m=>({id:"o"+m.id.slice(-40),from:((m.from||{}).emailAddress||{}).name||((m.from||{}).emailAddress||{}).address||"Outlook",subject:m.subject||"",body:String((m.body||{}).content||m.bodyPreview||"").slice(0,3000),time:Date.parse(m.receivedDateTime)||Date.now()}));
+  const before=(S.cfg.smsq||[]).length;if(items.length)await mailTake({update:async()=>{}},{items});msLS("last",new Date().toISOString());msLS("err",null);return Math.max(0,(S.cfg.smsq||[]).length-before)}
+  catch(e){msLS("err",String(e&&e.message||e));throw e}finally{MS.busy=false}}
+async function msAuto(){if(!msOn()||!isApp()||MS.busy)return;const last=msLS("last");if(last&&Date.now()-Date.parse(last)<20*60e3)return;try{await msScan()}catch(e){console.warn("outlook scan",e)}}
+function msStatus(){if(!msOn())return msLS("rt")?"Off":"Not connected";if(msLS("need"))return "Needs you to sign in again";const l=msLS("last");return (msLS("acct")?msLS("acct")+" · ":"")+(l?"checked "+fmt(l.slice(0,10))+", "+new Date(l).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):"not checked yet")}
+function msSheet(){if(!isApp())return sheet(`<h2>Read Outlook</h2><p class="sub">This works in the Android app.</p>`);
+  sheet(`<h2>Read bank emails from Outlook</h2><p class="sub">For Outlook, Hotmail and Live addresses. The app looks only for payment emails from the last few days each time you open it, and puts them in “Payments to review”. Read-only.</p>
+  <div class="card"><div class="hbl"><span>Status</span><b>${esc(msStatus())}</b></div>${msLS("err")&&msLS("on")?`<p class="note" style="color:var(--late);margin:6px 0 0">${esc(msLS("err"))}</p>`:""}</div>
+  ${F("f_msa","Outlook email",msLS("acct"),"email",'placeholder="name@outlook.com" autocomplete="off"')}
+  ${MS_CLIENT_DEF?"":`<details${msClient()?"":" open"}><summary>Microsoft app ID (one time)</summary>${F("f_msc","Application (client) ID",msLS("client"),"text",'placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off"')}</details>`}
+  <div class="acts">${msOn()?`<button class="btn" data-act="msNow">Check now</button><button class="btn ghost" data-act="msStart">Sign in again</button><button class="btn ghost" data-act="msOff">Turn off</button>`:`<button class="btn" data-act="msStart">Connect Outlook</button>`}</div>`)}
+{const _ti=todoItems;todoItems=function(){const L=_ti();if(msLS("on")&&msLS("need"))L.push({k:-870,ic:"📨",tx:"Outlook reading needs you to sign in",sub:"Tap to reconnect",act:"msSheet",tone:"soon"});return L.sort((a,b)=>a.k-b.k)}}
+{const _st=settings;settings=function(...a){const r=_st(...a);try{const box=$("#set_more");if(box&&!$("#set_ms")){const g=$("#set_gm");(g||box.firstChild)?(g||box.firstElementChild).insertAdjacentHTML("afterend",`<button id="set_ms" data-act="msSheet">📨 Outlook: ${esc(msOn()?(msLS("need")?"sign in":"on"):"off")}</button>`):box.insertAdjacentHTML("afterbegin",`<button id="set_ms" data-act="msSheet">📨 Outlook</button>`);if(taOn())taNode(box)}}catch(e){}return r}}
+{const _s=start;start=function(...a){const r=_s(...a);setTimeout(async()=>{try{if(isApp()&&msLS("pk")){const p=await NP("DueNative","webAuthPending",{});if(p&&p.url){await msFinish(p.url);msLS("on","1");toast("Outlook connected");await msScan(7);render()}}}catch(e){console.warn(e)}msAuto()},7000);return r}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState=="visible")setTimeout(()=>msAuto(),2000)});
+NEW27.unshift("Reads bank emails straight from Outlook (Settings → 📨 Outlook)");
+Object.assign(ACT,{
+  msSheet(){msSheet()},
+  async msStart(){const em=v("f_msa").trim().toLowerCase(),cid=$("#f_msc")?v("f_msc").trim():"";if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(em))return toast("Enter your Outlook email");
+    if(!MS_CLIENT_DEF){if(!/^[0-9a-f-]{36}$/i.test(cid||msLS("client")))return toast("Enter the Microsoft app ID first");if(cid)msLS("client",cid)}
+    if(em!=msLS("acct")){msLS("acct",em);msLS("last",null)}toast("Opening Microsoft sign-in…");
+    try{await msSignIn(em);msLS("on","1");const n=await msScan(7);toast(n?n+(n==1?" payment":" payments")+" found in Outlook":"Outlook connected. No new payment emails in the last 7 days");msSheet()}
+    catch(e){const m=String(e.message||e);toast(/cancel/i.test(m)?"Microsoft sign-in was cancelled":m);msSheet()}},
+  async msNow(){toast("Checking Outlook…");try{const n=await msScan();toast(n?n+(n==1?" payment":" payments")+" to review":"No new payment emails in Outlook");if($("#over h2")&&/Outlook/.test($("#over h2").textContent))msSheet();render()}catch(e){toast(String(e.message||e))}},
+  msOff(){msLS("on",null);msLS("rt",null);msLS("need",null);MS.tok="";sheet("");toast("Outlook reading turned off")}
 });
 
 /* ===== start ===== */

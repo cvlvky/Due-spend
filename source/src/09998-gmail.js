@@ -4,7 +4,7 @@ const gmLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-gm-"+k
 const gmOn=()=>gmLS("on")=="1";
 const GMQ='(debited OR credited OR spent OR "transaction" OR purchase OR "card ending" OR "a/c" OR "account no" OR "has been used" OR "payment of" OR transferred OR UPI OR IMPS OR NEFT) -category:promotions -category:social -subject:(statement OR newsletter OR offer)';
 async function gmToken(ask){if(GM.tok&&Date.now()-GM.at<45*60e3)return GM.tok;if(!isApp())throw new Error("Reading Gmail works in the Android app");
-  const r=await NP("DueNative","driveToken",{interactive:!!ask,scopes:[GM.scope]});if(!r||!r.token)throw new Error("No access to Gmail");GM.tok=r.token;GM.at=Date.now();gmLS("need",null);return GM.tok}
+  const r=await NP("DueNative","driveToken",{interactive:!!ask,scopes:[GM.scope],account:gmLS("acct")});if(!r||!r.token)throw new Error("No access to Gmail");GM.tok=r.token;GM.at=Date.now();gmLS("need",null);return GM.tok}
 async function gmGet(path,ask){for(let i=0;i<2;i++){const t=await gmToken(ask),r=await fetch(GM.api+path,{headers:{Authorization:"Bearer "+t}});if(r.status==401&&i==0){GM.tok="";continue}
   if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw new Error("Gmail: "+(m||r.status))}return r.json()}}
 const b64url=s=>{try{const b=atob(String(s||"").replace(/-/g,"+").replace(/_/g,"/")),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new TextDecoder().decode(u)}catch(e){return ""}};
@@ -25,9 +25,9 @@ function gmStatus(){if(!gmOn())return "Off";if(gmLS("need"))return "Needs you to
 function gmSheet(){if(!isApp())return sheet(`<h2>Read Gmail</h2><p class="sub">This works in the Android app.</p>`);
   sheet(`<h2>Read bank emails from Gmail</h2><p class="sub">The app looks only for payment emails (debited, credited, card used) from the last few days, every time you open it. They go to “Payments to review”, the same as bank SMS. Read-only: it can’t send, delete or change mail.</p>
   <div class="card"><div class="hbl"><span>Status</span><b>${esc(gmStatus())}</b></div>${gmLS("err")&&gmOn()?`<p class="note" style="color:var(--late);margin:6px 0 0">${esc(gmLS("err"))}</p>`:""}</div>
-  <div class="acts">${gmOn()?`<button class="btn" data-act="gmNow">Check now</button><button class="btn ghost" data-act="gmOff">Turn off</button>`:`<button class="btn" data-act="gmStart">Connect Gmail</button>`}</div>
-  <h3>Outlook emails</h3><p class="note">Forward bank emails from Outlook to this Gmail once, and the app reads them here too: on outlook.com open Settings → Mail → Forwarding → Enable forwarding, enter your Gmail, tick “Keep a copy”, Save.</p>
-  <p class="note">If you also set up the Gmail script earlier, you can leave it; the same email is never added twice.</p>`)}
+  ${F("f_gma","Gmail that gets your bank emails",gmLS("acct"),"email",'placeholder="name@gmail.com" autocomplete="off"')}<p class="note" style="margin-top:-4px">This can be different from the email you sign in to the app with. It must be added on this phone (Android Settings → Accounts) and as a test user in Google Cloud.</p>
+  <div class="acts">${gmOn()?`<button class="btn" data-act="gmNow">Check now</button><button class="btn ghost" data-act="gmStart">Change Gmail</button><button class="btn ghost" data-act="gmOff">Turn off</button>`:`<button class="btn" data-act="gmStart">Connect Gmail</button>`}</div>
+  <p class="note">Outlook is connected separately: Settings → 📨 Outlook. If you set up the Gmail script earlier you can leave it; the same email is never added twice.</p>`)}
 {const _ti=todoItems;todoItems=function(){const L=_ti();if(gmOn()&&gmLS("need"))L.push({k:-880,ic:"📧",tx:"Gmail reading needs you to sign in",sub:"Tap to reconnect",act:"gmNow",tone:"soon"});return L.sort((a,b)=>a.k-b.k)}}
 {const _st=settings;settings=function(...a){const r=_st(...a);try{const box=$("#set_more");if(box&&!$("#set_gm")){box.insertAdjacentHTML("afterbegin",`<button id="set_gm" data-act="gmSheet">📧 Gmail: ${esc(gmOn()?(gmLS("need")?"sign in":"on"):"off")}</button>`);if(taOn())taNode(box)}}catch(e){}return r}}
 {const _s=start;start=function(...a){const r=_s(...a);setTimeout(()=>gmAuto(),6000);return r}}
@@ -35,7 +35,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState=="
 NEW27.unshift("Reads bank emails straight from Gmail (Settings → 📧 Gmail)");
 Object.assign(ACT,{
   gmSheet(){gmSheet()},
-  async gmStart(){const was=gmOn();toast("Opening Google sign-in…");try{gmLS("on","1");const n=await gmScan(true,7);toast(n?n+(n==1?" payment":" payments")+" found":"Connected. No new payment emails in the last 7 days");gmSheet()}
+  async gmStart(){const was=gmOn(),em=v("f_gma").trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(em))return toast("Enter the Gmail that gets your bank emails");if(em!=gmLS("acct")){gmLS("acct",em);GM.tok="";gmLS("last",null)}toast("Opening Google sign-in…");try{gmLS("on","1");const n=await gmScan(true,7);toast(n?n+(n==1?" payment":" payments")+" found":"Connected. No new payment emails in the last 7 days");gmSheet()}
     catch(e){if(!was)gmLS("on",null);const m=String(e.message||e);toast(/cancel|needs-consent/i.test(m)?"Google sign-in was cancelled":/has not been used|disabled/i.test(m)?"Turn on the Gmail API in Google Cloud first":m);gmSheet()}},
   async gmNow(){toast("Checking Gmail…");try{const n=await gmScan(true);toast(n?n+(n==1?" payment":" payments")+" to review":"No new payment emails");if($("#over").innerHTML&&$("#over h2")&&/Gmail/.test($("#over h2").textContent))gmSheet();render()}catch(e){toast(String(e.message||e))}},
   gmOff(){gmLS("on",null);gmLS("need",null);GM.tok="";sheet("");toast("Gmail reading turned off")}
