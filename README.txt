@@ -1,4 +1,13 @@
-PERSONAL DIARY (version 27, formerly Due & Spend)
+PERSONAL DIARY (version 28, formerly Due & Spend)
+
+NEW IN VERSION 28
+- Receipt photo on any expense (stored on the phone that took it).
+- Shared costs: who paid, half each, who owes whom per month (Family).
+- Insurance grace period warning and reminder before a policy lapses.
+- Spending alerts when a category jumps this week.
+- Tax pack PDF for your CA (Settings): schemes, premiums, interest,
+  FDs, money sent home, days in India.
+- More Tamil; faster balances with many entries.
 
 NEW IN VERSION 27
 - Type or say an expense in one line ("Lulu 120 riyal groceries"); mic uses the

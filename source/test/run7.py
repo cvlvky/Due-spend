@@ -11,7 +11,7 @@ SEED="if(!localStorage.getItem('seeded')){localStorage.setItem('due-and-spend.v1
 # a stand-in for the Android side
 FAKE='''window.__n={calls:[],launch:%s,sms:[],pin:"",listeners:{}};
 window.Capacitor={isNativePlatform:()=>true,addListener:(p,e,cb)=>{window.__n.listeners[p+"."+e]=cb},nativePromise:async(p,m,o)=>{const N=window.__n;N.calls.push([p,m,o]);
-  if(p=="LocalNotifications"){if(m=="checkPermissions"||m=="requestPermissions")return {display:"granted"};if(m=="getPending")return {notifications:N.sched||[]};if(m=="schedule"){N.sched=o.notifications;return {}}return {}}
+  if(p=="LocalNotifications"){if(m=="checkPermissions"||m=="requestPermissions")return {display:"granted"};if(m=="getPending")return {notifications:N.sched||[]};if(m=="cancel"){N.sched=[];return {}}if(m=="schedule"){N.sched=(N.sched||[]).concat(o.notifications);return {}}return {}}
   if(p=="DueNative"){if(m=="getLaunch"){const d=N.launch;N.launch="";return {data:d}}if(m=="setWidget"){N.widget=o;return {}}if(m=="readSms")return {messages:N.sms.filter(x=>+x.date>+o.since)};
     if(m=="saveDownload"){N.saved=o;return {}}if(m=="canAuth")return {ok:true};if(m=="setPin"){N.pin=o.pin;return {}}if(m=="auth")return {ok:true,pin:N.pin}}
   return {}}};'''

@@ -7,7 +7,7 @@ errs=[];fails=[]
 def ok(n,c,x=''):
     print(('PASS ' if c else 'FAIL ')+n+(' :: '+str(x) if (x!='' and not c) else ''))
     if not c: fails.append(n)
-NATIVE='''window.__n={l:{}};window.Capacitor={isNativePlatform:()=>true,addListener:(p,e,cb)=>{window.__n.l[e]=cb},nativePromise:async(p,m,o)=>{if(p=="LocalNotifications"){if(m=="schedule")window.__n.sched=o.notifications;return m=="getPending"?{notifications:[]}:{display:"granted"}}return {}}};'''
+NATIVE='''window.__n={l:{}};window.Capacitor={isNativePlatform:()=>true,addListener:(p,e,cb)=>{window.__n.l[e]=cb},nativePromise:async(p,m,o)=>{if(p=="LocalNotifications"){if(m=="cancel")window.__n.sched=[];if(m=="schedule")window.__n.sched=(window.__n.sched||[]).concat(o.notifications);return m=="getPending"?{notifications:[]}:{display:"granted"}}return {}}};'''
 SEED="if(!localStorage.getItem('seeded')){localStorage.setItem('due-and-spend.v1',%s);localStorage.setItem('seeded','1')}"%json.dumps(json.dumps(legacy))
 try:
   with sync_playwright() as p:
