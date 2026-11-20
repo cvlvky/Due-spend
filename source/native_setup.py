@@ -43,6 +43,10 @@ import java.io.InputStream;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
+    private static boolean isAuth(Intent i) {
+        return i != null && i.getData() != null && "personaldiary".equals(i.getData().getScheme());
+    }
+
     /** What the app was opened with (widget button, shortcut, shared text or file), as JSON. Read once by the page. */
     public static volatile String pending = "";
 
@@ -50,7 +54,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DueNativePlugin.class);
         super.onCreate(savedInstanceState);
-        capture(getIntent());
+        if (isAuth(getIntent())) DueNativePlugin.authReturn(getIntent().getData().toString());
+        else capture(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -70,6 +75,7 @@ public class MainActivity extends BridgeActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (intent == null) return;
+        if (isAuth(intent)) { DueNativePlugin.authReturn(intent.getData().toString()); return; }
         setIntent(intent);
         capture(intent);
         try {
@@ -197,6 +203,80 @@ public class DueNativePlugin extends Plugin {
         }
     }
 
+    /* ---- Microsoft (Outlook) sign-in: open the browser, wait for personaldiary://auth?code=... ---- */
+    private static PluginCall webCall;
+    private static String authPending = "";
+
+    public static void authReturn(String url) {
+        PluginCall c = webCall;
+        webCall = null;
+        if (c != null) {
+            JSObject o = new JSObject();
+            o.put("url", url);
+            c.resolve(o);
+        } else {
+            authPending = url;
+        }
+    }
+
+    @PluginMethod
+    public void webAuth(PluginCall call) {
+        String url = call.getString("url", "");
+        if (!url.startsWith("https://login.microsoftonline.com/")) { call.reject("Not allowed"); return; }
+        if (webCall != null) webCall.reject("cancelled");
+        authPending = "";
+        webCall = call;
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+        } catch (Exception e) {
+            webCall = null;
+            call.reject("No browser on this phone");
+        }
+    }
+
+    /** A sign-in that finished while the app was closed. */
+    @PluginMethod
+    public void webAuthPending(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("url", authPending);
+        authPending = "";
+        call.resolve(o);
+    }
+
+    /** Form POST to the Microsoft token endpoint (done here because the browser page can't). */
+    @PluginMethod
+    public void msToken(PluginCall call) {
+        final String body = call.getString("body", "");
+        new Thread(() -> {
+            java.net.HttpURLConnection c = null;
+            try {
+                c = (java.net.HttpURLConnection) new java.net.URL("https://login.microsoftonline.com/consumers/oauth2/v2.0/token").openConnection();
+                c.setRequestMethod("POST");
+                c.setDoOutput(true);
+                c.setConnectTimeout(20000);
+                c.setReadTimeout(20000);
+                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                c.getOutputStream().write(body.getBytes("UTF-8"));
+                int code = c.getResponseCode();
+                java.io.InputStream in = code < 400 ? c.getInputStream() : c.getErrorStream();
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                byte[] b = new byte[8192];
+                int n;
+                while (in != null && (n = in.read(b)) > 0) out.write(b, 0, n);
+                JSObject o = new JSObject();
+                o.put("status", code);
+                o.put("body", out.toString("UTF-8"));
+                call.resolve(o);
+            } catch (Exception e) {
+                call.reject("No connection to Microsoft");
+            } finally {
+                if (c != null) c.disconnect();
+            }
+        }).start();
+    }
+
     /** Access token for files this app creates in the user's Google Drive. */
     @PluginMethod
     public void driveToken(PluginCall call) {
@@ -207,7 +287,10 @@ public class DueNativePlugin extends Plugin {
             if (want != null) for (int i = 0; i < want.length(); i++) scopes.add(new Scope(want.getString(i)));
         } catch (Exception e) { scopes.clear(); }
         if (scopes.isEmpty()) scopes.add(new Scope("https://www.googleapis.com/auth/drive.file"));
-        AuthorizationRequest req = AuthorizationRequest.builder().setRequestedScopes(scopes).build();
+        AuthorizationRequest.Builder rb = AuthorizationRequest.builder().setRequestedScopes(scopes);
+        String acct = call.getString("account", "");
+        if (acct != null && acct.contains("@")) rb.setAccount(new android.accounts.Account(acct.trim(), "com.google"));
+        AuthorizationRequest req = rb.build();
         try {
             Identity.getAuthorizationClient(getActivity()).authorize(req)
                 .addOnSuccessListener(res -> {
@@ -897,6 +980,12 @@ edit(MAN, '''                <category android:name="android.intent.category.LAU
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="application/json" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="personaldiary" android:host="auth" />
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 ''')

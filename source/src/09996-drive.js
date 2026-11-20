@@ -3,7 +3,7 @@ const GD={tok:"",at:0,busy:false,api:"https://www.googleapis.com/drive/v3",up:"h
 const gdLS=(k,v2)=>{try{if(v2===undefined)return localStorage.getItem("ds-gd-"+k)||"";if(v2===null)localStorage.removeItem("ds-gd-"+k);else localStorage.setItem("ds-gd-"+k,v2)}catch(e){return ""}};
 const gdOn=()=>gdLS("on")=="1";
 async function gdToken(ask){if(GD.tok&&Date.now()-GD.at<45*60e3)return GD.tok;if(!isApp())throw new Error("Google Drive backup works in the Android app");
-  const r=await NP("DueNative","driveToken",{interactive:!!ask});if(!r||!r.token)throw new Error("No access to Google Drive");GD.tok=r.token;GD.at=Date.now();gdLS("need",null);return GD.tok}
+  const r=await NP("DueNative","driveToken",{interactive:!!ask,account:gdLS("acct")});if(!r||!r.token)throw new Error("No access to Google Drive");GD.tok=r.token;GD.at=Date.now();gdLS("need",null);return GD.tok}
 async function gdFetch(url,opt,ask){opt=opt||{};for(let i=0;i<2;i++){const t=await gdToken(ask);const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),Authorization:"Bearer "+t}});
   if(r.status==401&&i==0){GD.tok="";continue}if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw new Error("Google Drive: "+(m||r.status))}return r}}
 async function gdFolder(ask){let id=gdLS("dir");if(id){try{const r=await gdFetch(GD.api+"/files/"+id+"?fields=id,trashed",{},ask);const j=await r.json();if(!j.trashed)return id}catch(e){}}
@@ -28,6 +28,7 @@ function gdStatus(){const last=gdLS("last");if(!gdOn())return "Off";if(gdLS("nee
 function gdSheet(){if(!isApp())return sheet(`<h2>Google Drive backup</h2><p class="sub">This works in the Android app. In the browser, use Settings → Backup now to save a backup file.</p>`);
   sheet(`<h2>Google Drive backup</h2><p class="sub">Backs up once a day to a “${GD.dir}” folder in your own Google Drive and keeps the last ${GD.keep}. The app can only see files it made there, nothing else in your Drive.</p>
   <div class="card"><div class="hbl"><span>Status</span><b>${esc(gdStatus())}</b></div>${gdLS("err")&&gdOn()?`<p class="note" style="color:var(--late);margin:6px 0 0">Last try failed: ${esc(gdLS("err"))}</p>`:""}</div>
+  ${F("f_gda","Google account to back up to",gdLS("acct"),"email",'placeholder="name@gmail.com (leave empty to choose)" autocomplete="off"')}
   <div class="acts">${gdOn()?`<button class="btn" data-act="gdNow">Back up now</button><button class="btn ghost" data-act="gdRestore">Restore from Drive</button><button class="btn ghost" data-act="gdOff">Turn off</button>`:`<button class="btn" data-act="gdStart">Connect Google Drive</button><button class="btn ghost" data-act="gdRestore">Restore from Drive</button>`}</div>
   <p class="note">Your wife can turn it on in her phone too; each phone backs up to its own Drive.</p>`)}
 async function gdRestoreSheet(){sheet(`<h2>Restore from Drive</h2><div class="empty">Loading backups…</div>`);let L;try{L=await gdList(true)}catch(e){return sheet(`<h2>Restore from Drive</h2><div class="empty">${esc(e.message||e)}</div>`)}
@@ -41,7 +42,7 @@ Object.assign(TA,{"Google Drive backup":"Google Drive காப்புப்�
 NEW27.unshift("Automatic daily backup to your Google Drive (Settings → ☁️ Drive backup)");
 Object.assign(ACT,{
   gdSheet(){gdSheet()},
-  async gdStart(){toast("Opening Google sign-in…");const was=gdOn();try{gdLS("on","1");await gdBackup(true,"first");toast("Google Drive backup is on");gdSheet()}catch(e){if(!was)gdLS("on",null);const m=String(e.message||e);toast(/cancel|needs-consent/i.test(m)?"Google sign-in was cancelled":m);gdSheet()}},
+  async gdStart(){const em=($("#f_gda")?v("f_gda"):"").trim().toLowerCase();if(em!=gdLS("acct")){if(em)gdLS("acct",em);else gdLS("acct",null);GD.tok="";gdLS("dir",null)}toast("Opening Google sign-in…");const was=gdOn();try{gdLS("on","1");await gdBackup(true,"first");toast("Google Drive backup is on");gdSheet()}catch(e){if(!was)gdLS("on",null);const m=String(e.message||e);toast(/cancel|needs-consent/i.test(m)?"Google sign-in was cancelled":m);gdSheet()}},
   async gdNow(){if(!isApp())return gdSheet();toast("Backing up to Google Drive…");try{await gdBackup(true,"manual");toast("Backed up to Google Drive");if($("#over").innerHTML)gdSheet();render()}catch(e){toast(String(e.message||e))}},
   gdOff(){gdLS("on",null);gdLS("need",null);GD.tok="";sheet("");toast("Drive backup turned off. Backups already in Drive stay there.")},
   gdRestore(){gdRestoreSheet()},

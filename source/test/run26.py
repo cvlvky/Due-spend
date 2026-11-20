@@ -23,10 +23,11 @@ try:
   c,pg=h.page(native=True);E=pg.evaluate
   pg.route(re.compile(r'https://gmail\.googleapis\.com/.*'),gmail)
   E('settings()');ok('gmail in settings',pg.locator('#over #set_gm').count()==1)
-  pg.click('#over #set_gm');ok('explains outlook forwarding','Forwarding' in pg.inner_text('#over'))
-  q0=len(E('S.cfg.smsq||[]'));pg.click('#over [data-act="gmStart"]');pg.wait_for_timeout(2000)
+  pg.click('#over #set_gm');ok('gmail sheet separate from outlook','Outlook is connected separately' in pg.inner_text('#over'))
+  pg.click('#over [data-act="gmStart"]');ok('asks which gmail',E('gmOn()')==False)
+  pg.fill('#over #f_gma','payments.mail@gmail.com');q0=len(E('S.cfg.smsq||[]'));pg.click('#over [data-act="gmStart"]');pg.wait_for_timeout(2000)
   Q=E('S.cfg.smsq||[]');ok('two payments to review, OTP skipped',len(Q)-q0==2,[x['body'][:60] for x in Q])
-  ok('asked for read-only gmail',E('__calls.some(c=>c[1]=="driveToken"&&(c[2].scopes||[]).some(s=>/gmail.readonly/.test(s)))'))
+  ok('asked for read-only gmail on that account',E('__calls.some(c=>c[1]=="driveToken"&&(c[2].scopes||[]).some(s=>/gmail.readonly/.test(s))&&c[2].account=="payments.mail@gmail.com")'))
   ax=[x for x in Q if 'MEESHO' in x['body'].upper()];cb=[x for x in Q if 'SAFFRON' in x['body'].upper()]
   ok('axis email parsed',ax and ax[0]['p']['amt']==266,ax[:1])
   ok('html email parsed',cb and cb[0]['p']['amt']==7,cb[:1])
