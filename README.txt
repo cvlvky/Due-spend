@@ -1,4 +1,12 @@
-PERSONAL DIARY (version 29, formerly Due & Spend)
+PERSONAL DIARY (version 30, formerly Due & Spend)
+
+NEW IN VERSION 30
+- Receipt photo fills in amount, shop and date (read on the phone).
+- Trips & events with budgets; shared shopping list; calculators;
+  Can I afford it?; important yearly dates (ITR, PPF/SSY minimum).
+- Pay link on dues; fingerprint for documents; text size; live Google
+  Sheet in Drive; family activity; bulk fixes; last month in short;
+  donations in the tax pack.
 
 NEW IN VERSION 29
 - Gmail and Outlook are checked about once an hour even when the app is
