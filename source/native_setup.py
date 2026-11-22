@@ -277,6 +277,40 @@ public class DueNativePlugin extends Plugin {
         }).start();
     }
 
+    /* ---- read text from a receipt photo, on the phone (ML Kit) ---- */
+    @PluginMethod
+    public void ocr(PluginCall call) {
+        try {
+            byte[] b = android.util.Base64.decode(call.getString("data", ""), android.util.Base64.DEFAULT);
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeByteArray(b, 0, b.length, o);
+            int s = 1;
+            while (Math.max(o.outWidth, o.outHeight) / s > 2400) s *= 2;
+            o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = s;
+            android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(b, 0, b.length, o);
+            if (bmp == null) { call.reject("Not a picture"); return; }
+            com.google.mlkit.vision.common.InputImage img = com.google.mlkit.vision.common.InputImage.fromBitmap(bmp, 0);
+            com.google.mlkit.vision.text.TextRecognition.getClient(com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS)
+                .process(img)
+                .addOnSuccessListener(t -> { JSObject r = new JSObject(); r.put("text", t.getText()); call.resolve(r); })
+                .addOnFailureListener(e -> call.reject("Couldn't read the picture: " + e.getMessage()));
+        } catch (Exception e) {
+            call.reject("Couldn't read the picture");
+        }
+    }
+
+    /** Text size for the whole app (100 = normal). */
+    @PluginMethod
+    public void textZoom(PluginCall call) {
+        final int z = call.getInt("zoom", 100);
+        getActivity().runOnUiThread(() -> {
+            try { getBridge().getWebView().getSettings().setTextZoom(z); call.resolve(); }
+            catch (Exception e) { call.reject("Couldn't change the text size"); }
+        });
+    }
+
     /* ---- background check of payment emails (MailWorker) ---- */
     @PluginMethod
     public void mailBg(PluginCall call) {
@@ -1201,7 +1235,9 @@ edit(MAN, '''                <category android:name="android.intent.category.LAU
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 ''')
 edit(MAN, '''        <provider
-            android:name="androidx.core.content.FileProvider"''', '''        <service android:name=".DueNotifListener" android:label="Personal Diary payment alerts"
+            android:name="androidx.core.content.FileProvider"''', '''        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr" />
+
+        <service android:name=".DueNotifListener" android:label="Personal Diary payment alerts"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
@@ -1231,7 +1267,8 @@ edit(os.path.join(A, "app/build.gradle"),
      '''    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.biometric:biometric:1.1.0"
     implementation "com.google.android.gms:play-services-auth:21.2.0"
-    implementation "androidx.work:work-runtime:2.9.1"''')
+    implementation "androidx.work:work-runtime:2.9.1"
+    implementation "com.google.android.gms:play-services-mlkit-text-recognition:19.0.1"''')
 edit(os.path.join(RES, "values/styles.xml"),
      '''        <item name="windowNoTitle">true</item>''',
      '''        <item name="windowNoTitle">true</item>
