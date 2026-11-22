@@ -31,14 +31,6 @@ NEW IN VERSION 27
 - Home-screen widget shows the top of Needs attention, plus a mic button.
 - Tamil option in Settings. "What's new" shows once after each update.
 
-APP SIGNING KEY
-- The key is locked in signing.enc. GitHub unlocks it with the SIGN_PASS
-  secret (repo Settings > Secrets and variables > Actions).
-- Keep a private copy of the key file and password. Losing both means one
-  more uninstall/reinstall.
-- Google Cloud Android client SHA-1:
-  B4:87:F5:45:E0:06:59:B0:B4:3B:70:9A:38:0E:96:1F:86:C3:60:EA
-
 HOW UPDATES WORK NOW
 - Changes are made in this GitHub repo. GitHub checks the app, builds the APK and
   publishes it with a version.json note of what's new.
