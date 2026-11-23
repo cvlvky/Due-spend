@@ -1,4 +1,11 @@
-PERSONAL DIARY (version 30, formerly Due & Spend)
+PERSONAL DIARY (version 31, formerly Due & Spend)
+
+NEW IN VERSION 31
+- Ask your diary (typed or spoken questions, answered on the phone).
+- All features guide (Settings or Home) with search.
+- Money calendar for 12 months; "Was this you?" and card emergency.
+- Price watch from receipts; round-up jar; mood diary; insights and
+  challenges; cash counter; shake to hide; future net worth calculator.
 
 NEW IN VERSION 30
 - Receipt photo fills in amount, shop and date (read on the phone).

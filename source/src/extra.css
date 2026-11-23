@@ -80,3 +80,8 @@ main>.nofx{animation:none}
 .dbar i{display:block;height:100%;border-radius:6px}
 .dbar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--mute)}
 .card.pay{cursor:pointer}
+
+/* Version 31 */
+.askrow{display:flex;gap:8px;align-items:center;margin:0 0 12px}
+.askrow input{flex:1;margin:0!important}
+.askrow .ib{flex:none;border:1px solid var(--line);border-radius:12px;width:46px;height:46px;font-size:20px}
