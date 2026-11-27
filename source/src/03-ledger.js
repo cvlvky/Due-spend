@@ -82,8 +82,8 @@ function upcoming(from,to,incOverdue){const L=[];
   return L.sort((a,b)=>a.d.localeCompare(b.d))}
 
 /* investments and net worth */
-const invVal=(x,any)=>x.closed&&!any?0:(+x.val||+x.inv||0);
-const fdEst=x=>{if(!(+x.rt&&x.sd&&x.mdate&&+x.inv))return 0;const y=(D(x.mdate)-D(x.sd))/31557600000;return y>0?x.inv*Math.pow(1+x.rt/400,4*y):0};
+const invVal=(x,any)=>x.closed&&!any?0:(+x.val||depNow(x)||+x.inv||0);
+const fdEst=x=>{const o=depInfo(x);if(o&&o.mat)return o.mat;if(!(+x.rt&&x.sd&&x.mdate&&+x.inv))return 0;const y=(D(x.mdate)-D(x.sd))/31557600000;return y>0?x.inv*Math.pow(1+x.rt/400,4*y):0};
 function invRet(x){const i=+x.inv||0,val=invVal(x);if(!i)return {abs:null,yr:null};let yr=null;if(x.sd){const y=(Date.now()-D(x.sd))/31557600000;if(y>=.25&&val>0)yr=(Math.pow(val/i,1/y)-1)*100}return {abs:(val/i-1)*100,yr}}
 function nwParts(to){return {acc:tot(to),inv:S.inv.reduce((s,x)=>s+cv(invVal(x),x.cur,to),0),goal:S.goals.reduce((s,g)=>s+cv(+g.saved||0,g.cur,to),0),loan:S.loans.reduce((s,l)=>s+cv(loanOut(l),l.cur,to),0)}}
 const nwv=to=>{const p=nwParts(to||"INR");return p.acc+p.inv+p.goal-p.loan};

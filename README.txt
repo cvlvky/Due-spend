@@ -1,5 +1,20 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.7
+- Fixed deposits work out what they pay. Under "Kind of deposit" choose a
+  bank FD (interest added, or paid out) or a post office scheme: Time
+  Deposit (1, 2, 3 or 5 years), NSC, Kisan Vikas Patra, Monthly Income
+  Scheme or Senior Citizens Savings Scheme.
+- For post office schemes the app fills in the government's rate for the
+  date the deposit was opened (from April 2020) and the maturity date.
+- A deposit named as a post office one ("Post office ...", "NSC", "KVP")
+  is worked out from its name, even before you open it.
+- A Time Deposit shows the interest it pays each year and the money that
+  comes back at the end; NSC and bank FDs show the maturity amount.
+- If your certificate shows a maturity amount, type it and the app uses it.
+- A deposit's value grows with the interest earned so far, so net worth
+  counts it.
+
 NEW IN VERSION 32.6
 - SBI statements (SSY and others) read correctly: newest-first rows with a
   dash in the empty Debit/Credit column, and balances followed forward in
