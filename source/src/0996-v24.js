@@ -130,12 +130,15 @@ function stRowLab(r,A){const c=stmtClean(r.desc),ex=(r.fx?" · "+r.fx:"")+(r.pen
   if(r.dir=="in"&&A.type=="card"){if(stPayLike(c)){const F0=stmtSource(c,A);return (F0?"Payment from "+F0.name:"Card payment (add the bank account it came from to link it)")+ex}return "Refund"+ex}
   const B=r.dir=="out"?stmtTarget(c,A):null;return (c.hint&&r.dir=="out"?(B?"Transfer to "+B.name:c.hint=="atm"?"Cash withdrawal (add a Cash wallet to track it)":c.hint=="own"?"Your own account"+(c.l4?" ending "+c.l4:"")+" (add it to track transfers)":"Card bill"+(c.l4?" "+c.l4:"")+" (add the card to track it)"):(c.cat||catFor(c.payee)||catGuess(c.note+" "+c.payee)||"No category")+(c.note?" · "+c.note:""))+ex}
 /* no running balance in the file: ask for the balance now and work out the opening */
-function stOweBox(p,A){const b=Math.round(balAt(A.id,today())*100)/100,card=A.type=="card",T=p.T;
-  return `<div class="card" style="margin-top:10px"><b>${card?"What do you owe on this card now?":"What is the balance now?"}</b><p class="note" style="margin:4px 0 0">This file lists transactions only, without a running balance, so it can’t show what the ${card?"card":"account"} had before the first one. ${card?"Type the amount you owe now, as the bank app shows it. The app works out the balance before the first transaction, so every line after it is right.":"Type the balance the bank app shows now."}</p>
-  <p class="note">In the app now: <b>${card?(b<0?"you owe "+fmx(-b,A.cur):b>0?fmx(b,A.cur)+" in credit":"nothing owed"):fmx(b,A.cur)}</b>${T!=null&&Math.abs(b-T)<0.01?" ✓":""}</p>
-  ${F("f_owe",card?"Amount owed now":"Balance now",T!=null?String(card?Math.abs(T):T):"","number",'placeholder="0.00"')}
-  ${card?`<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="f_owecr" ${T>0?"checked":""} style="width:auto"> The card is in credit (you paid more than you owed)</label>`:""}
-  <div class="acts"><button class="btn" data-act="stSetBal">${card?"Set what I owe":"Set the balance"}</button></div></div>`}
+function stOweBox(p,A){const b=Math.round(balAt(A.id,today())*100)/100,card=A.type=="card",T=p.T,L=card?cardLim(A):0;
+  if(!card)return `<div class="card" style="margin-top:10px"><b>What is the balance now?</b><p class="note" style="margin:4px 0 0">This file lists transactions only, without a running balance, so it can’t show what the account had before the first one. Type the balance the bank app shows now.</p>
+    <p class="note">In the app now: <b>${fmx(b,A.cur)}</b>${T!=null&&Math.abs(b-T)<0.01?" ✓":""}</p>${F("f_owe","Balance now",T!=null?String(T):"","number",'placeholder="0.00"')}<div class="acts"><button class="btn" data-act="stSetBal">Set the balance</button></div></div>`;
+  const ok=T!=null&&Math.abs(b-T)<0.01,av=Math.round((L+b)*100)/100;
+  return `<div class="card" style="margin-top:10px"><b>What does the bank app show for this card now?</b><p class="note" style="margin:4px 0 0">This file lists transactions only, without a running balance. Type what the bank app shows now; the app works out the balance before the first transaction, so every line after it is right.</p>
+  <p class="note">In the app now: <b>${L?fmx(av,A.cur)+" available":""}${L?" · ":""}${b<0?"you owe "+fmx(-b,A.cur):b>0?fmx(b,A.cur)+" in credit":"nothing owed"}</b>${ok?" ✓":""}</p>
+  ${L?`<p class="note" style="margin-top:-4px">Card limit ${fmx(L,A.cur)}</p>`:F("f_lim3","Card limit","","number",'placeholder="Credit limit"')}
+  ${F("f_avl","Available to spend now",ok&&L?String(av):"","number",'placeholder="0.00"')}<p class="note" style="margin:2px 0 8px">or</p>${F("f_owe","Amount you owe now",ok?String(Math.abs(T)):"","number",'placeholder="0.00"')}
+  <div class="acts"><button class="btn" data-act="stSetBal">Set the card balance</button></div></div>`}
 function stBalTo(p,T){const A=ac(p.acc),day0=iso(new Date(D(p.M.from).getTime()-864e5)),to=p.M.to;
   S.tx.filter(x=>x.acc==A.id&&x.kind=="adj"&&x.date>=day0&&(/^Opening balance worked out/.test(x.note||"")||(x.date<=to&&/^(Matched to the bank statement|Opening balance from the bank statement)/.test(x.note||"")))).forEach(x=>removeTx(x.id));
   const d=Math.round((T-balAt(A.id,today()))*100)/100;if(Math.abs(d)>=0.005)addTx({kind:"adj",acc:A.id,amt:d,cur:A.cur,date:day0,cat:"Balance correction",note:"Opening balance worked out from the balance now"});return d}
@@ -213,9 +216,11 @@ Object.assign(ACT,{
       if(f.op=="flip"){o.kind=x.kind=="in"?"out":"in";if(k.payee&&(!o.payee||/[A-Z]{3,} [A-Z]{2,}/.test(o.payee)))o.payee=k.payee;if(!o.cat)o.cat=o.kind=="out"?(k.cat||catFor(k.payee)||catGuess(k.note+" "+k.payee)||""):A.type=="card"?(stPayLike(k)?"Card payment":"Refund"):""}
       else if(B&&x.kind=="out"){Object.assign(o,{kind:"tr",to:B.id,got:trGot(+x.amt,A,B),fee:0,cat:"",payee:"",note:k.payee});delete o.cat;delete o.payee}else{o.payee=k.payee;if(k.note&&(!o.note||o.note==k.raw.slice(0,80)))o.note=k.note;if(!o.cat)o.cat=k.hint?(k.hint=="atm"?"Cash withdrawal":k.hint=="own"?"Own account transfer":"Card bill"):(k.cat||catGuess(k.note+" "+k.payee)||"")}
       o.raw=o.raw||k.raw.slice(0,160);put("tx",stamp(o,x));n++});p.M=stmtMatch(p.P,p.acc);if(p.T!=null){stBalTo(p,p.T);p.M=stmtMatch(p.P,p.acc)}save();render();stmtShow();toast(n+(n==1?" entry fixed":" entries fixed"))},
-  stSetBal(){const p=stPend;if(!p||!p.M)return;const A=ac(p.acc),s=v("f_owe").trim();if(s===""||!/\d/.test(s))return toast(A.type=="card"?"Type what you owe now":"Type the balance now");
-    let T=num(s);if(A.type=="card"){T=Math.abs(T);if(!($("#f_owecr")||{}).checked)T=-T}p.T=Math.round(T*100)/100;const d=stBalTo(p,p.T);p.M=stmtMatch(p.P,p.acc);save();render();stmtShow();
-    toast(A.type=="card"?(p.T<0?"Done. The card shows "+fmx(-p.T,A.cur)+" owed":"Done. The card is "+fmx(p.T,A.cur)+" in credit"):"Balance set to "+fmx(p.T,A.cur))},
+  stSetBal(){const p=stPend;if(!p||!p.M)return;const A=ac(p.acc);let T;
+    if(A.type=="card"){const r=cardTarget(A,$("#f_avl")?v("f_avl"):"",v("f_owe"),$("#f_lim3")?v("f_lim3"):null);if(r.err)return toast(r.err);if(r.L){put("acc",stamp({...A,lim:r.L},A))}T=r.T}
+    else{const s=v("f_owe").trim();if(s===""||!/\d/.test(s))return toast("Type the balance now");T=num(s)}
+    p.T=Math.round(T*100)/100;stBalTo(p,p.T);p.M=stmtMatch(p.P,p.acc);save();render();stmtShow();const K=ac(p.acc);
+    toast(A.type=="card"?(cardLim(K)?"Done. Available to spend: "+fmx(cardAv(K),K.cur):p.T<0?"Done. You owe "+fmx(-p.T,K.cur):"Done. The card is "+fmx(p.T,K.cur)+" in credit"):"Balance set to "+fmx(p.T,A.cur))},
   stUseAcc(id){const p=stPend;if(!p||!p.P||!ac(id))return;p.acc=id;p.T=null;setVal("f_acc",id);p.M=stmtMatch(p.P,id);stmtShow()},
   casOpen(){casForm()},casRetry(){if(casFileLast)casFile(casFileLast)},
   async casGo(){const F=casPend;if(!F)return;let n=0,u=0;for(const f of F){const x=casMatch(f),cf=f.tx.map(t=>({d:t.d,a:t.amt}));

@@ -103,3 +103,13 @@ main>.nofx{animation:none}
 .segx{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
 .segx::-webkit-scrollbar{display:none}
 .segx>button{flex:none;white-space:nowrap}
+
+/* Version 32.2: credit card limit and available */
+.cbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:6px 0 2px}
+.cbar i{display:block;height:100%;border-radius:3px}
+.arow .an .cbar{max-width:220px}
+.arow .ab small.abl{display:block;font-size:11px;font-weight:500;color:var(--mute);text-align:right}
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 14px}
+.cgrid>div{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--card)}
+.cgrid small{display:block;color:var(--mute);font-size:12px}
+.cgrid b{font-size:15px;white-space:nowrap}

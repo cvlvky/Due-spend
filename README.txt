@@ -1,5 +1,15 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.2
+- Credit cards show what is left to spend, like the bank app: add the
+  card limit in Edit account and the card shows available to spend, what
+  you owe and the limit, with a bar for what is used.
+- Correct balance on a card: type the available amount (or what you owe).
+- Card alerts that include "Available Limit" check the card; if the app
+  differs, Needs attention shows it and one tap corrects it.
+- The statement import box takes available or owed, and the limit if it
+  isn't set yet.
+
 NEW IN VERSION 32.1
 - Card transaction lists without a balance column (such as the CBQ app's
   Transaction History export) import correctly: no made-up balance, the
