@@ -1,5 +1,20 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.4
+- Bank statements whose descriptions start on the line above the date
+  (Axis Bank and similar) are read correctly: each line goes to the
+  nearest entry, so names and categories no longer shift by one.
+- The table ends at its totals / closing balance: the bank's notes and
+  legends (e.g. "Cash Withdrawal through ATM") no longer leak into the
+  last entry.
+- Names: remittances ("Money sent home"), interest, UPI payments to
+  family members (matched by name) and title-cased names.
+- Re-opening a statement repairs entries imported with the wrong text,
+  and turns a wrongly read cash withdrawal back into a payment.
+- People paid more than once can be added to Family from the preview.
+- The account statement list shows who each entry was, with the
+  category underneath.
+
 NEW IN VERSION 32.3
 - Cards match the bank by themselves: "Available Limit" in card alerts
   (SMS, Gmail, Outlook) is compared with the app, counting payments still

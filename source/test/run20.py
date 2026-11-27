@@ -51,7 +51,7 @@ try:
   ok('multi-line description joined',any('Suresh Kumar R' in r for r in E('stPend.P.rows.map(r=>r.desc)')))
   ok('already-entered transaction recognised','1 already in the app' in t and '5 new' in t,t[:400])
   ok('entry only in the app is listed','1 in the app but not in the statement' in t)
-  ok('payee from UPI and category guess','ARUNKUMAR' in t and 'Meesho' not in t.split('new')[1] if 'new' in t else False,t[:900])
+  ok('payee from UPI and category guess','arunkumar' in t.lower() and 'Meesho' not in t.split('new')[1] if 'new' in t else False,t[:900])
   pg.click('#csvout input[data-sti] >> nth=1');pg.click('#over [data-act="stImportGo"]');pg.wait_for_timeout(200)
   ok('ticked ones added, unticked left out',E('S.tx.filter(t=>t.acc=="ax"&&t.imp).length')==4 and E('S.tx.some(t=>t.acc=="ax"&&t.payee=="LIC OF INDIA PREMIUM"||t.acc=="ax"&&/LIC/.test(t.payee||""))'))
   t=pg.inner_text('#csvout');ok('statement rechecked after adding','5 already in the app' in t and '1 new' in t,t[:300])
