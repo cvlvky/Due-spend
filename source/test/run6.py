@@ -35,6 +35,7 @@ try:
     pg.click('.strip .sc >> nth=0'); ok('account card opens statement','statement' in pg.inner_text('#over h2')); pg.click('#over .x')
     pg.click('button[data-act="gsHide"]'); ok('setup card can be hidden','Get set up' not in pg.inner_text('#app'))
     # dues calendar
+    pg.evaluate('S.dates.push({id:"tcal1",name:"Water bill",type:"renewal",date:plus(+today().slice(8)<28?1:0),day:1,amt:50,cur:"QAR",rep:"none"});save();render()')
     pg.click('#nav button[data-id="dates"]'); pg.wait_for_timeout(200); ok('calendar marks due days',pg.locator('.cal i.has, .cal i.late').count()>=2); pg.screenshot(path='shots/u-dues.png')
     pg.click('.cal i.has >> nth=0'); ok('tapping a day lists what is due',len(pg.inner_text('#toast'))>3)
     m0=E('dmon'); pg.click('button[data-act="dmon"][data-id="1"]'); ok('calendar next month',E('dmon')==E('addMon("%s",1)'%m0))
