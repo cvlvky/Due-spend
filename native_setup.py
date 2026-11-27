@@ -311,6 +311,161 @@ public class DueNativePlugin extends Plugin {
         });
     }
 
+    /* ---- password vault: the master password is kept behind the fingerprint (Android Keystore) ---- */
+    private static final String VKEY = "pd_vault_key";
+
+    private interface CipherDone { void run(javax.crypto.Cipher c) throws Exception; }
+
+    private javax.crypto.SecretKey vaultKey(boolean create) throws Exception {
+        java.security.KeyStore ks = java.security.KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        if (ks.containsAlias(VKEY)) return (javax.crypto.SecretKey) ks.getKey(VKEY, null);
+        if (!create) return null;
+        javax.crypto.KeyGenerator kg = javax.crypto.KeyGenerator.getInstance(android.security.keystore.KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        android.security.keystore.KeyGenParameterSpec.Builder b = new android.security.keystore.KeyGenParameterSpec.Builder(VKEY,
+            android.security.keystore.KeyProperties.PURPOSE_ENCRYPT | android.security.keystore.KeyProperties.PURPOSE_DECRYPT)
+            .setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .setUserAuthenticationRequired(true);
+        if (android.os.Build.VERSION.SDK_INT >= 24) b.setInvalidatedByBiometricEnrollment(true);
+        kg.init(b.build());
+        return kg.generateKey();
+    }
+
+    private void bioCipher(final PluginCall call, final javax.crypto.Cipher cipher, final String title, final CipherDone done) {
+        getActivity().runOnUiThread(() -> {
+            try {
+                BiometricPrompt p = new BiometricPrompt(getActivity(), ContextCompat.getMainExecutor(getContext()),
+                    new BiometricPrompt.AuthenticationCallback() {
+                        @Override
+                        public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
+                            try {
+                                done.run(r.getCryptoObject().getCipher());
+                            } catch (Exception e) {
+                                call.reject("Couldn't use the fingerprint key");
+                            }
+                        }
+
+                        @Override
+                        public void onAuthenticationError(int code, CharSequence err) {
+                            call.reject("cancelled: " + err);
+                        }
+                    });
+                BiometricPrompt.PromptInfo info = new BiometricPrompt.PromptInfo.Builder()
+                    .setTitle(title)
+                    .setNegativeButtonText("Use master password")
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    .build();
+                p.authenticate(info, new BiometricPrompt.CryptoObject(cipher));
+            } catch (Exception e) {
+                call.reject("Fingerprint isn't available: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void vaultBioSet(final PluginCall call) {
+        final String secret = call.getString("secret", "");
+        if (secret == null || secret.isEmpty()) { call.reject("Nothing to save"); return; }
+        if (android.os.Build.VERSION.SDK_INT < 23) { call.reject("This phone is too old for fingerprint keys"); return; }
+        try {
+            if (BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) != BiometricManager.BIOMETRIC_SUCCESS) {
+                call.reject("No fingerprint set up on this phone");
+                return;
+            }
+            try {
+                java.security.KeyStore ks = java.security.KeyStore.getInstance("AndroidKeyStore");
+                ks.load(null);
+                ks.deleteEntry(VKEY);
+            } catch (Exception ignored) {}
+            javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(javax.crypto.Cipher.ENCRYPT_MODE, vaultKey(true));
+            bioCipher(call, c, "Use fingerprint for passwords", ci -> {
+                byte[] ct = ci.doFinal(secret.getBytes("UTF-8"));
+                prefs().edit()
+                    .putString("vault_ct", android.util.Base64.encodeToString(ct, android.util.Base64.NO_WRAP))
+                    .putString("vault_iv", android.util.Base64.encodeToString(ci.getIV(), android.util.Base64.NO_WRAP))
+                    .apply();
+                call.resolve();
+            });
+        } catch (Exception e) {
+            call.reject("Couldn't set up the fingerprint: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void vaultBioGet(final PluginCall call) {
+        if (android.os.Build.VERSION.SDK_INT < 23) { call.reject("not set"); return; }
+        try {
+            String ct = prefs().getString("vault_ct", ""), iv = prefs().getString("vault_iv", "");
+            javax.crypto.SecretKey k = vaultKey(false);
+            if (ct.isEmpty() || iv.isEmpty() || k == null) { call.reject("not set"); return; }
+            final byte[] ctb = android.util.Base64.decode(ct, android.util.Base64.NO_WRAP);
+            javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            try {
+                c.init(javax.crypto.Cipher.DECRYPT_MODE, k, new javax.crypto.spec.GCMParameterSpec(128, android.util.Base64.decode(iv, android.util.Base64.NO_WRAP)));
+            } catch (android.security.keystore.KeyPermanentlyInvalidatedException e) {
+                prefs().edit().remove("vault_ct").remove("vault_iv").apply();
+                call.reject("changed");
+                return;
+            }
+            bioCipher(call, c, "Unlock your passwords", ci -> {
+                JSObject r = new JSObject();
+                r.put("secret", new String(ci.doFinal(ctb), "UTF-8"));
+                call.resolve(r);
+            });
+        } catch (Exception e) {
+            call.reject("Couldn't use the fingerprint: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void vaultBioClear(PluginCall call) {
+        prefs().edit().remove("vault_ct").remove("vault_iv").apply();
+        try {
+            java.security.KeyStore ks = java.security.KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            ks.deleteEntry(VKEY);
+        } catch (Exception ignored) {}
+        call.resolve();
+    }
+
+    /** Blocks screenshots and the recent-apps preview while passwords are on screen. */
+    @PluginMethod
+    public void secure(final PluginCall call) {
+        final boolean on = call.getBoolean("on", false);
+        getActivity().runOnUiThread(() -> {
+            if (on) getActivity().getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+            else getActivity().getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+            call.resolve();
+        });
+    }
+
+    /** Copies text, marked sensitive so Android hides it in the clipboard preview; empty text clears the clipboard. */
+    @PluginMethod
+    public void clipSet(PluginCall call) {
+        try {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            String t = call.getString("text", "");
+            if (t == null || t.isEmpty()) {
+                if (android.os.Build.VERSION.SDK_INT >= 28) cm.clearPrimaryClip();
+                else cm.setPrimaryClip(android.content.ClipData.newPlainText("", ""));
+            } else {
+                android.content.ClipData d = android.content.ClipData.newPlainText("Personal Diary", t);
+                if (call.getBoolean("sensitive", false) && android.os.Build.VERSION.SDK_INT >= 24) {
+                    android.os.PersistableBundle ex = new android.os.PersistableBundle();
+                    ex.putBoolean("android.content.extra.IS_SENSITIVE", true);
+                    d.getDescription().setExtras(ex);
+                }
+                cm.setPrimaryClip(d);
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Couldn't copy");
+        }
+    }
+
     /* ---- background check of payment emails (MailWorker) ---- */
     @PluginMethod
     public void mailBg(PluginCall call) {

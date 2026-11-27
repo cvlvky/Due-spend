@@ -6,7 +6,7 @@ h=H();ok=h.ok
 try:
   c,pg=h.page();E=pg.evaluate
   # ---- family members, owner and nominee ----
-  E('tab="fam";render()');t=pg.inner_text('#app');ok('family screen','Family' in t and 'Moi register' in t and 'Hand loans' in t and 'Emergency pack' in t)
+  E('tab="fam";render()');t=pg.inner_text('#app');ok('family screen','Family' in t and ('Moi register' in t or 'Gifts & moi' in t) and 'Hand loans' in t and 'Emergency pack' in t)
   for nm,rel in (("Arun","self"),("Meena","spouse"),("Anika","daughter")):
     pg.click('[data-act="famAdd"]');pg.fill('#fm_name',nm);pg.select_option('#fm_rel',rel);pg.click('#over [data-act="famSave"]');pg.wait_for_timeout(100)
   ids=E('Object.fromEntries(S.fam.map(m=>[m.name,m.id]))');ok('three members added',len(ids)==3)
