@@ -1,5 +1,20 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.6
+- SBI statements (SSY and others) read correctly: newest-first rows with a
+  dash in the empty Debit/Credit column, and balances followed forward in
+  time, so deposits are no longer read as withdrawals.
+- "Statement from ... to ..." and the "Brought ... Closing Balance"
+  summary are read: a statement that starts on 1 April gives the bank's
+  balance right after its 31 March interest.
+- The money brought into a statement before the first 31 March is the
+  opening deposit; Year by year works out the bank's interest for the
+  year that ends at that balance.
+- Importing again repairs an earlier wrong import: deposits saved as
+  withdrawals are put right and a wrong starting balance is replaced.
+- Scheme cards show what is in the bank now beside the value, which also
+  counts the interest building up this year.
+
 NEW IN VERSION 32.5
 - Import statement for SSY (Selvamagal), PPF and RD accounts: PDF (with
   its password) or CSV from the bank or post office. Deposits are added
