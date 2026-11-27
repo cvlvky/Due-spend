@@ -1,5 +1,19 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.9
+- Gold prices use the live international price. The free daily rates file
+  could be a day behind; it is now only the fallback, and the card says
+  which one it shows.
+- India's price adds 18.45% by default: the 15% customs duty India set on
+  13 May 2026 and 3% GST on imports. An old 6% or 0% setting moves to it.
+- "Match my jeweller": type today's 24K, 22K or 18K rate from Tanishq,
+  Joyalukkas or any shop, for India and Qatar. The app keeps that margin
+  over the international price, so the rates follow the market. A price
+  typed for 10 grams by mistake is caught.
+- The card also shows the international price per ounce and per gram, so
+  the difference from shop rates is clear. Gold you hold is valued at the
+  matched rate.
+
 NEW IN VERSION 32.8
 - Post office deposits have their own page, like the RD page: scheme
   (Time Deposit, NSC, KVP, MIS or SCSS), term, account holder, single or

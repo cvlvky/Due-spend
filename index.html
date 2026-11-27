@@ -1681,31 +1681,56 @@ async function getJSON(url){
   if(isApp()){try{const r=await NP("CapacitorHttp","get",{url,responseType:"json",connectTimeout:15000,readTimeout:15000});if(r&&r.status>=400)throw new Error("HTTP "+r.status);let d=r&&r.data;if(typeof d=="string")d=JSON.parse(d);if(d!=null)return d}catch(e){}}
   const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),15000);try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}finally{clearTimeout(t)}}
 async function fxFile(c){let err;for(const u of [`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${c}.min.json`,`https://latest.currency-api.pages.dev/v1/currencies/${c}.min.json`]){try{const d=await getJSON(u);if(d&&d[c])return d}catch(e){err=e}}throw err||new Error("no data")}
-const gp=()=>({IN:S.cfg.gpIN??6,QA:S.cfg.gpQA??0});
-/* price of one gram at a purity, in INR or QAR, with the local adjustment */
-function goldGram(cur,pur){const k=S.mk;if(!k||!k.g)return 0;const base=cur=="QAR"?k.g.qar:k.g.inr;return base*(PUR[pur]||1)*(1+(cur=="QAR"?gp().QA:gp().IN)/100)}
+/* India's cost on imported gold since 13 May 2026: 15% customs duty (10% basic + 5% cess), with 3% IGST on top = 18.45% */
+const DUTY_IN=18.45;
+const gp=()=>({IN:S.cfg.gpIN??DUTY_IN,QA:S.cfg.gpQA??0});
+/* how far a country's shop rate is above the international price: matched to your jeweller for each purity, or the set percentage */
+function gpk(c,pur){const K=S.cfg.gpk&&S.cfg.gpk[c],P=K&&K.p;if(P){if(P[pur]!=null)return P[pur];if(P[22]!=null)return P[22];const a=Object.values(P);if(a.length)return a[0]}return c=="QA"?gp().QA:gp().IN}
+/* the old 6% duty (or 0) was set before India raised it; use the new figure once */
+function mkMig(){if(S.cfg.gpMig)return false;if(S.cfg.gpIN===0||S.cfg.gpIN===6)delete S.cfg.gpIN;S.cfg.gpMig=1;return true}
+/* price of one gram at a purity, in INR or QAR, as the shops charge it */
+function goldGram(cur,pur){const k=S.mk;if(!k||!k.g)return 0;const base=cur=="QAR"?k.g.qar:k.g.inr;return base*(PUR[pur]||1)*(1+gpk(cur=="QAR"?"QA":"IN",+pur||24)/100)}
+/* gold you hold, valued at today's shop rate from its grams */
+function mkRevalue(){S.inv.forEach(x=>{if(x.kind=="gold"&&+x.gr&&!x.closed){const v=Math.round(+x.gr*goldGram(x.cur,+x.pur||24));if(v&&v!=+x.val){x.val=v;x.hist=[...(x.hist||[]).filter(h=>h.d!=today()),{d:today(),v}].slice(-36);x.ut=Date.now()}}})}
+/* the international price right now; the daily rates file can be a day behind */
+async function liveSpot(){try{const d=await Promise.race([getJSON("https://xaus.com/api/v1/spot?compact=1"),new Promise((_,j)=>setTimeout(()=>j(new Error("timeout")),8000))]),g=+(d&&d.spot_usd_oz),s=+(d&&d.silver_usd_oz);
+  if(!(g>300&&g<50000))return null;const at=Date.parse(d.price_as_of||d.updated_at||"");return {g,s:s>3&&s<2000?s:0,at:at>0?at:Date.now()}}catch(e){return null}}
 let mkBusy=false,mkErr="";
-async function refreshMarket(force){if(mkBusy)return;if(inClaude()){mkErr="Live prices work in the phone app and the web app, not inside Claude.";return}
-  if(!force&&S.mk&&S.mk.at&&Date.now()-S.mk.at<6*36e5){await refreshFunds(false);return}
+async function refreshMarket(force){if(mkBusy)return;if(inClaude()){mkErr="Live prices work in the phone app and the web app, not inside Claude.";return}mkMig();
+  if(!force&&S.mk&&S.mk.at&&Date.now()-S.mk.at<(S.mk.live?30*6e4:6*36e5)){await refreshFunds(false);return}
   mkBusy=true;mkErr="";try{const [xau,xag,qar]=await Promise.all([fxFile("xau"),fxFile("xag").catch(()=>null),fxFile("qar").catch(()=>null)]);
-    const g={inr:xau.xau.inr/OZ,qar:xau.xau.qar/OZ,usd:xau.xau.usd/OZ},s=xag?{inr:xag.xag.inr/OZ,qar:xag.xag.qar/OZ}:null,qi=qar&&qar.qar&&qar.qar.inr||g.inr/g.qar;
-    S.mk={at:Date.now(),date:xau.date||today(),g,s,qi};S.mkh=S.mkh||{};S.mkh[S.mk.date]={gi:g.inr,gq:g.qar,qi};Object.keys(S.mkh).sort().slice(0,-120).forEach(k=>delete S.mkh[k]);
+    let g={inr:xau.xau.inr/OZ,qar:xau.xau.qar/OZ,usd:xau.xau.usd/OZ},s=xag?{inr:xag.xag.inr/OZ,qar:xag.xag.qar/OZ}:null;const qi=qar&&qar.qar&&qar.qar.inr||g.inr/g.qar;
+    S.mk={at:Date.now(),date:xau.date||today(),g,s,qi,live:false};
+    const L=await liveSpot();if(L&&xau.xau.usd>0){const ipu=xau.xau.inr/xau.xau.usd,qpu=xau.xau.qar/xau.xau.usd;g={inr:L.g*ipu/OZ,qar:L.g*qpu/OZ,usd:L.g/OZ};if(L.s)s={inr:L.s*ipu/OZ,qar:L.s*qpu/OZ};S.mk={...S.mk,date:today(),g,s,live:true,lat:L.at}}
+    S.mkh=S.mkh||{};S.mkh[S.mk.date]={gi:g.inr,gq:g.qar,qi};Object.keys(S.mkh).sort().slice(0,-120).forEach(k=>delete S.mkh[k]);
     if(S.cfg.autoRate!==false&&qi>1){const r=Math.round(qi*100)/100;if(r!=S.cfg.rate){S.cfg.rate=r;S.cfg.rateAt=today()}}
-    S.inv.forEach(x=>{if(x.kind=="gold"&&+x.gr&&!x.closed){const v=Math.round(+x.gr*goldGram(x.cur,+x.pur||24));if(v&&v!=+x.val){x.val=v;x.hist=[...(x.hist||[]).filter(h=>h.d!=today()),{d:today(),v}].slice(-36);x.ut=Date.now()}}});
-    save()}catch(e){mkErr="Couldn’t get today’s prices. Check the internet connection and tap Refresh."}finally{mkBusy=false}
+    mkRevalue();save()}catch(e){mkErr="Couldn’t get today’s prices. Check the internet connection and tap Refresh."}finally{mkBusy=false}
   await refreshFunds(force);if(tab=="invest"||tab=="home")render()}
 async function refreshFunds(force){const L=S.inv.filter(x=>x.kind=="mf"&&x.mf&&!x.closed&&(force||x.navAt!=today()));for(const x of L){try{const d=await getJSON(`https://api.mfapi.in/mf/${encodeURIComponent(x.mf)}/latest`),r=d&&d.data&&d.data[0];if(!r)continue;
     x.nav=+r.nav;x.navd=r.date;x.navAt=today();if(d.meta&&d.meta.scheme_name)x.mfn=d.meta.scheme_name;if(+x.units){const v=Math.round(+x.units*x.nav*100)/100;x.val=v;x.cur="INR";x.hist=[...(x.hist||[]).filter(h=>h.d!=today()),{d:today(),v}].slice(-36)}x.ut=Date.now()}catch(e){}}
   if(L.length)save()}
 function marketCard(){const k=S.mk;if(!k||!k.g)return `<div class="card" style="margin-bottom:10px"><b>Gold and exchange rates</b><p class="note" style="margin:6px 0">${esc(mkErr||(inClaude()?"Live prices work in the phone app and the web app, not inside Claude.":"Getting today’s prices…"))}</p>${inClaude()?"":`<div class="acts"><button class="btn sm" data-act="mkRefresh">Refresh</button></div>`}</div>`;
-  const row=(l,a,b)=>`<tr><td>${l}</td><td>${a}</td><td>${b}</td></tr>`,i=n=>"₹"+nf(Math.round(n)),q=n=>"QAR "+nf(n,2),H=Object.keys(S.mkh||{}).sort().slice(-30),P=gp();
-  return `<div class="card" style="margin-bottom:10px"><div class="hbl"><b>Gold and exchange rates</b><span class="note">${fmt(k.date)}</span></div>
+  mkMig();const row=(l,a,b)=>`<tr><td>${l}</td><td>${a}</td><td>${b}</td></tr>`,i=n=>"₹"+nf(Math.round(n)),q=n=>"QAR "+nf(n,2),H=Object.keys(S.mkh||{}).sort().slice(-30),P=gp(),K=S.cfg.gpk||{},pc=n=>(+(+n).toFixed(2))+"%";
+  const inNote=K.IN?`India: matched to your jeweller’s rates on ${fmt(K.IN.d)}, ${pc(gpk("IN",22))} above the international price for 22K.`:P.IN?`India: international price plus ${pc(P.IN)} for import duty and tax${P.IN==DUTY_IN?" (15% customs duty and 3% GST on imports, since May 2026)":""}.`:"India: international price, without India’s import duty.";
+  const qaNote=K.QA?`Qatar: matched to your jeweller’s rates on ${fmt(K.QA.d)}, ${pc(gpk("QA",22))} above the international price for 22K.`:P.QA?`Qatar: international price plus ${pc(P.QA)}.`:"Qatar: international price; shops are usually a few percent higher.";
+  return `<div class="card" style="margin-bottom:10px"><div class="hbl"><b>Gold and exchange rates</b><span class="note">${k.live?"Live":fmt(k.date)}</span></div>
   <table class="tbl" style="margin-top:6px"><tr><th>Per gram</th><th>India</th><th>Qatar</th></tr>${row("Gold 24K",i(goldGram("INR",24)),q(goldGram("QAR",24)))}${row("Gold 22K",i(goldGram("INR",22)),q(goldGram("QAR",22)))}${row("Gold 18K",i(goldGram("INR",18)),q(goldGram("QAR",18)))}
   ${row("Gold 24K, 10 g",i(goldGram("INR",24)*10),q(goldGram("QAR",24)*10))}${k.s?row("Silver, 1 kg",i(k.s.inr*1000*(1+P.IN/100)),q(k.s.qar*1000*(1+P.QA/100))):""}</table>
+  <div class="hbl" style="margin-top:8px"><span>International gold</span><b>$${nf(Math.round(k.g.usd*OZ))} an ounce</b></div><small style="color:var(--mute);display:block">24K a gram before duty and shop margin: ₹${nf(Math.round(k.g.inr))} · QAR ${nf(k.g.qar,2)}</small>
   <div class="hbl" style="margin-top:8px"><span>1 QAR</span><b>₹${k.qi.toFixed(2)}</b></div>
-  ${H.length>1?`<small style="color:var(--mute)">Gold 24K per gram in India, last ${H.length} days</small>${area(H.map(d=>({l:+d.slice(8)+" "+mlab(d.slice(0,7)),v:S.mkh[d].gi*(1+P.IN/100)})),true,0)}`:""}
-  <p class="note">International price converted to rupees and riyals${P.IN?`, plus ${P.IN}% for Indian import duty`:""}${P.QA?`, plus ${P.QA}% in Qatar`:""}. Shop prices differ, and India adds 3% GST when you buy. Updated ${tstr(k.at)}.${S.cfg.autoRate!==false?" The app’s QAR rate follows this automatically.":""}${mkErr?" "+esc(mkErr):""}</p>
-  <div class="acts"><button class="btn sm" data-act="mkRefresh">${mkBusy?"Refreshing…":"Refresh"}</button><button class="btn sm ghost" data-act="mkSet">Adjust</button></div></div>`}
+  ${H.length>1?`<small style="color:var(--mute)">Gold 24K per gram in India, last ${H.length} days</small>${area(H.map(d=>({l:+d.slice(8)+" "+mlab(d.slice(0,7)),v:S.mkh[d].gi*(1+gpk("IN",24)/100)})),true,0)}`:""}
+  <p class="note">${inNote} ${qaNote} Making charges, and GST in India, are added on the bill. ${k.live?"Live price, updated "+tstr(k.at):"Daily price for "+fmt(k.date)+"; the live price wasn’t available, so it can be a day behind"}.${S.cfg.autoRate!==false?" The app’s QAR rate follows this automatically.":""}${mkErr?" "+esc(mkErr):""}</p>
+  <div class="acts"><button class="btn sm" data-act="mkRefresh">${mkBusy?"Refreshing…":"Refresh"}</button><button class="btn sm ghost" data-act="mkSet">Match my jeweller</button></div></div>`}
+/* matching your jeweller: type today's rates, and the app keeps the same margin over the international price */
+function mkSheet(){const k=S.mk,P=gp(),K=S.cfg.gpk||{},ph=(c,p)=>k&&k.g?(c=="QAR"?nf(goldGram("QAR",p),2):nf(Math.round(goldGram("INR",p)))):"",
+    trio=c=>`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">${[24,22,18].map(p=>`<div>${F(`f_${c=="INR"?"in":"qa"}${p}`,p+"K","","number",`placeholder="${ph(c,p)}"`)}</div>`).join("")}</div>`;
+  sheet(`<h2>Match my jeweller</h2><p class="sub">Type today’s rates for 1 gram from your jeweller’s board, app or website, such as Tanishq or Joyalukkas. Fill in any you have. The app works out how far they are above the international price and keeps following the market from there.</p>
+  <h3>India (₹ for 1 gram)</h3>${trio("INR")}${K.IN?`<p class="note">Now matched to your jeweller’s rates from ${fmt(K.IN.d)}.</p>`:""}
+  <h3>Qatar (QAR for 1 gram)</h3>${trio("QAR")}${K.QA?`<p class="note">Now matched to your jeweller’s rates from ${fmt(K.QA.d)}.</p>`:""}
+  <p class="note">${k&&k.g?`International price used: $${nf(Math.round(k.g.usd*OZ))} an ounce, ${k.live?"live, "+tstr(k.at):"daily price for "+fmt(k.date)}. Match again when your jeweller changes the rate a lot more or less than the market.`:"Prices aren’t loaded yet. Tap Refresh on the card first."}</p>
+  <details><summary>Use a percentage instead</summary><div class="two"><div>${F("f_gpin","India: add %",P.IN,"number")}</div><div>${F("f_gpqa","Qatar: add %",P.QA,"number")}</div></div><p class="note">India’s default is ${DUTY_IN}%: 15% customs duty and 3% GST on imports, since May 2026. Changing a percentage replaces the jeweller match for that country.</p></details>
+  ${SEL("f_auto","Update the app’s QAR rate from live prices",[["1","Yes"],["0","No, I’ll set it myself"]],S.cfg.autoRate===false?"0":"1")}
+  <div class="acts"><button class="btn" data-act="mkSave">Save</button>${K.IN||K.QA?`<button class="btn ghost" data-act="mkClear">Stop matching</button>`:""}</div>`)}
 /* India small savings (post office) schemes: rates for 1 Oct to 31 Dec 2026 */
 const SCH_Q={from:"2026-10-01",to:"2026-12-31",label:"1 Oct – 31 Dec 2026"};
 const SCH=[["ppf","Public Provident Fund (PPF)",7.1,"ppf","15 years. ₹500 to ₹1.5 lakh a year. Tax-free interest.","Yearly deposit"],["ssy","Sukanya Samriddhi (SSY)",8.2,"ssy","For a girl under 10. Deposits for 15 years, matures at 21 years. Up to ₹1.5 lakh a year.","Yearly deposit"],
@@ -1739,8 +1764,16 @@ const liveFields=x=>{x=x||{};const on=+x.gr||x.mf;return `<details${on?" open":"
 {const _vW=vWealth;vWealth=function(){let h=_vW();h=h.replace('<div style="height:10px"></div>','<div style="height:10px"></div>'+marketCard());const k='<div class="acts" style="margin-bottom:60px">';return h.includes(k)?h.replace(k,schemesHtml()+k):h+schemesHtml()}}
 Object.assign(ACT,{
   async mkRefresh(){toast("Getting today’s prices…");await refreshMarket(true);render();toast(mkErr||"Prices updated")},
-  mkSet(){const P=gp();sheet(`<h2>Adjust gold prices</h2><p class="sub">Live prices are international prices converted to rupees and riyals. Add a percentage to get closer to shop rates where you buy.</p><div class="two"><div>${F("f_gpin","India: add % (import duty)",P.IN,"number")}</div><div>${F("f_gpqa","Qatar: add %",P.QA,"number")}</div></div>${SEL("f_auto","Update the app’s QAR rate from live prices",[["1","Yes"],["0","No, I’ll set it myself"]],S.cfg.autoRate===false?"0":"1")}${btns("mkSave")}`)},
-  mkSave(){S.cfg.gpIN=+v("f_gpin")||0;S.cfg.gpQA=+v("f_gpqa")||0;S.cfg.autoRate=v("f_auto")=="1";S.mk&&(S.mk.at=0);done();refreshMarket(true)},
+  async mkSet(){if(!inClaude()&&(!S.mk||!S.mk.at||Date.now()-S.mk.at>10*6e4)){toast("Getting the latest price…");await refreshMarket(true)}mkSheet()},
+  mkSave(){const k=S.mk,cal={IN:{},QA:{}};
+    if(k&&k.g)for(const [c,cur] of [["IN","inr"],["QA","qar"]])for(const p of [24,22,18]){const r=+v(`f_${c.toLowerCase()}${p}`)||0;if(!r)continue;const base=k.g[cur]*PUR[p],x=r/base,now=base*(1+gpk(c,p)/100);
+      if(x>6&&x<15)return toast(`The ${p}K rate looks like the price of 10 grams. Type the rate for 1 gram.`);
+      if(x<0.85||x>1.5)return toast(`Check the ${p}K rate. Today’s is about ${cur=="inr"?"₹"+nf(Math.round(now)):"QAR "+nf(now,2)} a gram.`);cal[c][p]=Math.round((x-1)*10000)/100}
+    S.cfg.gpk=S.cfg.gpk||{};let n=0;
+    for(const [c,key,def] of [["IN","gpIN",DUTY_IN],["QA","gpQA",0]]){const f=v(key=="gpIN"?"f_gpin":"f_gpqa");if(Object.keys(cal[c]).length){S.cfg.gpk[c]={d:today(),p:cal[c]};n++}
+      else if(f!==""&&+f!==(S.cfg[key]??def)){S.cfg[key]=+f;delete S.cfg.gpk[c]}}
+    S.cfg.autoRate=v("f_auto")=="1";mkRevalue();save();done();toast(n?"Rates matched to your jeweller":"Saved")},
+  mkClear(){delete S.cfg.gpk;mkRevalue();save();done();toast("Back to the international price with duty")},
   schOpen(id){schSheet(id)},schCalc(id){schSheet(id,v("sch_amt"))},
   schAdd(id){const s=SCH.find(x=>x.id==id),A=+v("sch_amt")||0;if(!s)return;const R=schCalc(s,A);iForm();setTimeout(()=>{const set=(k,val)=>{const e=$("#"+k);if(e)e.value=val};set("f_name",s.name.replace(/ \(.*\)$/,""));set("f_kind2",s.calc=="ppf"||s.calc=="ssy"?"ppf":s.calc=="rd"||s.calc=="sb"?"other":"fd");set("f_cur","INR");set("f_inv",s.calc=="ppf"||s.calc=="ssy"||s.calc=="rd"?A:A);set("f_sd",today());if(R.mo)set("f_md",addM(today(),R.mo));set("f_rt",s.rate)},50)},
   async mfFind(){const q=(v("f_name")||"").trim(),o=$("#mf_out");if(!o)return;if(q.length<3)return toast("Type the fund name in Name first");if(inClaude())return toast("Fund search works in the phone app and the web app");o.innerHTML=`<p class="note">Searching…</p>`;
