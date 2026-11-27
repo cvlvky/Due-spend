@@ -4109,7 +4109,7 @@ function saHtml(){const L=S.sacc;let h=`<h2>My savings schemes</h2>`;
     h+=`<div class="stats" style="grid-template-columns:1fr 1fr;margin:0 0 8px">${tile("Value today",inr(Math.round(tot)))}${tile("SSY + PPF this year",inr(c80),"","for "+TAXSEC()+", since "+fmt(fyStart()))}</div>`;
     h+=L.map(x=>{const s=saState(x),n=s.next?dl(s.next):null;return `<div class="card ${n!==null&&n<0?"late":n!==null&&n<=7?"soon":""}" style="margin-bottom:8px"><div style="cursor:pointer" data-act="saInfo" data-id="${x.id}"><div class="hbl"><b>${esc(x.name)}</b>${s.closed?`<span class="chip">Matured</span>`:n!==null?`<span class="chip">${n<0?"Due "+fmt(s.next):when(n)}</span>`:""}</div>
       <small style="color:var(--mute);display:block">${SAS[x.type]}${x.holder?" · "+esc(x.holder):""}${x.no?" · "+esc(x.no):""} · opened ${fmt(x.open)} · ${saRate(x,today())}%</small>
-      <div class="stats" style="margin:8px 0 0">${tile("Value now",inr(Math.round(s.now)))}${tile(s.since?"Put in since "+fmt(s.since):"You put in",inr(s.putIn))}${tile(s.since?"Interest since "+fmt(s.since):"Interest",inr(Math.round(s.intr)))}</div>
+      <div class="stats" style="margin:8px 0 0">${tile("Value now",inr(Math.round(s.now)))}${tile(s.since?"Put in since "+fmt(s.since):"You put in",inr(s.putIn))}${tile(s.since?"Interest since "+fmt(s.since):"Interest",inr(Math.round(s.intr)))}</div>${x.type!="rd"&&!s.closed&&s.R&&s.R.acc>0?`<small style="color:var(--mute);display:block;margin-top:6px">In the bank now: ${inr(Math.round(s.R.bal))} · ${inr(Math.round(s.R.acc))} interest building up, added on 31 March</small>`:""}
       <small style="color:var(--mute);display:block;margin-top:6px">${s.closed?"Matured on "+fmt(s.mat):`Matures ${fmt(s.mat)} · about ${inr(Math.round(s.proj))}${s.fut?" if you keep paying "+inr(planAmt(x))+(x.type!="rd"&&x.plan&&x.plan.f=="y"?" a year":" a month"):" with no more deposits"}`}${x.type!="rd"&&s.fyDep>150000?` · <b style="color:var(--late)">over ₹1.5 lakh this year</b>`:""}</small></div>
       ${s.closed?"":`<div class="acts"><button class="btn sm" data-act="saDep" data-id="${x.id}">Deposit</button><button class="btn sm ghost" data-act="saPast" data-id="${x.id}">Past deposits</button></div>`}</div>`}).join("")}
   else h+=`<div class="empty">Add the SSY (Selvamagal), PPF or post office RD accounts you already pay into. Enter your past deposits once, and the app works out the balance and interest.</div>`;
@@ -4134,7 +4134,7 @@ function pastList(){const mode=v("f_mode"),a=+v("f_amt")||0,day=Math.min(31,Math
 function pastPrev(){const L=pastList(),e=$("#pd_prev"),one=v("f_mode")=="1",tt=$("#f_to");if(tt)tt.closest("div").style.display=one?"none":"";if(e)e.textContent=L.length?`This adds ${L.length} ${L.length==1?"deposit":"deposits"}, ${inr(L.reduce((s,d)=>s+d.a,0))} in total, from ${fmt(L[0].d)} to ${fmt(L[L.length-1].d)}.`:"Enter the amount and dates."}
 function saInfoSheet(id){const x=S.sacc.find(q=>q.id==id);if(!x)return;const s=saState(x),L=deps(x).reverse(),Y=x.type=="rd"?null:ssyRun(x,s.closed?s.mat:today()).yrs;
   sheet(`<h2>${esc(x.name)}</h2><p class="sub">${SAT[x.type]}${x.no?" · "+esc(x.no):""}${x.po?" · "+esc(x.po):""}<br>Opened ${fmt(x.open)} · matures ${fmt(s.mat)}${x.type=="ssy"?" · deposits until "+fmt(saDepEnd(x)):""}</p>
-  <div class="stats">${tile("Value now",inr(Math.round(s.now)))}${tile(s.since?"Put in since "+fmt(s.since):"You put in",inr(s.putIn))}${tile(s.since?"Interest since "+fmt(s.since):"Interest",inr(Math.round(s.intr)))}</div>${s.since?`<p class="note">${inr(x.base.bal)} was already in the account before ${fmt(s.since)}. Import an older statement to see what was paid in before that.</p>`:""}
+  <div class="stats">${tile("Value now",inr(Math.round(s.now)))}${tile(s.since?"Put in since "+fmt(s.since):"You put in",inr(s.putIn))}${tile(s.since?"Interest since "+fmt(s.since):"Interest",inr(Math.round(s.intr)))}</div>${x.type!="rd"&&!s.closed&&s.R&&s.R.acc>0?`<p class="note">In the bank now: <b>${inr(Math.round(s.R.bal))}</b>. Value now adds ${inr(Math.round(s.R.acc))} of interest building up this year, which the bank adds on 31 March.</p>`:""}${s.since?`<p class="note">${inr(x.base.bal)} was already in the account before ${fmt(s.since)}. Import an older statement to see what was paid in before that.</p>`:""}
   ${Y?`<h3>Year by year</h3><table class="tbl"><tr><th>Year</th><th>Deposited</th><th>Interest</th><th>Balance</th></tr>${Y.map(y=>`<tr><td>${y.fy}</td><td>${inr(y.dep)}</td><td>${y.acc!=null&&y.acc?inr(y.acc)+"*":inr(y.int)}</td><td>${inr(y.close)}</td></tr>`).join("")}</table><p class="note">* interest building up this year, added on 31 March.</p>`:`<p class="note">Rate ${saRate(x,x.open)}% fixed from opening, compounded every quarter. ${deps(x).length} of 60 instalments recorded.</p>`}
   <h3>Correct from passbook</h3><p class="note">${x.fix&&x.fix.d?`Using your passbook balance of ${inr(x.fix.bal)} on ${fmt(x.fix.d)}. `:""}Enter a balance printed in your passbook, for example on 31 March. The app then calculates from that figure.</p><div class="two"><div>${F("f_fd","Date",x.fix&&x.fix.d||"","date")}</div><div>${F("f_fb","Balance (₹)",x.fix&&x.fix.bal||"","number")}</div></div><div class="acts"><button class="btn ghost" data-act="saFix" data-id="${id}">Use passbook balance</button>${x.fix&&x.fix.d?`<button class="btn ghost" data-act="saUnfix" data-id="${id}">Remove</button>`:""}</div>
   <h3>Deposits (${L.length})</h3>${L.slice(0,80).map(d=>`<div class="row" style="cursor:default"><div><b>${inr(d.a)}</b><small>${fmt(d.d)}${d.tx?" · from "+esc(an((S.tx.find(t=>t.id==d.tx)||{}).acc)):""}</small></div><button class="btn sm ghost" data-act="saDelDep" data-id="${x.id}|${d.id}" aria-label="Delete deposit">✕</button></div>`).join("")||`<div class="empty">No deposits yet.</div>`}
@@ -4811,7 +4811,7 @@ const pdfErr=e=>e&&(e.name=="PasswordException"||/password/i.test(e.message||"")
 /* ---------- bank statement PDFs ---------- */
 const SDRE=/^\s*(\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4}|\d{4}-\d\d-\d\d)(?=\s|$)/,SAMRE=/\(?-?(?:\d{1,3}(?:,\d{2,3})+|\d+)\.\d{2}\)?(?:\s?(?:Cr|Dr|CR|DR)\b)?/g;
 const amtOf=s=>{s=s.trim();const n=Math.abs(num(s.replace(/\s?(Cr|Dr|CR|DR)$/,"")));return /^\(|^-|(Dr|DR)$/.test(s)?-n:n};
-function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=null,pend=[],stop=false;
+function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=null,pend=[],stop=false,period=null,sumNext=false,sumOpen=null,sumClose=null;
   const rEdge=L=>(L.items||[]).reduce((m,i)=>Math.max(m,i.x+(i.w||i.s.length*4.5)),0);
   /* description lines can sit above the date line (Axis, ICICI) or below it (most banks): each goes to the nearest entry on the same page */
   const place=nx=>{const pv=rows.length?rows[rows.length-1]:null;pend.forEach(c=>{const dP=pv?(c.y==null||pv.y==null?0:pv.p==c.p?Math.abs(c.y-pv.y):1e9):1e9,dN=nx&&c.y!=null&&nx.y!=null&&nx.p==c.p?Math.abs(c.y-nx.y):1e9;
@@ -4821,25 +4821,33 @@ function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=nul
       if(nb){const i=lines.indexOf(L),pre=lines.slice(0,i).map(l=>l.t).join(" "),m4=pre.match(/(?:X{2,}|\*{2,}|•{2,})\s*(\d{4})\b/i),o=stmtParseNB(lines.slice(i+1),nb);o.l4=m4?m4[1]:"";return o}}
     if(/opening balance|balance b\/f|brought forward|balance as on/i.test(t)&&!/closing/i.test(t)){const a=t.match(SAMRE);if(a){prev=amtOf(a[a.length-1]);if(open==null)open=prev}pend=[];continue}
     if(/withdraw|debit|\bdr\b/i.test(t)&&/deposit|credit|\bcr\b/i.test(t)&&/balance/i.test(t)){const f=re=>{const it=L.items.find(i=>re.test(i.s));return it?it.x+(it.w||0)/2:null};hdr={dr:f(/withdraw|debit|\bdr\b/i),cr:f(/deposit|credit|\bcr\b/i)};pend=[];continue}
+    {const pm=t.match(/statement (?:from|for the period(?: from)?)\s+(\S+(?:\s[A-Za-z]{3}\s\d{4})?)\s+to\s+(\S+(?:\s[A-Za-z]{3}\s\d{4})?)/i);if(pm){if(!period){const a=pDate(pm[1].replace(/\s+/g,"-")),b=pDate(pm[2].replace(/\s+/g,"-"));if(a&&b)period={from:a,to:b}}continue}}
+    if(/\bbrought\b/i.test(t)&&/closing balance/i.test(t)){place(null);stop=true;sumNext=true;continue}
+    if(sumNext){sumNext=false;const a=t.match(SAMRE);if(a&&a.length>=2){sumOpen=amtOf(a[0]);sumClose=amtOf(a[a.length-1])}continue}
+    if(/^(?:ref\.? no\/?|cheque no|chq\.? no)\b/i.test(t)&&!(t.match(SAMRE)||[]).length)continue;
     if(/\b(?:date|txn date|tran date|value date)\b/i.test(t)&&/\b(?:balance|amount|debit|credit|withdrawals?|deposits?|details|description|particulars|narration)\b/i.test(t)&&!SDRE.test(t)){pend=[];continue}
     /* the table ends at its totals or closing balance; the bank's notes and legends after it are not part of any entry */
     if(/closing balance|transaction total|grand total|end of statement|^total\b|^statement summary/i.test(t)){place(null);stop=true;continue}
     const dm=t.match(SDRE);
     if(dm&&!/opening|closing|total/i.test(t)){const am=[...t.matchAll(SAMRE)].filter(m=>m.index>=dm[0].length),d=pDate(dm[1].replace(/\s/g,"-"));if(!d||!am.length){cur=null;continue}
-      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*(?:\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4})\s*/,"").replace(/\s+/g," ").trim();
-      const vals=am.map(m=>amtOf(m[0]));let amt=null,dir=null,bal=null;
+      /* a dash on its own in the Debit or Credit column (SBI) says which side the amount is on */
+      const its=(L.items||[]).map(i=>({x:i.x,s:String(i.s||"").trim()})).filter(i=>i.s).sort((a,b)=>a.x-b.x),nk=x=>x.replace(/[\s,]/g,""),ai=am.length==2?its.findIndex(i=>nk(i.s)==nk(am[0][0])):-1,
+        isD=i=>!!i&&/^[-–]$/.test(i.s),dashCr=ai>0&&isD(its[ai-1])&&nk((its[ai+1]||{}).s||"")==nk(am[1][0]),dashDr=ai>=0&&isD(its[ai+1])&&nk((its[ai+2]||{}).s||"")==nk(am[1][0]);
+      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*(?:\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4})\s*/,"").replace(/\s+/g," ").trim();if(dashCr)desc=desc.replace(/(?:^|\s)[-–]$/,"").trim();
+      const vals=am.map(m=>amtOf(m[0]));let amt=null,dir=null,bal=null,how="";
       if(vals.length>=2){bal=vals[vals.length-1];const cand=vals.slice(0,-1).filter(v=>Math.abs(v)>0.004);
-        if(prev!=null)for(const a of cand){const x=Math.abs(a);if(Math.abs(prev-x-bal)<0.011){amt=x;dir="out";break}if(Math.abs(prev+x-bal)<0.011){amt=x;dir="in";break}}
-        if(amt==null&&cand.length){amt=Math.abs(cand[0]);if(hdr&&hdr.dr!=null&&hdr.cr!=null){const s=am[0][0].replace(/[()\s]|Cr|Dr|CR|DR/g,""),it=L.items.find(i=>i.s.replace(/\s/g,"").includes(s));dir=it&&Math.abs(it.x+(it.w||0)/2-hdr.cr)<Math.abs(it.x+(it.w||0)/2-hdr.dr)?"in":"out"}else dir=/\bcr\b|credit|deposit|salary|refund|reversal/i.test(desc)?"in":"out"}}
-      else{amt=Math.abs(vals[0]);dir=/\bcr\b|credit|deposit/i.test(t)?"in":"out"}
+        if(prev!=null)for(const a of cand){const x=Math.abs(a);if(Math.abs(prev-x-bal)<0.011){amt=x;dir="out";how="chain";break}if(Math.abs(prev+x-bal)<0.011){amt=x;dir="in";how="chain";break}}
+        if(amt==null&&cand.length){amt=Math.abs(cand[0]);if(hdr&&hdr.dr!=null&&hdr.cr!=null){const s=am[0][0].replace(/[()\s]|Cr|Dr|CR|DR/g,""),it=L.items.find(i=>i.s.replace(/\s/g,"").includes(s));dir=it&&Math.abs(it.x+(it.w||0)/2-hdr.cr)<Math.abs(it.x+(it.w||0)/2-hdr.dr)?"in":"out";how="hdr"}else{dir=/\bcr\b|credit|deposit|salary|refund|reversal/i.test(desc)?"in":"out";how="kw"}}}
+      else{amt=Math.abs(vals[0]);dir=/\bcr\b|credit|deposit/i.test(t)?"in":"out";how="kw"}
+      if(dashCr||dashDr){dir=dashCr?"in":"out";how="dash"}
       const aIt=L.items.find(i=>i.s.includes(am[0][0].trim())),dR=L.items.filter(i=>aIt&&i.x+(i.w||0)<aIt.x-2&&!SDRE.test(i.s.trim())).reduce((m,i)=>Math.max(m,i.x+(i.w||i.s.length*4.5)),0);
-      if(amt>0){const sv=vals.length>=2?(vals.slice(0,-1).find(v=>Math.abs(v)>0.004)||0):vals[0];cur={date:d,amt,dir,desc,bal,sv,p:L.p,y:L.y,parts:[{t:desc,r:dR,p:L.p,y:L.y,main:true}],dr:/(Dr|DR)\s*$/.test(am[0][0]),cr:/(Cr|CR)\s*$/.test(am[0][0])};place(cur);rows.push(cur);stop=false;if(bal!=null)prev=bal}continue}
+      if(amt>0){const sv=vals.length>=2?(vals.slice(0,-1).find(v=>Math.abs(v)>0.004)||0):vals[0];cur={date:d,amt,dir,desc,bal,sv,how,p:L.p,y:L.y,parts:[{t:desc,r:dR,p:L.p,y:L.y,main:true}],dr:/(Dr|DR)\s*$/.test(am[0][0])||dashDr,cr:/(Cr|CR)\s*$/.test(am[0][0])||dashCr};place(cur);rows.push(cur);stop=false;if(bal!=null)prev=bal}continue}
     if(!stop&&!/^(page|statement|total|closing|account|customer|branch|ifsc|this is|unless|please|registered)/i.test(t)&&!SDRE.test(t)&&!(t.match(SAMRE)||[]).length&&t.length<90)pend.push({t,r:rEdge(L),p:L.p,y:L.y})}
   place(null);
   {const R=rows.flatMap(r=>(r.parts||[]).filter(p=>!p.main).map(p=>p.r)).filter(Boolean),colR=R.length?Math.max(...R):0;
     rows.forEach(r=>{if(!r.parts||r.parts.length<2)return;const P=r.parts.every(p=>p.y!=null)?r.parts.map((p,i)=>({p,i})).sort((a,b)=>(a.p.p||0)-(b.p.p||0)||b.p.y-a.p.y||a.i-b.i).map(o=>o.p):r.parts;
       let d=P[0].t.trim();for(let i=1;i<P.length;i++){const pr=P[i-1],nx=P[i].t.trim(),tail=pr.t.trim().split(" ").pop(),full=colR&&pr.r>=colR-3.5&&tail.length>=10;if(!nx)continue;d+=(full&&/[A-Za-z0-9]$/.test(d)&&/^[A-Za-z0-9]/.test(nx)?"":" ")+nx}r.desc=d.replace(/\s+/g," ").trim()})}
-  return stmtOrder(rows,open)}
+  const o=stmtOrder(rows,sumOpen!=null?sumOpen:open);if(period)o.period=period;if(sumClose!=null)o.sumClose=sumClose;return o}
 /* Card transaction lists (CBQ "Transaction History" and similar) have no running balance: each column is read by its position under the header */
 function stmtCols(items){const C=[];let cur=null;[...items].sort((a,b)=>a.x-b.x).forEach(it=>{const r=it.x+(it.w||it.s.length*4.5);if(cur&&it.x-cur.r<=8){cur.s+=" "+it.s;cur.r=r}else{cur={x:it.x,r,s:it.s};C.push(cur)}});
   let nd=0;C.forEach(c=>{const s=c.s.toLowerCase().trim();c.k=/balance/.test(s)?"bal":/date/.test(s)?(nd++?"date2":"date"):/detail|description|narration|particular|merchant|remark/.test(s)?"desc":/currency/.test(s)&&!/amount/.test(s)?"cur":/equivalent|billing amount|billed amount|local amount|amount in [a-z]{3}|\((?:qar|inr|aed|usd)\)/.test(s)?"eq":/debit|withdraw/.test(s)?"dc":/credit|deposit/.test(s)?"cc":/amount|value/.test(s)?"amt":/^(?:transaction )?(?:type|status)$/.test(s)?"type":"x";
@@ -4868,10 +4876,14 @@ function stmtParseNB(lines,nb){const rows=[];let cur=null;const eqc=(nb.cols.fin
   const o=stmtOrder(rows,null);o.nobal=true;return o}
 /* Banks list rows oldest-first or newest-first, and same-day rows in any order. Follow the running balance to find the real order. */
 function stmtOrder(rows,open0){if(!rows.length)return {rows,open:open0,close:null};
-  if(rows.some(r=>r.sv<0))rows.forEach(r=>{if(!r.dr&&!r.cr)r.dir=r.sv<0?"out":"in"});rows.forEach(r=>{if(r.dr)r.dir="out";if(r.cr)r.dir="in"});
-  const B=rows.filter(r=>r.bal!=null),eq=(a,b)=>Math.abs(a-b)<0.011,sg=r=>r.dir=="in"?r.amt:-r.amt;B.forEach(r=>r.pre=Math.round((r.bal-sg(r))*100)/100);
-  let chain=null;if(B.length>=2){const starts=B.filter(r=>!B.some(o=>o!==r&&eq(o.bal,r.pre))).sort((a,b)=>a.date.localeCompare(b.date));
-    for(const st of starts){const used=new Set([st]),C=[st];let c=st;for(;;){const nx=B.filter(o=>!used.has(o)&&eq(o.pre,c.bal)).sort((a,b)=>a.date.localeCompare(b.date))[0];if(!nx)break;C.push(nx);used.add(nx);c=nx}if(!chain||C.length>chain.length)chain=C;if(C.length==B.length)break}}
+  if(rows.some(r=>r.sv<0))rows.forEach(r=>{if(!r.dr&&!r.cr){r.dir=r.sv<0?"out":"in";r.how="sign"}});rows.forEach(r=>{if(r.dr)r.dir="out";if(r.cr)r.dir="in"});
+  const B=rows.filter(r=>r.bal!=null),eq=(a,b)=>Math.abs(a-b)<0.011,sg=r=>r.dir=="in"?r.amt:-r.amt;
+  const mk=()=>{B.forEach(r=>r.pre=Math.round((r.bal-sg(r))*100)/100);let chain=null;if(B.length>=2){const starts=B.filter(r=>!B.some(o=>o!==r&&eq(o.bal,r.pre))).sort((a,b)=>a.date.localeCompare(b.date));
+    for(const st of starts){const used=new Set([st]),C=[st];let c=st;for(;;){const nx=B.filter(o=>!used.has(o)&&eq(o.pre,c.bal)).sort((a,b)=>a.date.localeCompare(b.date))[0];if(!nx)break;C.push(nx);used.add(nx);c=nx}if(!chain||C.length>chain.length)chain=C;if(C.length==B.length)break}}return chain};
+  const back=C=>{if(!C||C.length<2)return false;let up=0,dn=0;for(let i=1;i<C.length;i++){if(C[i].date>C[i-1].date)up++;else if(C[i].date<C[i-1].date)dn++}return dn>up};
+  const weak=r=>!r.dr&&!r.cr&&r.how!="sign"&&r.how!="hdr"&&r.how!="dash";let chain=mk();
+  if(B.some(weak)&&(back(chain)||!(chain&&chain.length==B.length))){const W=B.filter(weak),flip=()=>W.forEach(r=>r.dir=r.dir=="in"?"out":"in");flip();const c2=mk();
+    if(c2&&c2.length==B.length&&!back(c2)&&(!chain||chain.length<B.length||back(chain)))chain=c2;else{flip();chain=mk()}}
   let open=open0,close=null,ordered;
   if(chain&&chain.length==B.length){ordered=[...chain,...rows.filter(r=>r.bal==null)].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:chain.indexOf(a)-chain.indexOf(b));open=open0!=null?open0:chain[0].pre;close=chain[chain.length-1].bal}
   else{const newestFirst=rows[0].date>rows[rows.length-1].date;ordered=newestFirst?[...rows].reverse():[...rows];const f=ordered.find(r=>r.bal!=null),l=[...ordered].reverse().find(r=>r.bal!=null);
@@ -6535,57 +6547,75 @@ function saCsv(t){const R=csvRows(t),fi=(h,re)=>h.findIndex(x=>re.test(x));let h
     if(!date||!amt)continue;rows.push({date,dir,amt,desc:String(cT>=0?r[cT]:"").replace(/\s+/g," ").trim(),bal:cB>=0&&String(r[cB]||"").trim()?num(r[cB]):null,sv:dir=="out"?-amt:amt,dr:dir=="out",cr:dir=="in",parts:[]})}
   const o=stmtOrder(rows,open);o.text=R.slice(0,hi).map(r=>r.join(" ")).join(" ");return o}
 /* what the statement means for this scheme account */
-function saImpPlan(x,P){const have=deps(x),used=new Set(),dep=[],ints=[],wd=[];
-  P.rows.forEach(r=>{if(r.dir=="in"&&SA_INT.test(r.desc||"")){ints.push(r);return}
-    const sgn=r.dir=="in"?1:-1,m=have.find(d=>!used.has(d.id)&&Math.abs(+d.a-sgn*r.amt)<0.01&&Math.abs(dl(d.d)-dl(r.date))<=3);if(m)used.add(m.id);(r.dir=="in"?dep:wd).push({...r,have:!!m})});
-  /* the bank's balance right after its last 31 March interest; otherwise the statement's opening balance */
-  let own=null;if(x.type!="rd"){const I=[...ints].reverse().find(r=>r.bal!=null&&/-(?:03-(?:2[5-9]|3[01])|04-0[1-5])$/.test(r.date));
-    if(I){const same=P.rows.filter(r=>r.date==I.date&&r.bal!=null);own={d:I.date,bal:Math.round(((same.length?same[same.length-1]:I).bal)*100)/100,why:"int"}}
-    else if(P.open!=null&&P.open>0.004){own={d:iso(new Date(D(P.rows[0].date).getTime()-864e5)),bal:Math.round(P.open*100)/100,why:"open"}}}
-  /* an older statement never replaces a newer bank balance */
-  const fix=own&&(!x.fix||!x.fix.d||own.d>=x.fix.d)?own:null;
+function saImpPlan(x,P){const have=deps(x),used=new Set(),dep=[],ints=[],wd=[],from=P.period&&P.period.from||P.rows[0].date,to=P.period&&P.period.to||P.rows[P.rows.length-1].date;
+  P.rows.forEach(r=>{if(r.dir=="in"&&SA_INT.test(r.desc||"")){ints.push(r);return}const sgn=r.dir=="in"?1:-1,near=d=>!used.has(d.id)&&Math.abs(dl(d.d)-dl(r.date))<=3;
+    const m=have.find(d=>near(d)&&Math.abs(+d.a-sgn*r.amt)<0.01);if(m){used.add(m.id);(r.dir=="in"?dep:wd).push({...r,have:true});return}
+    /* saved the other way round by an earlier import: put it right */
+    const f=have.find(d=>near(d)&&Math.abs(+d.a+sgn*r.amt)<0.01);if(f){used.add(f.id);(r.dir=="in"?dep:wd).push({...r,have:true,flipId:f.id});return}
+    (r.dir=="in"?dep:wd).push({...r,have:false})});
   /* opening date: printed in the header, or the first deposit when the statement starts at zero */
   const T=String(P.text||""),DT="(\\d{1,2}[-\\/. ](?:\\d{1,2}|[A-Za-z]{3,9})[-\\/. ]\\d{2,4}|\\d{4}-\\d\\d-\\d\\d)",om=T.match(new RegExp("(?:open(?:ing)?\\s*date|date\\s*of\\s*(?:a\\/c\\s*|account\\s*)?opening|opened\\s*on)\\s*:?\\s*"+DT,"i"));
-  let open=om?pDate(om[1].replace(/\s+/g,"-")):"",guess=false;if(!open&&P.rows.length&&P.rows[0].date<x.open){open=P.rows[0].date;guess=!(P.open==null||P.open<0.01)}
-  if(open&&open==x.open)open="";
+  const hdrOpen=om?pDate(om[1].replace(/\s+/g,"-")):"";let open=hdrOpen,guess=false;if(!open&&P.rows.length&&P.rows[0].date<x.open){open=P.rows[0].date;guess=!(P.open==null||P.open<0.01)}
+  const openD=open||x.open;if(open&&open==x.open)open="";
+  /* money already there when the statement starts: before the first 31 March it can only be deposits, so it is the opening deposit */
+  const sb=P.open!=null&&P.open>0.004?Math.round(P.open*100)/100:0,mar31=d=>{const y=+d.slice(0,4);return (d.slice(5)>="03-31"?y:y-1)+"-03-31"},
+    noIntYet=sb&&openD&&openD<from&&mar31(from)<openD,firstDep=noIntYet&&!have.some(d=>d.d<from&&!used.has(d.id)&&Math.abs(+d.a-sb)>0.01)?{date:openD,amt:sb,have:have.some(d=>Math.abs(dl(d.d)-dl(openD))<=3&&Math.abs(+d.a-sb)<0.01)}:null;
+  /* the bank's balance right after its last 31 March interest: an interest line, or the balance brought into a statement that starts on 1 April */
+  let own=null;if(x.type!="rd"){const I=[...ints].reverse().find(r=>r.bal!=null&&/-(?:03-(?:2[5-9]|3[01])|04-0[1-5])$/.test(r.date));
+    if(I){const same=P.rows.filter(r=>r.date==I.date&&r.bal!=null);own={d:I.date,bal:Math.round(((same.length?same[same.length-1]:I).bal)*100)/100,why:"int"}}
+    const st=sb&&P.period?iso(new Date(D(P.period.from).getTime()-864e5)):"";if(st&&!firstDep&&(!own||st>own.d))own={d:st,bal:sb,why:st.slice(5)=="03-31"?"int":"open"};
+    if(!own&&sb&&!firstDep)own={d:iso(new Date(D(P.rows[0].date).getTime()-864e5)),bal:sb,why:"open"}}
+  /* the bank's balance on a date, as this statement shows it */
+  const balOn=d=>{if(d<from||d>to)return null;const L=P.rows.filter(r=>r.bal!=null&&r.date<=d);return L.length?L[L.length-1].bal:P.open};
+  /* an older statement never replaces a newer bank balance, unless that one came from an import this statement shows to be wrong */
+  const wrong=!!(x.fix&&x.fix.d&&x.fix.src=="stmt"&&balOn(x.fix.d)!=null&&Math.abs(balOn(x.fix.d)-x.fix.bal)>0.5);
+  const fix=own&&(!x.fix||!x.fix.d||own.d>=x.fix.d||wrong)?own:null;
   /* is it this account? */
   const no=String(x.no||"").replace(/\D/g,""),digits=T.replace(/[^\d]/g," "),mis=no.length>=6&&/\d{9,}/.test(digits)&&!T.replace(/\s/g,"").includes(no.slice(-6));
   /* years the bank has finished: deposits, interest and the balance after interest */
   const hist={};P.rows.forEach(r=>{const fy=fyLabel(r.date),h=hist[fy]=hist[fy]||{fy,dep:0,int:0,close:null};if(r.dir=="in"&&SA_INT.test(r.desc||""))h.int+=r.amt;else h.dep+=r.dir=="in"?r.amt:-r.amt;if(r.bal!=null)h.close=r.bal});
-  const H=Object.values(hist).filter(h=>own&&own.why=="int"&&h.close!=null&&(+h.fy.slice(0,4)+1)+"-03-31"<=own.d).map(h=>({...h,dep:Math.round(h.dep*100)/100,int:Math.round(h.int*100)/100,close:Math.round(h.close*100)/100}));
-  return {dep,ints,wd,fix,open,guess,mis,hist:H,from:P.rows[0].date,to:P.rows[P.rows.length-1].date,close:P.close,startBal:P.open}}
+  const H=Object.values(hist).filter(h=>own&&own.why=="int"&&h.close!=null&&ints.length&&(+h.fy.slice(0,4)+1)+"-03-31"<=own.d).map(h=>({...h,dep:Math.round(h.dep*100)/100,int:Math.round(h.int*100)/100,close:Math.round(h.close*100)/100}));
+  return {dep,ints,wd,fix,wrong,open,guess,mis,hist:H,from,to,first:P.rows[0].date,close:P.close!=null?P.close:P.sumClose,startBal:sb,firstDep,flips:[...dep,...wd].filter(r=>r.flipId).length}}
 function saImpShow(){const p=saImpP,o=$("#saout");if(!o||!p||!p.Q)return;const x=S.sacc.find(q=>q.id==p.id),Q=p.Q,nw=Q.dep.filter(r=>!r.have),nwW=Q.wd.filter(r=>!r.have),sum=a=>a.reduce((s,r)=>s+r.amt,0);
-  const newOpen=Q.open&&Q.open!=x.open?Q.open:"",mat=newOpen?saMature({...x,open:newOpen}):"";
+  const newOpen=Q.open&&Q.open!=x.open?Q.open:"",mat=newOpen?saMature({...x,open:newOpen}):"",fd=Q.firstDep&&!Q.firstDep.have?Q.firstDep:null;
   o.innerHTML=`${Q.mis?`<div class="card" style="margin-top:10px;border-color:var(--late)"><b>This may be another account</b><p class="note" style="margin:4px 0 0">The statement doesn’t show ${esc(x.no)}. Check it’s the statement for ${esc(x.name)}.</p></div>`:""}
   <div class="card" style="margin-top:10px"><b>${fmt(Q.from)} to ${fmt(Q.to)}</b>
-    <p class="note" style="margin:4px 0 0">Deposits: ${Q.dep.length} · ${inr(sum(Q.dep))}${Q.dep.length?` (${nw.length} new, ${Q.dep.length-nw.length} already in the app)`:""}</p>
+    ${Q.startBal?`<p class="note" style="margin:4px 0 0">Balance at the start: ${inr(Q.startBal)}</p>`:""}
+    <p class="note" style="margin:2px 0 0">Deposits: ${Q.dep.length} · ${inr(sum(Q.dep))}${Q.dep.length?` (${nw.length} new, ${Q.dep.length-nw.length} already in the app)`:""}</p>
     ${Q.ints.length?`<p class="note" style="margin:2px 0 0">Interest added by the bank: ${inr(sum(Q.ints))} (${Q.ints.map(r=>fmt(r.date)).slice(-3).join(", ")})</p>`:""}
     ${Q.wd.length?`<p class="note" style="margin:2px 0 0">Withdrawals: ${Q.wd.length} · ${inr(sum(Q.wd))}</p>`:""}
-    ${Q.close!=null?`<p class="note" style="margin:2px 0 0">Balance on ${fmt(Q.to)}: <b>${inr(Q.close)}</b></p>`:""}</div>
-  ${nw.length||nwW.length?`<label class="hbl" style="margin:10px 0;gap:8px;justify-content:flex-start"><input type="checkbox" id="sa_dep" checked style="width:auto"><span>Add ${nw.length} ${nw.length==1?"deposit":"deposits"} (${inr(sum(nw))})${nwW.length?` and ${nwW.length} ${nwW.length==1?"withdrawal":"withdrawals"}`:""}</span></label>
-    <details><summary>See them</summary>${[...nw,...nwW].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,120).map(r=>`<div class="hbl" style="margin:4px 0"><span>${fmt(r.date)}<small style="display:block;color:var(--mute)">${esc((r.desc||"").slice(0,48))}</small></span><b>${r.dir=="out"?"−":""}${inr(r.amt)}</b></div>`).join("")}</details>`:`<p class="note">All the deposits in this statement are already in the app.</p>`}
-  ${Q.fix?`<label class="hbl" style="margin:10px 0;gap:8px;justify-content:flex-start;align-items:flex-start"><input type="checkbox" id="sa_fix" checked style="width:auto;margin-top:3px"><span>Start from the bank’s balance: ${inr(Q.fix.bal)} on ${fmt(Q.fix.d)}<small style="display:block;color:var(--mute)">${Q.fix.why=="int"?"Right after the bank added the year’s interest. The app adds this year’s interest from there, so its figures match the bank.":"The statement’s opening balance. The app calculates from there."}</small></span></label>`:""}
+    ${Q.close!=null?`<p class="note" style="margin:2px 0 0">Balance at the end: <b>${inr(Q.close)}</b></p>`:""}</div>
+  ${Q.flips?`<div class="card" style="margin-top:10px;border-color:var(--soon)"><b>${Q.flips} ${Q.flips==1?"entry was":"entries were"} saved the wrong way round</b><p class="note" style="margin:4px 0 0">An earlier import read ${Q.flips==1?"this deposit":"these deposits"} as money taken out. Importing puts ${Q.flips==1?"it":"them"} right.</p></div>`:""}
+  ${nw.length||nwW.length||fd?`<label class="hbl" style="margin:10px 0;gap:8px;justify-content:flex-start;align-items:flex-start"><input type="checkbox" id="sa_dep" checked style="width:auto;margin-top:3px"><span>Add ${nw.length+(fd?1:0)} ${nw.length+(fd?1:0)==1?"deposit":"deposits"} (${inr(sum(nw)+(fd?fd.amt:0))})${nwW.length?` and ${nwW.length} ${nwW.length==1?"withdrawal":"withdrawals"}`:""}${fd?`<small style="display:block;color:var(--mute)">Including the opening deposit of ${inr(fd.amt)} on ${fmt(fd.date)}: the money already in the account when the statement starts, before any interest was added.</small>`:""}</span></label>
+    <details><summary>See them</summary>${[...(fd?[{date:fd.date,amt:fd.amt,dir:"in",desc:"Opening deposit"}]:[]),...nw,...nwW].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,120).map(r=>`<div class="hbl" style="margin:4px 0"><span>${fmt(r.date)}<small style="display:block;color:var(--mute)">${esc((r.desc||"").slice(0,48))}</small></span><b>${r.dir=="out"?"−":""}${inr(r.amt)}</b></div>`).join("")}</details>`:Q.flips?"":`<p class="note">All the deposits in this statement are already in the app.</p>`}
+  ${Q.fix?`<label class="hbl" style="margin:10px 0;gap:8px;justify-content:flex-start;align-items:flex-start"><input type="checkbox" id="sa_fix" checked style="width:auto;margin-top:3px"><span>Start from the bank’s balance: ${inr(Q.fix.bal)} on ${fmt(Q.fix.d)}<small style="display:block;color:var(--mute)">${Q.fix.why=="int"?"Right after the bank added the year’s interest. The app adds this year’s interest from there, so its figures match the bank.":"The statement’s opening balance. The app calculates from there."}${Q.wrong?` This replaces ${inr(x.fix.bal)} on ${fmt(x.fix.d)}, which an earlier import got wrong.`:""}</small></span></label>`:""}
   ${newOpen?`<label class="hbl" style="margin:10px 0;gap:8px;justify-content:flex-start;align-items:flex-start"><input type="checkbox" id="sa_open" checked style="width:auto;margin-top:3px"><span>Opening date: ${fmt(newOpen)}<small style="display:block;color:var(--mute)">The app has ${fmt(x.open)}. With ${fmt(newOpen)}, it matures on ${fmt(mat)}${x.type=="ssy"?" and takes deposits until "+fmt(saDepEnd({...x,open:newOpen})):""}.${Q.guess?" This is the statement’s first entry; if the account is older, change it in Edit account.":""}</small></span></label>`:""}
   <div class="acts"><button class="btn" data-act="saImpGo" data-id="${x.id}">Import</button></div>`}
 /* the bank's finished years in Year by year, before the years the app works out */
 {const _si=saInfoSheet;saInfoSheet=function(id){_si(id);try{const x=S.sacc.find(q=>q.id==id);if(!x)return;
   const a=$('#over [data-act="saPast"]');if(a&&!$('#over [data-act="saImp"]'))a.insertAdjacentHTML("afterend",`<button class="btn ghost" data-act="saImp" data-id="${id}">Import statement</button>`);
-  const tb=$("#over table.tbl"),H=x.hist||[];if(tb&&H.length){const have=new Set([...tb.querySelectorAll("tr td:first-child")].map(td=>td.textContent.trim())),hd=tb.querySelector("tr");
+  let H=[...(x.hist||[])];if(x.fix&&x.fix.d&&x.fix.d.slice(5)=="03-31"){const fy=fyLabel(x.fix.d);if(!H.some(h=>h.fy==fy)){const fs=(+x.fix.d.slice(0,4)-1)+"-04-01",dep=deps(x).filter(d=>d.d>=fs&&d.d<=x.fix.d).reduce((s,d)=>s+ +d.a,0),pv=H.find(h=>h.fy==fyLabel(addM(x.fix.d,-12))),prev=pv?pv.close:x.open>=fs?0:null;
+    if(prev!=null){const it=Math.round((x.fix.bal-prev-dep)*100)/100;if(it>=0)H.push({fy,dep,int:it,close:x.fix.bal})}}}
+  const tb=$("#over table.tbl");if(tb&&H.length){const have=new Set([...tb.querySelectorAll("tr td:first-child")].map(td=>td.textContent.trim())),hd=tb.querySelector("tr");
     H.filter(h=>!have.has(h.fy)).sort((a,b)=>b.fy.localeCompare(a.fy)).forEach(h=>hd.insertAdjacentHTML("afterend",`<tr><td>${h.fy}</td><td>${inr(h.dep)}</td><td>${inr(h.int)}</td><td>${inr(h.close)}</td></tr>`));
     tb.insertAdjacentHTML("afterend",`<p class="note">Years up to ${fmt(x.fix&&x.fix.d||H[H.length-1].fy)} are from the bank statement.</p>`)}}catch(e){console.warn(e)}}}
 Object.assign(ACT,{
   saImp(id){saImpForm(id)},
   saImpPw(id){const f=saImpP&&saImpP.file;if(!f)return;saImpFile(id,f,v("f_sapw"))},
-  saImpGo(id){const p=saImpP,x=S.sacc.find(q=>q.id==id);if(!p||!p.Q||!x)return;const Q=p.Q,chk=k=>{const e=$("#"+k);return !!e&&e.checked};let n=0,w=0;
-    x.dep=x.dep||[];if(chk("sa_dep")){Q.dep.filter(r=>!r.have).forEach(r=>{x.dep.push({id:uid(),d:r.date,a:r.amt,src:"stmt"});n++});Q.wd.filter(r=>!r.have).forEach(r=>{x.dep.push({id:uid(),d:r.date,a:-r.amt,w:1,src:"stmt"});w++})}
+  saImpGo(id){const p=saImpP,x=S.sacc.find(q=>q.id==id);if(!p||!p.Q||!x)return;const Q=p.Q,chk=k=>{const e=$("#"+k);return !!e&&e.checked};let n=0,w=0,f=0;
+    x.dep=x.dep||[];
+    /* entries an earlier import saved the wrong way round */
+    [...Q.dep,...Q.wd].filter(r=>r.flipId).forEach(r=>{const d=x.dep.find(q=>q.id==r.flipId);if(!d)return;d.a=r.dir=="in"?r.amt:-r.amt;if(r.dir=="in")delete d.w;else d.w=1;f++});
+    if(chk("sa_dep")){if(Q.firstDep&&!Q.firstDep.have){x.dep.push({id:uid(),d:Q.firstDep.date,a:Q.firstDep.amt,src:"stmt",first:1});n++}
+      Q.dep.filter(r=>!r.have).forEach(r=>{x.dep.push({id:uid(),d:r.date,a:r.amt,src:"stmt"});n++});Q.wd.filter(r=>!r.have).forEach(r=>{x.dep.push({id:uid(),d:r.date,a:-r.amt,w:1,src:"stmt"});w++})}
     if(Q.fix&&chk("sa_fix"))x.fix={d:Q.fix.d,bal:Q.fix.bal,src:"stmt"};
     if(Q.hist.length&&x.fix&&x.fix.d){const M={};(x.hist||[]).forEach(h=>M[h.fy]=h);Q.hist.filter(h=>(+h.fy.slice(0,4)+1)+"-03-31"<=x.fix.d).forEach(h=>M[h.fy]=h);x.hist=Object.values(M).sort((a,b)=>a.fy.localeCompare(b.fy))}
-    /* money already in the account when the statement starts */
-    if(chk("sa_dep")||!Q.dep.some(r=>!r.have)){const earlier=deps(x).some(d=>d.d<Q.from&&d.src!="stmt");
-      if(Q.startBal!=null&&Q.startBal>0.004){if(!earlier&&(!x.base||x.base.d>Q.from))x.base={d:Q.from,bal:Math.round(Q.startBal*100)/100}}
-      else if(x.base&&Q.from<=x.base.d)delete x.base}
+    /* money already in the account when the statement starts, which the deposits don't explain */
+    {const earlier=deps(x).some(d=>d.d<Q.from);if(Q.startBal&&!Q.firstDep){if(!earlier&&(!x.base||x.base.d>Q.from))x.base={d:Q.from,bal:Q.startBal}}else if(x.base&&Q.from<=x.base.d)delete x.base;
+      /* deposits going back to the opening explain everything */
+      const L=deps(x),op=Q.open&&chk("sa_open")?Q.open:x.open,gap=L.length?dl(L[0].d)-dl(op):99;if(x.base&&L.some(d=>d.d<x.base.d)&&gap>=0&&gap<=31)delete x.base}
     if(Q.open&&chk("sa_open")){x.open=Q.open;if(x.plan&&x.plan.f)x.plan.md=Q.open.slice(5,7)+"-"+p2(Math.min(28,+x.plan.day||5))}
-    x.ut=Date.now();put("sacc",x);save();render();saInfoSheet(id);toast(`Imported: ${n} ${n==1?"deposit":"deposits"}${w?", "+w+" withdrawals":""}${x.fix&&x.fix.src=="stmt"?" · balance from the bank":""}`)}
+    x.ut=Date.now();put("sacc",x);save();render();saInfoSheet(id);toast(`Imported: ${n} ${n==1?"deposit":"deposits"}${w?", "+w+" withdrawals":""}${f?", "+f+" put right":""}${x.fix&&x.fix.src=="stmt"?" · balance from the bank":""}`)}
 });
 {const g=GUIDE.find(g=>g[0]=="Wealth and plans");if(g)g[1].push(["📄","Scheme statements","Import the SSY, PPF or RD statement: deposits, the bank’s interest and balance.","schemes"])}
 

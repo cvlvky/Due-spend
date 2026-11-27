@@ -34,7 +34,7 @@ const pdfErr=e=>e&&(e.name=="PasswordException"||/password/i.test(e.message||"")
 /* ---------- bank statement PDFs ---------- */
 const SDRE=/^\s*(\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4}|\d{4}-\d\d-\d\d)(?=\s|$)/,SAMRE=/\(?-?(?:\d{1,3}(?:,\d{2,3})+|\d+)\.\d{2}\)?(?:\s?(?:Cr|Dr|CR|DR)\b)?/g;
 const amtOf=s=>{s=s.trim();const n=Math.abs(num(s.replace(/\s?(Cr|Dr|CR|DR)$/,"")));return /^\(|^-|(Dr|DR)$/.test(s)?-n:n};
-function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=null,pend=[],stop=false;
+function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=null,pend=[],stop=false,period=null,sumNext=false,sumOpen=null,sumClose=null;
   const rEdge=L=>(L.items||[]).reduce((m,i)=>Math.max(m,i.x+(i.w||i.s.length*4.5)),0);
   /* description lines can sit above the date line (Axis, ICICI) or below it (most banks): each goes to the nearest entry on the same page */
   const place=nx=>{const pv=rows.length?rows[rows.length-1]:null;pend.forEach(c=>{const dP=pv?(c.y==null||pv.y==null?0:pv.p==c.p?Math.abs(c.y-pv.y):1e9):1e9,dN=nx&&c.y!=null&&nx.y!=null&&nx.p==c.p?Math.abs(c.y-nx.y):1e9;
@@ -44,25 +44,33 @@ function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=nul
       if(nb){const i=lines.indexOf(L),pre=lines.slice(0,i).map(l=>l.t).join(" "),m4=pre.match(/(?:X{2,}|\*{2,}|•{2,})\s*(\d{4})\b/i),o=stmtParseNB(lines.slice(i+1),nb);o.l4=m4?m4[1]:"";return o}}
     if(/opening balance|balance b\/f|brought forward|balance as on/i.test(t)&&!/closing/i.test(t)){const a=t.match(SAMRE);if(a){prev=amtOf(a[a.length-1]);if(open==null)open=prev}pend=[];continue}
     if(/withdraw|debit|\bdr\b/i.test(t)&&/deposit|credit|\bcr\b/i.test(t)&&/balance/i.test(t)){const f=re=>{const it=L.items.find(i=>re.test(i.s));return it?it.x+(it.w||0)/2:null};hdr={dr:f(/withdraw|debit|\bdr\b/i),cr:f(/deposit|credit|\bcr\b/i)};pend=[];continue}
+    {const pm=t.match(/statement (?:from|for the period(?: from)?)\s+(\S+(?:\s[A-Za-z]{3}\s\d{4})?)\s+to\s+(\S+(?:\s[A-Za-z]{3}\s\d{4})?)/i);if(pm){if(!period){const a=pDate(pm[1].replace(/\s+/g,"-")),b=pDate(pm[2].replace(/\s+/g,"-"));if(a&&b)period={from:a,to:b}}continue}}
+    if(/\bbrought\b/i.test(t)&&/closing balance/i.test(t)){place(null);stop=true;sumNext=true;continue}
+    if(sumNext){sumNext=false;const a=t.match(SAMRE);if(a&&a.length>=2){sumOpen=amtOf(a[0]);sumClose=amtOf(a[a.length-1])}continue}
+    if(/^(?:ref\.? no\/?|cheque no|chq\.? no)\b/i.test(t)&&!(t.match(SAMRE)||[]).length)continue;
     if(/\b(?:date|txn date|tran date|value date)\b/i.test(t)&&/\b(?:balance|amount|debit|credit|withdrawals?|deposits?|details|description|particulars|narration)\b/i.test(t)&&!SDRE.test(t)){pend=[];continue}
     /* the table ends at its totals or closing balance; the bank's notes and legends after it are not part of any entry */
     if(/closing balance|transaction total|grand total|end of statement|^total\b|^statement summary/i.test(t)){place(null);stop=true;continue}
     const dm=t.match(SDRE);
     if(dm&&!/opening|closing|total/i.test(t)){const am=[...t.matchAll(SAMRE)].filter(m=>m.index>=dm[0].length),d=pDate(dm[1].replace(/\s/g,"-"));if(!d||!am.length){cur=null;continue}
-      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*(?:\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4})\s*/,"").replace(/\s+/g," ").trim();
-      const vals=am.map(m=>amtOf(m[0]));let amt=null,dir=null,bal=null;
+      /* a dash on its own in the Debit or Credit column (SBI) says which side the amount is on */
+      const its=(L.items||[]).map(i=>({x:i.x,s:String(i.s||"").trim()})).filter(i=>i.s).sort((a,b)=>a.x-b.x),nk=x=>x.replace(/[\s,]/g,""),ai=am.length==2?its.findIndex(i=>nk(i.s)==nk(am[0][0])):-1,
+        isD=i=>!!i&&/^[-–]$/.test(i.s),dashCr=ai>0&&isD(its[ai-1])&&nk((its[ai+1]||{}).s||"")==nk(am[1][0]),dashDr=ai>=0&&isD(its[ai+1])&&nk((its[ai+2]||{}).s||"")==nk(am[1][0]);
+      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*(?:\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4})\s*/,"").replace(/\s+/g," ").trim();if(dashCr)desc=desc.replace(/(?:^|\s)[-–]$/,"").trim();
+      const vals=am.map(m=>amtOf(m[0]));let amt=null,dir=null,bal=null,how="";
       if(vals.length>=2){bal=vals[vals.length-1];const cand=vals.slice(0,-1).filter(v=>Math.abs(v)>0.004);
-        if(prev!=null)for(const a of cand){const x=Math.abs(a);if(Math.abs(prev-x-bal)<0.011){amt=x;dir="out";break}if(Math.abs(prev+x-bal)<0.011){amt=x;dir="in";break}}
-        if(amt==null&&cand.length){amt=Math.abs(cand[0]);if(hdr&&hdr.dr!=null&&hdr.cr!=null){const s=am[0][0].replace(/[()\s]|Cr|Dr|CR|DR/g,""),it=L.items.find(i=>i.s.replace(/\s/g,"").includes(s));dir=it&&Math.abs(it.x+(it.w||0)/2-hdr.cr)<Math.abs(it.x+(it.w||0)/2-hdr.dr)?"in":"out"}else dir=/\bcr\b|credit|deposit|salary|refund|reversal/i.test(desc)?"in":"out"}}
-      else{amt=Math.abs(vals[0]);dir=/\bcr\b|credit|deposit/i.test(t)?"in":"out"}
+        if(prev!=null)for(const a of cand){const x=Math.abs(a);if(Math.abs(prev-x-bal)<0.011){amt=x;dir="out";how="chain";break}if(Math.abs(prev+x-bal)<0.011){amt=x;dir="in";how="chain";break}}
+        if(amt==null&&cand.length){amt=Math.abs(cand[0]);if(hdr&&hdr.dr!=null&&hdr.cr!=null){const s=am[0][0].replace(/[()\s]|Cr|Dr|CR|DR/g,""),it=L.items.find(i=>i.s.replace(/\s/g,"").includes(s));dir=it&&Math.abs(it.x+(it.w||0)/2-hdr.cr)<Math.abs(it.x+(it.w||0)/2-hdr.dr)?"in":"out";how="hdr"}else{dir=/\bcr\b|credit|deposit|salary|refund|reversal/i.test(desc)?"in":"out";how="kw"}}}
+      else{amt=Math.abs(vals[0]);dir=/\bcr\b|credit|deposit/i.test(t)?"in":"out";how="kw"}
+      if(dashCr||dashDr){dir=dashCr?"in":"out";how="dash"}
       const aIt=L.items.find(i=>i.s.includes(am[0][0].trim())),dR=L.items.filter(i=>aIt&&i.x+(i.w||0)<aIt.x-2&&!SDRE.test(i.s.trim())).reduce((m,i)=>Math.max(m,i.x+(i.w||i.s.length*4.5)),0);
-      if(amt>0){const sv=vals.length>=2?(vals.slice(0,-1).find(v=>Math.abs(v)>0.004)||0):vals[0];cur={date:d,amt,dir,desc,bal,sv,p:L.p,y:L.y,parts:[{t:desc,r:dR,p:L.p,y:L.y,main:true}],dr:/(Dr|DR)\s*$/.test(am[0][0]),cr:/(Cr|CR)\s*$/.test(am[0][0])};place(cur);rows.push(cur);stop=false;if(bal!=null)prev=bal}continue}
+      if(amt>0){const sv=vals.length>=2?(vals.slice(0,-1).find(v=>Math.abs(v)>0.004)||0):vals[0];cur={date:d,amt,dir,desc,bal,sv,how,p:L.p,y:L.y,parts:[{t:desc,r:dR,p:L.p,y:L.y,main:true}],dr:/(Dr|DR)\s*$/.test(am[0][0])||dashDr,cr:/(Cr|CR)\s*$/.test(am[0][0])||dashCr};place(cur);rows.push(cur);stop=false;if(bal!=null)prev=bal}continue}
     if(!stop&&!/^(page|statement|total|closing|account|customer|branch|ifsc|this is|unless|please|registered)/i.test(t)&&!SDRE.test(t)&&!(t.match(SAMRE)||[]).length&&t.length<90)pend.push({t,r:rEdge(L),p:L.p,y:L.y})}
   place(null);
   {const R=rows.flatMap(r=>(r.parts||[]).filter(p=>!p.main).map(p=>p.r)).filter(Boolean),colR=R.length?Math.max(...R):0;
     rows.forEach(r=>{if(!r.parts||r.parts.length<2)return;const P=r.parts.every(p=>p.y!=null)?r.parts.map((p,i)=>({p,i})).sort((a,b)=>(a.p.p||0)-(b.p.p||0)||b.p.y-a.p.y||a.i-b.i).map(o=>o.p):r.parts;
       let d=P[0].t.trim();for(let i=1;i<P.length;i++){const pr=P[i-1],nx=P[i].t.trim(),tail=pr.t.trim().split(" ").pop(),full=colR&&pr.r>=colR-3.5&&tail.length>=10;if(!nx)continue;d+=(full&&/[A-Za-z0-9]$/.test(d)&&/^[A-Za-z0-9]/.test(nx)?"":" ")+nx}r.desc=d.replace(/\s+/g," ").trim()})}
-  return stmtOrder(rows,open)}
+  const o=stmtOrder(rows,sumOpen!=null?sumOpen:open);if(period)o.period=period;if(sumClose!=null)o.sumClose=sumClose;return o}
 /* Card transaction lists (CBQ "Transaction History" and similar) have no running balance: each column is read by its position under the header */
 function stmtCols(items){const C=[];let cur=null;[...items].sort((a,b)=>a.x-b.x).forEach(it=>{const r=it.x+(it.w||it.s.length*4.5);if(cur&&it.x-cur.r<=8){cur.s+=" "+it.s;cur.r=r}else{cur={x:it.x,r,s:it.s};C.push(cur)}});
   let nd=0;C.forEach(c=>{const s=c.s.toLowerCase().trim();c.k=/balance/.test(s)?"bal":/date/.test(s)?(nd++?"date2":"date"):/detail|description|narration|particular|merchant|remark/.test(s)?"desc":/currency/.test(s)&&!/amount/.test(s)?"cur":/equivalent|billing amount|billed amount|local amount|amount in [a-z]{3}|\((?:qar|inr|aed|usd)\)/.test(s)?"eq":/debit|withdraw/.test(s)?"dc":/credit|deposit/.test(s)?"cc":/amount|value/.test(s)?"amt":/^(?:transaction )?(?:type|status)$/.test(s)?"type":"x";
@@ -91,10 +99,14 @@ function stmtParseNB(lines,nb){const rows=[];let cur=null;const eqc=(nb.cols.fin
   const o=stmtOrder(rows,null);o.nobal=true;return o}
 /* Banks list rows oldest-first or newest-first, and same-day rows in any order. Follow the running balance to find the real order. */
 function stmtOrder(rows,open0){if(!rows.length)return {rows,open:open0,close:null};
-  if(rows.some(r=>r.sv<0))rows.forEach(r=>{if(!r.dr&&!r.cr)r.dir=r.sv<0?"out":"in"});rows.forEach(r=>{if(r.dr)r.dir="out";if(r.cr)r.dir="in"});
-  const B=rows.filter(r=>r.bal!=null),eq=(a,b)=>Math.abs(a-b)<0.011,sg=r=>r.dir=="in"?r.amt:-r.amt;B.forEach(r=>r.pre=Math.round((r.bal-sg(r))*100)/100);
-  let chain=null;if(B.length>=2){const starts=B.filter(r=>!B.some(o=>o!==r&&eq(o.bal,r.pre))).sort((a,b)=>a.date.localeCompare(b.date));
-    for(const st of starts){const used=new Set([st]),C=[st];let c=st;for(;;){const nx=B.filter(o=>!used.has(o)&&eq(o.pre,c.bal)).sort((a,b)=>a.date.localeCompare(b.date))[0];if(!nx)break;C.push(nx);used.add(nx);c=nx}if(!chain||C.length>chain.length)chain=C;if(C.length==B.length)break}}
+  if(rows.some(r=>r.sv<0))rows.forEach(r=>{if(!r.dr&&!r.cr){r.dir=r.sv<0?"out":"in";r.how="sign"}});rows.forEach(r=>{if(r.dr)r.dir="out";if(r.cr)r.dir="in"});
+  const B=rows.filter(r=>r.bal!=null),eq=(a,b)=>Math.abs(a-b)<0.011,sg=r=>r.dir=="in"?r.amt:-r.amt;
+  const mk=()=>{B.forEach(r=>r.pre=Math.round((r.bal-sg(r))*100)/100);let chain=null;if(B.length>=2){const starts=B.filter(r=>!B.some(o=>o!==r&&eq(o.bal,r.pre))).sort((a,b)=>a.date.localeCompare(b.date));
+    for(const st of starts){const used=new Set([st]),C=[st];let c=st;for(;;){const nx=B.filter(o=>!used.has(o)&&eq(o.pre,c.bal)).sort((a,b)=>a.date.localeCompare(b.date))[0];if(!nx)break;C.push(nx);used.add(nx);c=nx}if(!chain||C.length>chain.length)chain=C;if(C.length==B.length)break}}return chain};
+  const back=C=>{if(!C||C.length<2)return false;let up=0,dn=0;for(let i=1;i<C.length;i++){if(C[i].date>C[i-1].date)up++;else if(C[i].date<C[i-1].date)dn++}return dn>up};
+  const weak=r=>!r.dr&&!r.cr&&r.how!="sign"&&r.how!="hdr"&&r.how!="dash";let chain=mk();
+  if(B.some(weak)&&(back(chain)||!(chain&&chain.length==B.length))){const W=B.filter(weak),flip=()=>W.forEach(r=>r.dir=r.dir=="in"?"out":"in");flip();const c2=mk();
+    if(c2&&c2.length==B.length&&!back(c2)&&(!chain||chain.length<B.length||back(chain)))chain=c2;else{flip();chain=mk()}}
   let open=open0,close=null,ordered;
   if(chain&&chain.length==B.length){ordered=[...chain,...rows.filter(r=>r.bal==null)].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:chain.indexOf(a)-chain.indexOf(b));open=open0!=null?open0:chain[0].pre;close=chain[chain.length-1].bal}
   else{const newestFirst=rows[0].date>rows[rows.length-1].date;ordered=newestFirst?[...rows].reverse():[...rows];const f=ordered.find(r=>r.bal!=null),l=[...ordered].reverse().find(r=>r.bal!=null);
