@@ -1,5 +1,16 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.1
+- Card transaction lists without a balance column (such as the CBQ app's
+  Transaction History export) import correctly: no made-up balance, the
+  minus signs are kept, cleaner merchant names, card payments linked to the
+  bank account, and a box to type what you owe now; the app works out the
+  balance before the first transaction from it.
+- Statement amounts with a minus sign were read as positive; fixed.
+- Entries saved with the wrong sign, or saved twice with the wrong sign,
+  are found when the statement is opened again and fixed with a tap.
+- Warning when a statement is imported into a different card or account.
+
 NEW IN VERSION 32
 - Passwords: a vault locked with a master password (AES-256, PBKDF2),
   fingerprint unlock through the Android Keystore, password maker,
