@@ -8,7 +8,7 @@ try:
   b0=E('S.acc.map(a=>bal(a))');ok('cached balance is correct',b0==E('(()=>{balReset();return S.acc.map(a=>bal(a))})()'))
   E('const x=S.tx.find(t=>t.kind=="out"&&t.acc=="a2");x.amt=+x.amt+10;save()');ok('balance follows an edit',abs(E('bal(ac("a2"))')-(b0[1]-10))<0.01,[E('bal(ac("a2"))'),b0])
   # family pair
-  E('S.fam=[{id:"m1",name:"Arun",rel:"self"},{id:"m2",name:"Meena",rel:"spouse"}];save()')
+  E('S.fam=[{id:"m1",name:"Arun",rel:"self"},{id:"m2",name:"Kavya",rel:"spouse"}];save()')
   E('qForm("out")');ok('add form has receipt and paid-by',pg.locator('#over .rcpt #f_file').count()==1 and pg.locator('#over #f_by').count()==1 and pg.locator('#over #f_sh').count()==1)
   png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==')
   pg.set_input_files('#over #f_file',files=[{'name':'bill.png','mimeType':'image/png','buffer':png}]);pg.wait_for_timeout(500)
@@ -19,8 +19,8 @@ try:
   E('qForm("out")');pg.fill('#f_line','Carrefour 60 riyal groceries');pg.wait_for_timeout(400);pg.select_option('#f_by','m2');pg.check('#f_sh');pg.click('#over [data-act="saveTx"]');pg.wait_for_timeout(300)
   R=E('(()=>{const r=splitMonth(today().slice(0,7));return {o:r.owe&&{f:r.owe.from.name,t:r.owe.to.name,a:r.owe.amt},n:r.T.length}})()')
   exp=E('(cv(200,"QAR",V())-cv(60,"QAR",V()))/2')
-  ok('who owes whom',R['n']==2 and R['o']['f']=='Meena' and R['o']['t']=='Arun' and abs(R['o']['a']-exp)<0.01,R)
-  E('S.cfg.famSeg="split";tab="fam";render()');t=pg.inner_text('#app');ok('shared costs on Family','Meena owes Arun' in t and 'Shared costs' in t,t[:300])
+  ok('who owes whom',R['n']==2 and R['o']['f']=='Kavya' and R['o']['t']=='Arun' and abs(R['o']['a']-exp)<0.01,R)
+  E('S.cfg.famSeg="split";tab="fam";render()');t=pg.inner_text('#app');ok('shared costs on Family','Kavya owes Arun' in t and 'Shared costs' in t,t[:300])
   pg.click('#app [data-act="splitSettle"]');ok('settle marks month',E('!!S.cfg.settled[today().slice(0,7)]') and 'settled' in pg.inner_text('#app'))
   # edit keeps the receipt
   tid=t2=E('S.tx.find(x=>x.payee=="Lulu"&&x.amt==200).id');E('ACT.editTx("%s")'%tid);ok('edit form shows the receipt',pg.locator('#over #attlist .row').count()==1 and pg.input_value('#f_by')=='m1')

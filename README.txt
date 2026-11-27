@@ -1,4 +1,15 @@
-PERSONAL DIARY (version 31, formerly Due & Spend)
+PERSONAL DIARY (version 32, formerly Due & Spend)
+
+NEW IN VERSION 32
+- Passwords: a vault locked with a master password (AES-256, PBKDF2),
+  fingerprint unlock through the Android Keystore, password maker,
+  weak/reused/old password check, copy that clears in 30 seconds,
+  screenshots blocked while it is open, locks by itself. Kept on the
+  phone only; a locked copy goes into Drive backup, never into sync.
+- Gifts & moi: gift items with value and photo, given by, birthdays and
+  anniversaries with reminders, what to give back (amounts ending in 1),
+  items given before, gift ideas per person.
+- Cleaner Settings in sections; tools as tiles; Family tabs scroll.
 
 NEW IN VERSION 31
 - Ask your diary (typed or spoken questions, answered on the phone).

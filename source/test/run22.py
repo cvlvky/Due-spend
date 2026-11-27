@@ -1,3 +1,4 @@
+import re
 import json,sys
 sys.path.insert(0,'test')
 from h import H
@@ -51,8 +52,8 @@ try:
   ok('share summary on WhatsApp',u.startswith('https://wa.me/?text=') and 'Personal%20Diary' in u and 'Spent' in u,u[:120])
   pg.click('#over .x')
   # ---- settings ----
-  E('settings()');t=pg.inner_text('#over');ok('settings: theme, hide amounts, duplicates, Home',all(x in t for x in ('Theme:','amounts','Find duplicates','Choose what Home shows')))
-  pg.click('#over [data-act="theme"]');ok('theme from settings',E('S.cfg.theme')=='light' and 'Theme: Light' in pg.inner_text('#over'))
+  E('settings()');t=pg.inner_text('#over');ok('settings: theme, hide amounts, duplicates, Home',all(x in t for x in ('Theme','amounts','Find duplicates','Choose what Home shows')))
+  pg.click('#over [data-act="theme"]');ok('theme from settings',E('S.cfg.theme')=='light' and bool(re.search(r'Theme\s*:?\s*Light',pg.inner_text('#over'))))
   c.close()
   # ---- phone app: update prompt and automatic updates ----
   pre='window.__http={"releases/download/app/version.json":%s};'%json.dumps(json.dumps({"code":9,"ver":"26","date":"2026-11-19T10:00:00Z","notes":"Clearer Home and Wealth\nUpdate prompt"}))

@@ -6,14 +6,14 @@ h=H();ok=h.ok
 try:
   c,pg=h.page();E=pg.evaluate
   # ---- family members, owner and nominee ----
-  E('tab="fam";render()');t=pg.inner_text('#app');ok('family screen','Family' in t and 'Moi register' in t and 'Hand loans' in t and 'Emergency pack' in t)
-  for nm,rel in (("Arun","self"),("Meena","spouse"),("Anika","daughter")):
+  E('tab="fam";render()');t=pg.inner_text('#app');ok('family screen','Family' in t and ('Moi register' in t or 'Gifts & moi' in t) and 'Hand loans' in t and 'Emergency pack' in t)
+  for nm,rel in (("Arun","self"),("Kavya","spouse"),("Anika","daughter")):
     pg.click('[data-act="famAdd"]');pg.fill('#fm_name',nm);pg.select_option('#fm_rel',rel);pg.click('#over [data-act="famSave"]');pg.wait_for_timeout(100)
   ids=E('Object.fromEntries(S.fam.map(m=>[m.name,m.id]))');ok('three members added',len(ids)==3)
   E('editAcc("a1")') if False else None
   E('accForm(S.acc.find(a=>a.id=="a1"))');pg.wait_for_selector('#over #f_own');ok('owner and nominee on accounts',pg.locator('#over #f_nomi').count()==1)
-  pg.select_option('#f_own',ids['Arun']);pg.fill('#f_nomi','Meena');pg.click('#over [data-act="saveAcc"]');pg.wait_for_timeout(150)
-  ok('account owner and nominee saved',E('ac("a1").own')==ids['Arun'] and E('ac("a1").nomi')=='Meena')
+  pg.select_option('#f_own',ids['Arun']);pg.fill('#f_nomi','Kavya');pg.click('#over [data-act="saveAcc"]');pg.wait_for_timeout(150)
+  ok('account owner and nominee saved',E('ac("a1").own')==ids['Arun'] and E('ac("a1").nomi')=='Kavya')
   E('dForm(S.dates.find(d=>d.id=="d1"))');pg.wait_for_selector('#over #f_own');ok('policies get owner only (nominee field already there)',pg.locator('#over #f_nomi').count()==0)
   pg.select_option('#f_own',ids['Arun']);pg.click('#over [data-act="saveDate"]');pg.wait_for_timeout(150);ok('policy owner saved',E('S.dates.find(d=>d.id=="d1").own')==ids['Arun'])
   E('saForm()');pg.select_option('#f_ty','ssy');pg.fill('#f_name','Selvamagal');pg.fill('#f_open',E('addM(today(),-3)'));pg.fill('#f_plan','1000');pg.select_option('#f_own',ids['Anika']);pg.click('#over [data-act="saSave"]');pg.wait_for_timeout(200)
@@ -21,7 +21,7 @@ try:
   pg.click('#over .x') if pg.locator('#over .x').count() else None
   w=E('ownWorth("%s")'%ids['Arun']);ok('per-person net worth',abs(w-E('cv(bal(ac("a1")),"INR",V())'))<1,w)
   E('tab="fam";render()');t=pg.inner_text('#app');ok('people list with worth and counts','Arun' in t and '1 account' in t and '1 policy or due' in t and 'Family / joint' in t,t[:600])
-  pg.click('[data-act="famView"][data-id="%s"]'%ids['Arun']);t=pg.inner_text('#over');ok('member sheet','SBI Savings' in t and 'Nominee Meena' in t and 'LIC Jeevan Anand' in t,t[:500]);pg.click('#over .x')
+  pg.click('[data-act="famView"][data-id="%s"]'%ids['Arun']);t=pg.inner_text('#over');ok('member sheet','SBI Savings' in t and 'Nominee Kavya' in t and 'LIC Jeevan Anand' in t,t[:500]);pg.click('#over .x')
   E('tab="invest";render()');ok('wealth by person','By person' in pg.inner_text('#app'))
   # ---- moi register ----
   E('S.cfg.famSeg="moi";tab="fam";render()');b1=E('bal(ac("a1"))')
@@ -62,7 +62,7 @@ try:
   ok('wrong password is rejected',r.decrypt('wrong')==0)
   r=pypdf.PdfReader(io.BytesIO(raw));res=r.decrypt('Family@2026');txt="\n".join(p.extract_text() for p in r.pages)
   ok('right password opens it',res>0 and 'Family emergency pack' in txt,res)
-  ok('pack contents',all(k in txt for k in ['Read this first','blue file','Brother Karthik','SBI Savings','nominee Meena','LIC Jeevan Anand','P-1122','nominee Spouse','Selvamagal','We owe Anand QAR 1,000','Gratuity' if False else 'Loans','Anand']),txt[:1500])
+  ok('pack contents',all(k in txt for k in ['Read this first','blue file','Brother Karthik','SBI Savings','nominee Kavya','LIC Jeevan Anand','P-1122','nominee Spouse','Selvamagal','We owe Anand QAR 1,000','Gratuity' if False else 'Loans','Anand']),txt[:1500])
   ok('balances included when asked','balance INR' in txt)
   ok('pack details synced',E('prefsOut().ep.contacts[0].n')=='Brother Karthik')
   # md5 sanity against known values
