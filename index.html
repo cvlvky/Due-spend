@@ -169,6 +169,16 @@ main>.nofx{animation:none}
 .segx{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
 .segx::-webkit-scrollbar{display:none}
 .segx>button{flex:none;white-space:nowrap}
+
+/* Version 32.2: credit card limit and available */
+.cbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:6px 0 2px}
+.cbar i{display:block;height:100%;border-radius:3px}
+.arow .an .cbar{max-width:220px}
+.arow .ab small.abl{display:block;font-size:11px;font-weight:500;color:var(--mute);text-align:right}
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 14px}
+.cgrid>div{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--card)}
+.cgrid small{display:block;color:var(--mute);font-size:12px}
+.cgrid b{font-size:15px;white-space:nowrap}
 </style></head><body>
 <main id="app"><p class="sub">Opening your data…</p></main>
 <nav><div id="nav"></div></nav>
@@ -4895,12 +4905,15 @@ function stRowLab(r,A){const c=stmtClean(r.desc),ex=(r.fx?" · "+r.fx:"")+(r.pen
   if(r.dir=="in"&&A.type=="card"){if(stPayLike(c)){const F0=stmtSource(c,A);return (F0?"Payment from "+F0.name:"Card payment (add the bank account it came from to link it)")+ex}return "Refund"+ex}
   const B=r.dir=="out"?stmtTarget(c,A):null;return (c.hint&&r.dir=="out"?(B?"Transfer to "+B.name:c.hint=="atm"?"Cash withdrawal (add a Cash wallet to track it)":c.hint=="own"?"Your own account"+(c.l4?" ending "+c.l4:"")+" (add it to track transfers)":"Card bill"+(c.l4?" "+c.l4:"")+" (add the card to track it)"):(c.cat||catFor(c.payee)||catGuess(c.note+" "+c.payee)||"No category")+(c.note?" · "+c.note:""))+ex}
 /* no running balance in the file: ask for the balance now and work out the opening */
-function stOweBox(p,A){const b=Math.round(balAt(A.id,today())*100)/100,card=A.type=="card",T=p.T;
-  return `<div class="card" style="margin-top:10px"><b>${card?"What do you owe on this card now?":"What is the balance now?"}</b><p class="note" style="margin:4px 0 0">This file lists transactions only, without a running balance, so it can’t show what the ${card?"card":"account"} had before the first one. ${card?"Type the amount you owe now, as the bank app shows it. The app works out the balance before the first transaction, so every line after it is right.":"Type the balance the bank app shows now."}</p>
-  <p class="note">In the app now: <b>${card?(b<0?"you owe "+fmx(-b,A.cur):b>0?fmx(b,A.cur)+" in credit":"nothing owed"):fmx(b,A.cur)}</b>${T!=null&&Math.abs(b-T)<0.01?" ✓":""}</p>
-  ${F("f_owe",card?"Amount owed now":"Balance now",T!=null?String(card?Math.abs(T):T):"","number",'placeholder="0.00"')}
-  ${card?`<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="f_owecr" ${T>0?"checked":""} style="width:auto"> The card is in credit (you paid more than you owed)</label>`:""}
-  <div class="acts"><button class="btn" data-act="stSetBal">${card?"Set what I owe":"Set the balance"}</button></div></div>`}
+function stOweBox(p,A){const b=Math.round(balAt(A.id,today())*100)/100,card=A.type=="card",T=p.T,L=card?cardLim(A):0;
+  if(!card)return `<div class="card" style="margin-top:10px"><b>What is the balance now?</b><p class="note" style="margin:4px 0 0">This file lists transactions only, without a running balance, so it can’t show what the account had before the first one. Type the balance the bank app shows now.</p>
+    <p class="note">In the app now: <b>${fmx(b,A.cur)}</b>${T!=null&&Math.abs(b-T)<0.01?" ✓":""}</p>${F("f_owe","Balance now",T!=null?String(T):"","number",'placeholder="0.00"')}<div class="acts"><button class="btn" data-act="stSetBal">Set the balance</button></div></div>`;
+  const ok=T!=null&&Math.abs(b-T)<0.01,av=Math.round((L+b)*100)/100;
+  return `<div class="card" style="margin-top:10px"><b>What does the bank app show for this card now?</b><p class="note" style="margin:4px 0 0">This file lists transactions only, without a running balance. Type what the bank app shows now; the app works out the balance before the first transaction, so every line after it is right.</p>
+  <p class="note">In the app now: <b>${L?fmx(av,A.cur)+" available":""}${L?" · ":""}${b<0?"you owe "+fmx(-b,A.cur):b>0?fmx(b,A.cur)+" in credit":"nothing owed"}</b>${ok?" ✓":""}</p>
+  ${L?`<p class="note" style="margin-top:-4px">Card limit ${fmx(L,A.cur)}</p>`:F("f_lim3","Card limit","","number",'placeholder="Credit limit"')}
+  ${F("f_avl","Available to spend now",ok&&L?String(av):"","number",'placeholder="0.00"')}<p class="note" style="margin:2px 0 8px">or</p>${F("f_owe","Amount you owe now",ok?String(Math.abs(T)):"","number",'placeholder="0.00"')}
+  <div class="acts"><button class="btn" data-act="stSetBal">Set the card balance</button></div></div>`}
 function stBalTo(p,T){const A=ac(p.acc),day0=iso(new Date(D(p.M.from).getTime()-864e5)),to=p.M.to;
   S.tx.filter(x=>x.acc==A.id&&x.kind=="adj"&&x.date>=day0&&(/^Opening balance worked out/.test(x.note||"")||(x.date<=to&&/^(Matched to the bank statement|Opening balance from the bank statement)/.test(x.note||"")))).forEach(x=>removeTx(x.id));
   const d=Math.round((T-balAt(A.id,today()))*100)/100;if(Math.abs(d)>=0.005)addTx({kind:"adj",acc:A.id,amt:d,cur:A.cur,date:day0,cat:"Balance correction",note:"Opening balance worked out from the balance now"});return d}
@@ -4978,9 +4991,11 @@ Object.assign(ACT,{
       if(f.op=="flip"){o.kind=x.kind=="in"?"out":"in";if(k.payee&&(!o.payee||/[A-Z]{3,} [A-Z]{2,}/.test(o.payee)))o.payee=k.payee;if(!o.cat)o.cat=o.kind=="out"?(k.cat||catFor(k.payee)||catGuess(k.note+" "+k.payee)||""):A.type=="card"?(stPayLike(k)?"Card payment":"Refund"):""}
       else if(B&&x.kind=="out"){Object.assign(o,{kind:"tr",to:B.id,got:trGot(+x.amt,A,B),fee:0,cat:"",payee:"",note:k.payee});delete o.cat;delete o.payee}else{o.payee=k.payee;if(k.note&&(!o.note||o.note==k.raw.slice(0,80)))o.note=k.note;if(!o.cat)o.cat=k.hint?(k.hint=="atm"?"Cash withdrawal":k.hint=="own"?"Own account transfer":"Card bill"):(k.cat||catGuess(k.note+" "+k.payee)||"")}
       o.raw=o.raw||k.raw.slice(0,160);put("tx",stamp(o,x));n++});p.M=stmtMatch(p.P,p.acc);if(p.T!=null){stBalTo(p,p.T);p.M=stmtMatch(p.P,p.acc)}save();render();stmtShow();toast(n+(n==1?" entry fixed":" entries fixed"))},
-  stSetBal(){const p=stPend;if(!p||!p.M)return;const A=ac(p.acc),s=v("f_owe").trim();if(s===""||!/\d/.test(s))return toast(A.type=="card"?"Type what you owe now":"Type the balance now");
-    let T=num(s);if(A.type=="card"){T=Math.abs(T);if(!($("#f_owecr")||{}).checked)T=-T}p.T=Math.round(T*100)/100;const d=stBalTo(p,p.T);p.M=stmtMatch(p.P,p.acc);save();render();stmtShow();
-    toast(A.type=="card"?(p.T<0?"Done. The card shows "+fmx(-p.T,A.cur)+" owed":"Done. The card is "+fmx(p.T,A.cur)+" in credit"):"Balance set to "+fmx(p.T,A.cur))},
+  stSetBal(){const p=stPend;if(!p||!p.M)return;const A=ac(p.acc);let T;
+    if(A.type=="card"){const r=cardTarget(A,$("#f_avl")?v("f_avl"):"",v("f_owe"),$("#f_lim3")?v("f_lim3"):null);if(r.err)return toast(r.err);if(r.L){put("acc",stamp({...A,lim:r.L},A))}T=r.T}
+    else{const s=v("f_owe").trim();if(s===""||!/\d/.test(s))return toast("Type the balance now");T=num(s)}
+    p.T=Math.round(T*100)/100;stBalTo(p,p.T);p.M=stmtMatch(p.P,p.acc);save();render();stmtShow();const K=ac(p.acc);
+    toast(A.type=="card"?(cardLim(K)?"Done. Available to spend: "+fmx(cardAv(K),K.cur):p.T<0?"Done. You owe "+fmx(-p.T,K.cur):"Done. The card is "+fmx(p.T,K.cur)+" in credit"):"Balance set to "+fmx(p.T,A.cur))},
   stUseAcc(id){const p=stPend;if(!p||!p.P||!ac(id))return;p.acc=id;p.T=null;setVal("f_acc",id);p.M=stmtMatch(p.P,id);stmtShow()},
   casOpen(){casForm()},casRetry(){if(casFileLast)casFile(casFileLast)},
   async casGo(){const F=casPend;if(!F)return;let n=0,u=0;for(const f of F){const x=casMatch(f),cf=f.tx.map(t=>({d:t.d,a:t.amt}));
@@ -6325,6 +6340,63 @@ Object.assign(ACT,{
 });
 /* typing or tapping inside the vault keeps it open; the 3-minute lock only counts idle time */
 ["input","click","keydown"].forEach(t=>document.addEventListener(t,()=>{if(VLT.key&&$("#over [data-vault]"))vTouch()},true));
+
+/* ===== Version 32.2: credit cards show limit, used and available to spend, like the bank app ===== */
+const cardLim=k=>k&&k.type=="card"?Math.abs(+k.lim||0):0;
+const cardOwe=k=>Math.max(0,-Math.round(bal(k)*100)/100);
+const cardAv=k=>Math.round((cardLim(k)+bal(k))*100)/100;
+function cardBar(k){const L=cardLim(k);if(!L)return "";const p=Math.max(0,Math.min(100,Math.round(cardOwe(k)/L*100)));return `<div class="cbar" role="img" aria-label="${p}% of the limit used"><i style="width:${p}%;background:${p>=90?"var(--late)":p>=70?"var(--soon)":"var(--pri)"}"></i></div>`}
+const cardUsed=k=>{const L=cardLim(k),b=Math.round(bal(k)*100)/100;return L?`Used ${fmx(cardOwe(k),k.cur)} of ${fmx(L,k.cur)}`:(b<0?"You owe "+fmx(-b,k.cur):b>0?fmx(b,k.cur)+" in credit":"Nothing owed")};
+
+/* the limit in the account form, shown only for credit cards */
+{const _af=accForm;accForm=function(k){_af(k);try{const t=$("#f_type"),row=t&&t.closest(".two");if(!row)return;const w=document.createElement("div");w.id="f_limw";
+  w.innerHTML=F("f_lim","Card limit (as the bank app shows)",k&&k.lim||"","number",'placeholder="Credit limit"')+`<p class="note" style="margin-top:4px">The card then shows what’s left to spend: limit minus what you owe.</p>`;row.insertAdjacentElement("afterend",w);
+  const sync=()=>{w.style.display=t.value=="card"?"":"none"};sync();t.addEventListener("change",sync);if(taOn())taNode(w)}catch(e){console.warn(e)}}}
+{const _sa=ACT.saveAcc;ACT.saveAcc=function(id,...a){const has=!!$("#f_lim"),lim=has?Math.abs(num(v("f_lim")))||0:0,ty=has?v("f_type"):"",before=new Set(S.acc.map(k=>k.id));const r=_sa.call(this,id,...a);
+  if(has){const k=id?S.acc.find(x=>x.id==id):S.acc.find(x=>!before.has(x.id));const nv=ty=="card"?Math.round(lim*100)/100:0;if(k&&(+k.lim||0)!=nv){put("acc",stamp({...k,lim:nv},k));save();render()}}return r}}
+
+/* Accounts list: a card shows what's left to spend, with a bar for what's used */
+{const _va=vAcc;vAcc=function(...a){let h=_va(...a);try{S.acc.filter(k=>k.type=="card").forEach(k=>{const L=cardLim(k),b=bal(k);
+    const re=new RegExp('(<div class="arow" data-act="accMenu" data-id="'+k.id+'">[\\s\\S]*?<div class="an"><b>[^<]*</b><small>)([^<]*)(</small>)(</div>)<b class="ab[^"]*">[^<]*</b>');
+    h=h.replace(re,(m0,a1,sm,c1,c2)=>a1+esc(L?"Used "+nf(cardOwe(k),2)+" of "+nf(L,2):cardUsed(k))+c1+cardBar(k)+c2+(L?`<b class="ab${cardAv(k)<0?" neg":""}">${fmx(cardAv(k),k.cur)}<small class="abl">available</small></b>`:`<b class="ab${b<0?" neg":""}">${fmx(b,k.cur)}<small class="abl">${b<0?"owed":"balance"}</small></b>`))});
+    if(S.acc.some(k=>k.type=="card"))h=h.replace('<p class="note" style="margin-top:6px">Tap an account','<p class="note" style="margin-top:6px">Card totals count what you owe. Tap an account')}catch(e){console.warn(e)}return h}}
+
+/* the card's own sheet */
+{const _am=accMenu;accMenu=function(id){_am(id);try{const k=ac(id);if(!k||k.type!="card")return;const big=$("#over .big");if(!big)return;const L=cardLim(k),b=bal(k);
+  big.style.color=L?(cardAv(k)<0?"var(--late)":"inherit"):(b<0?"var(--late)":"inherit");
+  big.innerHTML=L?`${fmx(cardAv(k),k.cur)} <small style="font-size:14px;font-weight:600;color:var(--mute)">available to spend</small>`:`${b<0?fmx(-b,k.cur)+' <small style="font-size:14px;font-weight:600;color:var(--mute)">owed</small>':fmx(b,k.cur)}`;
+  big.insertAdjacentHTML("afterend",L?`${cardBar(k)}<div class="cgrid"><div><small>Card limit</small><b>${fmx(L,k.cur)}</b></div><div><small>You owe</small><b>${fmx(cardOwe(k),k.cur)}</b></div><div><small>Available</small><b>${fmx(cardAv(k),k.cur)}</b></div></div>`
+    :`<div class="card" style="margin:8px 0"><b>Add the card limit</b><p class="note" style="margin:4px 0 0">Then the card shows what’s left to spend, like the bank app.</p><div class="acts"><button class="btn sm" data-act="editAcc" data-id="${id}">Add card limit</button></div></div>`);if(taOn())taNode($("#over"))}catch(e){console.warn(e)}}}
+/* statement sheet header */
+{const _sm=stmt;stmt=function(k,...a){const r=_sm(k,...a);try{if(k&&k.type=="card"){const s=$("#over .sub");if(s)s.textContent=cardLim(k)?`Limit ${fmx(cardLim(k),k.cur)} · used ${fmx(cardOwe(k),k.cur)} · available ${fmx(cardAv(k),k.cur)}`:cardUsed(k)}}catch(e){}return r}}
+
+/* Correct balance, card version: type what the bank app shows */
+{const _ff=fixForm;fixForm=function(id){const k=ac(id);if(!k||k.type!="card")return _ff(id);const L=cardLim(k);
+  sheet(`<h2>Correct card balance</h2><p class="sub">${esc(k.name)}: the app shows ${esc(L?cardUsed(k)+" · available "+fmx(cardAv(k),k.cur):cardUsed(k))}. Type what the bank app shows now.</p>
+  ${L?"":F("f_lim2","Card limit","","number",'placeholder="Credit limit"')}${F("f_avl","Available to spend now ("+k.cur+")","","number")}
+  <p class="note" style="margin:2px 0 8px">or</p>${F("f_owe2","Amount you owe now ("+k.cur+")","","number")}
+  <div class="acts"><button class="btn" data-act="saveFix" data-id="${id}">Save</button><button class="btn ghost" data-act="okBal" data-id="${id}">It matches</button></div>${k.rcd?`<p class="note">Last checked ${fmt(k.rcd)}</p>`:""}`)}}
+function cardTarget(k,avlS,oweS,limS){let L=cardLim(k);const nl=limS!=null&&String(limS).trim()!==""?Math.abs(num(limS)):0;if(nl)L=nl;
+  if(String(avlS||"").trim()!==""){if(!L)return {err:"Add the card limit first, or type what you owe"};return {T:Math.round((Math.abs(num(avlS))-L)*100)/100,L:nl||0}}
+  if(String(oweS||"").trim()!=="")return {T:-Math.abs(Math.round(num(oweS)*100)/100),L:nl||0};return {err:"Type the amount available or what you owe"}}
+{const _sf=ACT.saveFix;ACT.saveFix=function(id,...a){const k=ac(id);if(!k||k.type!="card"||!$("#f_avl"))return _sf.call(this,id,...a);
+  const r=cardTarget(k,v("f_avl"),v("f_owe2"),$("#f_lim2")?v("f_lim2"):null);if(r.err)return toast(r.err);if(r.L){k.lim=r.L;k.ut=Date.now()}
+  const d=Math.round((r.T-bal(k))*100)/100;if(Math.abs(d)>=.005)addTx({kind:"adj",acc:id,amt:d,cur:k.cur,date:today(),cat:"Balance correction",note:"Matched to the bank app"});
+  const W={...(S.cfg.balWarn||{})};delete W[id];S.cfg.balWarn=W;k.rcd=today();k.ut=Date.now();done();toast(cardLim(k)?"Available to spend: "+fmx(cardAv(k),k.cur):"You owe "+fmx(cardOwe(k),k.cur))}}
+{const _bf=ACT.balFix;ACT.balFix=function(id,...a){const k=ac(id),w=(S.cfg.balWarn||{})[id];if(!k||k.type!="card")return _bf.call(this,id,...a);fixForm(id);const e=$("#f_avl");if(e&&w&&w.avl!=null)e.value=w.avl}}
+
+/* card alerts: "Available Limit: QAR 3,193.00" keeps the card right */
+function cardAvl(text){const s=String(text||"").replace(/\s+/g," "),m=s.match(/(?:avl\.?|avail\.?|available)\s*(?:cr\.?\s*|credit\s+)?(?:lmt|limit|balance|bal\.?)\s*(?:is|:|-|of)?\s*(?:INR|Rs\.?|₹|QAR|QR)?\s*([\d,]+(?:\.\d{1,2})?)/i);return m?BNUM(m[1]):null}
+function cardCheck(acc,text){const A=ac(acc);if(!A||!A.id||A.type!="card"||!cardLim(A))return;const avl=cardAvl(text);if(avl==null||!isFinite(avl))return;
+  const bank=Math.round((avl-cardLim(A))*100)/100,app=Math.round(bal(A)*100)/100,W={...(S.cfg.balWarn||{})};if(Math.abs(app-bank)>=1)W[acc]={bank,app,avl,at:today(),t:Date.now()};else delete W[acc];S.cfg.balWarn=W}
+{const _qs=quickSave;quickSave=function(m,...a){const t=_qs(m,...a);try{if(t&&t.acc)cardCheck(t.acc,m.body)}catch(e){}return t}}
+let cardPend=null;
+{const _sa2=ACT.smsAdd;ACT.smsAdd=function(id,...a){const m=(S.cfg.smsq||[]).find(x=>String(x.id)==id);cardPend=m&&m.p&&cardAvl(m.body)!=null?{acc:m.p.acc,body:m.body,n:S.tx.length}:null;return _sa2.call(this,id,...a)}}
+{const _st2=ACT.saveTx;ACT.saveTx=function(...a){const r=_st2.apply(this,a);try{if(cardPend&&S.tx.length>cardPend.n){const t=S.tx[S.tx.length-1];if(t&&t.acc){cardCheck(t.acc,cardPend.body);save()}}}catch(e){}cardPend=null;return r}}
+{const _ti2=todoItems;todoItems=function(){const L=_ti2();L.forEach(it=>{if(it.act!="balFix")return;const A=ac(it.id),w=(S.cfg.balWarn||{})[it.id];if(!A||A.type!="card"||!w||w.avl==null)return;
+  const appAv=Math.round((cardLim(A)+w.app)*100)/100,d=appAv-w.avl;it.tx=A.name+": bank says "+fmx(w.avl,A.cur)+" available";it.sub="The app showed "+fmx(appAv,A.cur)+" ("+(d>0?"higher":"lower")+" by "+fmx(Math.abs(d),A.cur)+") · tap to correct"});return L}}
+
+Object.assign(TA,{"available":"கிடைக்கும்","Card limit":"கார்டு வரம்பு","You owe":"நீங்கள் செலுத்த வேண்டியது","Available":"கிடைக்கும் தொகை","Add card limit":"கார்டு வரம்பைச் சேர்","Add the card limit":"கார்டு வரம்பைச் சேர்க்கவும்","available to spend":"செலவழிக்கக் கிடைக்கும்","owed":"செலுத்த வேண்டியது"});
 
 /* ===== start ===== */
 let pq=null,pshare="";try{const U=new URLSearchParams(location.search);pq=U.get("add");pshare=[U.get("title"),U.get("text")].filter(Boolean).join(" ")}catch(e){}
