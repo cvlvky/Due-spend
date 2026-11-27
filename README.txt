@@ -1,5 +1,15 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.5
+- Import statement for SSY (Selvamagal), PPF and RD accounts: PDF (with
+  its password) or CSV from the bank or post office. Deposits are added
+  once, the bank's balance right after its 31 March interest becomes the
+  starting point, finished years show in Year by year, and the opening
+  date (which sets maturity) is read from the statement.
+- A statement that starts with money already in the account shows "Put
+  in since" and "Interest since"; an older statement fills in the rest.
+- "Balance as on <date>" opening lines and SBI value dates are read.
+
 NEW IN VERSION 32.4
 - Bank statements whose descriptions start on the line above the date
   (Axis Bank and similar) are read correctly: each line goes to the
