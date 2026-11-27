@@ -11,8 +11,11 @@ OZ=31.1034768
 DATA={'xau':{"date":"2026-11-13","xau":{"inr":340000.0,"qar":14500.0,"usd":3980.0}},'xag':{"date":"2026-11-13","xag":{"inr":4100.0,"qar":175.0}},'qar':{"date":"2026-11-13","qar":{"inr":24.31}}}
 MF_SEARCH=[{"schemeCode":122639,"schemeName":"Parag Parikh Flexi Cap Fund - Direct Plan - Growth"},{"schemeCode":122640,"schemeName":"Parag Parikh Flexi Cap Fund - Regular Plan - Growth"}]
 MF_LATEST={"meta":{"scheme_name":"Parag Parikh Flexi Cap Fund - Direct Plan - Growth"},"data":[{"date":"12-11-2026","nav":"92.5100"}]}
+LIVE={'d':None}
 def route(r):
     u=r.request.url
+    if 'xaus.com/api' in u:
+        return r.fulfill(status=200,content_type='application/json',body=json.dumps(LIVE['d']),headers={'Access-Control-Allow-Origin':'*'}) if LIVE['d'] else r.fulfill(status=503,body='',headers={'Access-Control-Allow-Origin':'*'})
     for k in DATA:
         if f'/currencies/{k}.min.json' in u: return r.fulfill(status=200,content_type='application/json',body=json.dumps(DATA[k]),headers={'Access-Control-Allow-Origin':'*'})
     if 'mfapi.in/mf/search' in u: return r.fulfill(status=200,content_type='application/json',body=json.dumps(MF_SEARCH),headers={'Access-Control-Allow-Origin':'*'})
@@ -27,11 +30,31 @@ try:
     pg.goto('http://localhost:8765/due-and-spend.html'); pg.wait_for_selector('#nav button'); E=pg.evaluate
     ok('new name shown','Personal Diary' in pg.inner_text('#app') and pg.title()=='Personal Diary')
     pg.wait_for_function('S.mk&&S.mk.g',timeout=10000)
-    g24=E('goldGram("INR",24)'); ok('24K India price per gram with 6% duty',abs(g24-340000/OZ*1.06)<0.01,g24)
+    g24=E('goldGram("INR",24)'); ok('24K India price per gram with 15% duty and 3% import GST',abs(g24-340000/OZ*1.1845)<0.01,g24)
     ok('22K Qatar price',abs(E('goldGram("QAR",22)')-14500/OZ*.916)<0.001)
     ok('QAR rate follows live price',E('S.cfg.rate')==24.31 and E('S.cfg.rateAt')==E('today()'))
     pg.click('#nav button[data-id="invest"]'); pg.wait_for_timeout(200); t=pg.inner_text('#app')
     ok('gold card shows rates','Gold and exchange rates' in t and 'Gold 22K' in t and '₹24.31' in t,t[:300])
+    ok('card shows the international price and where the difference comes from','International gold' in t and '$3,980 an ounce' in t and '18.45%' in t and 'Daily price for' in t,t[:900])
+    # the live price is used when it is available
+    LIVE['d']={'spot_usd_oz':4100.0,'silver_usd_oz':50.0,'price_as_of':'2026-11-27T10:00:00Z','stale':False}
+    E('ACT.mkRefresh()');pg.wait_for_function('S.mk&&S.mk.live',timeout=10000)
+    ok('live price used for gold',abs(E('S.mk.g.usd*31.1034768')-4100)<0.01 and abs(E('goldGram("INR",24)')-4100*340000/3980/OZ*1.1845)<0.01 and E('S.mk.date')==E('today()'))
+    pg.wait_for_timeout(300);t=pg.inner_text('#app');ok('card says it is live','Live price' in t and '$4,100 an ounce' in t,t[:900])
+    # matching the jeweller's rates
+    pg.click('[data-act="mkSet"]');pg.wait_for_selector('#f_in22')
+    pg.fill('#f_in22','118200');pg.click('#over [data-act="mkSave"]');pg.wait_for_timeout(150);ok('a 10-gram price is caught',not E('S.cfg.gpk&&S.cfg.gpk.IN') and E('!!$("#f_in22")'))
+    pg.fill('#f_in22','11820');pg.fill('#f_qa22','412.5');pg.fill('#f_qa24','445');pg.click('#over [data-act="mkSave"]');pg.wait_for_timeout(200)
+    ok('India 22K matches the jeweller',abs(E('goldGram("INR",22)')-11820)<2,E('goldGram("INR",22)'))
+    ok('Qatar 22K and 24K match the jeweller',abs(E('goldGram("QAR",22)')-412.5)<0.1 and abs(E('goldGram("QAR",24)')-445)<0.1,[E('goldGram("QAR",22)'),E('goldGram("QAR",24)')])
+    ok('other purities follow the 22K margin',abs(E('goldGram("INR",18)')/E('goldGram("INR",22)')-0.75/0.916)<0.001)
+    t=pg.inner_text('#app');ok('card says it is matched','matched to your jeweller' in t,t[:900])
+    pg.click('[data-act="mkSet"]');pg.wait_for_selector('#over [data-act="mkClear"]');pg.click('#over [data-act="mkClear"]');pg.wait_for_timeout(150);ok('matching can be stopped',not E('S.cfg.gpk') and abs(E('goldGram("INR",24)')-E('S.mk.g.inr')*1.1845)<0.01)
+    # the old 6% (or 0) setting moves to the new duty once
+    E('S.cfg.gpIN=0;delete S.cfg.gpMig;render()');ok('old duty setting moves to the new duty',E('S.cfg.gpIN')==None and abs(E('goldGram("INR",24)')/E('S.mk.g.inr')-1.1845)<0.0001)
+    E('S.cfg.gpIN=0;render()');ok('a 0% chosen after that is kept',E('S.cfg.gpIN')==0)
+    E('delete S.cfg.gpIN;S.mk.at=0;S.mk.live=false')
+    LIVE['d']=None;E('ACT.mkRefresh()');pg.wait_for_function('S.mk&&S.mk.at>0&&!S.mk.live',timeout=10000)
     ok('post office schemes listed','Post office schemes (India)' in t and 'Public Provident Fund' in t and '8.2%' in t)
     # PPF calc: 1.5L/yr for 15 yrs at 7.1% ≈ 40.68 lakh
     pg.click('[data-act="schOpen"][data-id="ppf"]'); pg.fill('#sch_amt','150000'); pg.click('#over button[data-act="schCalc"]'); t=pg.inner_text('#over')
@@ -41,7 +64,7 @@ try:
     pg.click('[data-act="schOpen"][data-id="scss"]'); pg.fill('#sch_amt','1000000'); pg.click('#over button[data-act="schCalc"]'); ok('SCSS quarterly payout','20,500' in pg.inner_text('#over')); pg.click('#over .x')
     # gold holding valued automatically
     pg.click('button[data-act="addInv"]'); pg.fill('#f_name','Wife gold chain'); pg.select_option('#f_kind2','gold'); pg.fill('#f_inv','400000'); pg.click('#over details summary >> text=Live value'); pg.fill('#f_gr','50'); pg.select_option('#f_pur','22'); pg.click('#over button[data-act="saveInv"]'); pg.wait_for_timeout(300)
-    x=E('S.inv.find(x=>x.name=="Wife gold chain")'); ok('gold value from grams',x['gr']==50 and abs(x['val']-round(50*340000/OZ*.916*1.06))<=1,x)
+    x=E('S.inv.find(x=>x.name=="Wife gold chain")'); ok('gold value from grams',x['gr']==50 and abs(x['val']-round(50*340000/OZ*.916*1.1845))<=1,x)
     # mutual fund via search
     pg.click('button[data-act="addInv"]'); pg.fill('#f_name','Parag Parikh'); pg.select_option('#f_kind2','mf'); pg.fill('#f_inv','100000'); pg.click('#over details summary >> text=Live value'); pg.fill('#f_units','1500'); pg.click('#over button[data-act="mfFind"]'); pg.wait_for_selector('#mf_out .row')
     pg.click('#mf_out .row >> nth=0'); pg.wait_for_function('document.querySelector("#mf_name").textContent.includes("NAV ₹")'); print('DBG',pg.inner_text('#mf_name'),pg.input_value('#f_val'));ok('fund picked shows NAV','92.51' in pg.inner_text('#mf_name') and pg.input_value('#f_val')=='138765')
