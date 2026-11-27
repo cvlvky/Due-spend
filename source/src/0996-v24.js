@@ -42,14 +42,14 @@ function stmtParse(lines){const rows=[];let prev=null,cur=null,hdr=null,open=nul
   for(const L of lines){const t=L.t.trim();if(!t)continue;
     if(!hdr&&!rows.length&&/date/i.test(t)&&/amount|debit|credit/i.test(t)&&/detail|description|narration|particular|merchant|remark/i.test(t)&&!/balance/i.test(t)){const nb=stmtCols(L.items||[]);
       if(nb){const i=lines.indexOf(L),pre=lines.slice(0,i).map(l=>l.t).join(" "),m4=pre.match(/(?:X{2,}|\*{2,}|•{2,})\s*(\d{4})\b/i),o=stmtParseNB(lines.slice(i+1),nb);o.l4=m4?m4[1]:"";return o}}
-    if(/opening balance|balance b\/f|brought forward/i.test(t)){const a=t.match(SAMRE);if(a){prev=amtOf(a[a.length-1]);if(open==null)open=prev}pend=[];continue}
+    if(/opening balance|balance b\/f|brought forward|balance as on/i.test(t)&&!/closing/i.test(t)){const a=t.match(SAMRE);if(a){prev=amtOf(a[a.length-1]);if(open==null)open=prev}pend=[];continue}
     if(/withdraw|debit|\bdr\b/i.test(t)&&/deposit|credit|\bcr\b/i.test(t)&&/balance/i.test(t)){const f=re=>{const it=L.items.find(i=>re.test(i.s));return it?it.x+(it.w||0)/2:null};hdr={dr:f(/withdraw|debit|\bdr\b/i),cr:f(/deposit|credit|\bcr\b/i)};pend=[];continue}
     if(/\b(?:date|txn date|tran date|value date)\b/i.test(t)&&/\b(?:balance|amount|debit|credit|withdrawals?|deposits?|details|description|particulars|narration)\b/i.test(t)&&!SDRE.test(t)){pend=[];continue}
     /* the table ends at its totals or closing balance; the bank's notes and legends after it are not part of any entry */
     if(/closing balance|transaction total|grand total|end of statement|^total\b|^statement summary/i.test(t)){place(null);stop=true;continue}
     const dm=t.match(SDRE);
     if(dm&&!/opening|closing|total/i.test(t)){const am=[...t.matchAll(SAMRE)].filter(m=>m.index>=dm[0].length),d=pDate(dm[1].replace(/\s/g,"-"));if(!d||!am.length){cur=null;continue}
-      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}\s*/,"").replace(/\s+/g," ").trim();
+      let desc=t.slice(dm[0].length,am[0].index).replace(/^\s*(?:\d{1,2}[-\/.](?:\d{1,2}|[A-Za-z]{3})[-\/.]\d{2,4}|\d{1,2}\s[A-Za-z]{3}\s\d{2,4})\s*/,"").replace(/\s+/g," ").trim();
       const vals=am.map(m=>amtOf(m[0]));let amt=null,dir=null,bal=null;
       if(vals.length>=2){bal=vals[vals.length-1];const cand=vals.slice(0,-1).filter(v=>Math.abs(v)>0.004);
         if(prev!=null)for(const a of cand){const x=Math.abs(a);if(Math.abs(prev-x-bal)<0.011){amt=x;dir="out";break}if(Math.abs(prev+x-bal)<0.011){amt=x;dir="in";break}}
