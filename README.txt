@@ -1,5 +1,31 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.8
+- Post office deposits have their own page, like the RD page: scheme
+  (Time Deposit, NSC, KVP, MIS or SCSS), term, account holder, single or
+  joint, account or certificate number, post office, date and amount.
+- Each scheme's rules are checked: TD, NSC and KVP from Rs 1,000 in Rs 100
+  steps; MIS and SCSS in Rs 1,000 steps, up to Rs 9 lakh (Rs 15 lakh
+  joint) for MIS and Rs 30 lakh for SCSS. The rules are shown on the page.
+- The government rate for the date of deposit and the maturity date fill
+  in by themselves. A TD shows the interest paid each year, MIS each month
+  and SCSS each quarter (1 April, July, October, January), with the next
+  payment; NSC shows the interest added each year and which years count
+  for 80C.
+- Interest paid into an account shows on Home on the day, with Add to put
+  it in that account. Interest received and "Matured or closed" record the
+  money coming back.
+- Post office deposits are listed under Wealth > Schemes with your RD, SSY
+  and PPF; Investments links to them.
+- RD follows the post office rules: monthly only, from Rs 100 in Rs 10
+  steps, due by the 15th (opened on the 1st to 15th) or the last working
+  day. Missed instalments and the default fee are shown and filled in
+  when you deposit.
+- SSY and PPF deposits are checked for Rs 50 steps and the Rs 1.5 lakh
+  yearly limit; SSY takes the girl's date of birth.
+- The scheme calculator shows a TD's yearly interest correctly and adds
+  each scheme to the right page; the savings account opens as an account.
+
 NEW IN VERSION 32.7
 - Fixed deposits work out what they pay. Under "Kind of deposit" choose a
   bank FD (interest added, or paid out) or a post office scheme: Time

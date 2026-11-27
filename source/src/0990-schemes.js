@@ -32,17 +32,22 @@ function saState(x){const t=today(),L=deps(x),dep=L.reduce((s,d)=>s+ +d.a,0),fy=
   const base=x.base&&x.base.d?x.base:null,putIn=base?L.filter(d=>d.d>=base.d).reduce((s,d)=>s+ +d.a,0):dep;
   return {dep,fyDep,now,int:now-dep-(x.fix&&x.fix.d?0:0),mat,closed,proj:P.bal,fut:fut.length,next:closed?null:saNext(x),R,putIn,intr:now-(base?+base.bal||0:0)-putIn,since:base?base.d:null}}
 const planAmt=x=>x.type=="rd"?+x.inst||0:x.plan&&x.plan.f&&+x.plan.a||0;
+/* RD: instalment k is due by the 15th (opened on the 1st to 15th) or the month end (opened later); the first is paid on opening */
+const rdDue=(x,k)=>{if(!k)return x.open;const m=addMon(x.open.slice(0,7),k);return +x.open.slice(8)<=15?m+"-15":mEnd(m)};
+function rdStatus(x){const inst=+x.inst||0,L=deps(x),paid=Math.min(60,inst?Math.floor(L.reduce((s,d)=>s+ +d.a,0)/inst+1e-9):L.length),t=today();let due=0;for(let k=0;k<60;k++){if(rdDue(x,k)<t)due++;else break}
+  const miss=Math.max(0,due-paid),fee=inst?Math.round(inst/100*miss*(miss+1)/2):0;return {inst,paid,due,miss,fee,next:paid>=60?null:rdDue(x,paid),disc:miss>4,rule:+x.open.slice(8)<=15?"the 15th":"the last working day"}}
 /* the next deposit that is due */
-function saNext(x){const t=today(),L=deps(x);if(t>=saDepEnd(x))return null;
-  if(x.type=="rd"){const inst=+x.inst||0,n=inst?Math.floor(L.reduce((s,d)=>s+ +d.a,0)/inst+1e-9):L.length;return n>=60?null:addM(x.open,n)}
+function saNext(x){const t=today(),L=deps(x);if(t>=saDepEnd(x)&&x.type!="rd")return null;
+  if(x.type=="rd"){if(t>=saMature(x))return null;return rdStatus(x).next}
   if(!x.plan||!x.plan.f)return null;const day=Math.min(28,+x.plan.day||+x.open.slice(8)||5);
   if(x.plan.f=="m"){const cm=t.slice(0,7),has=L.some(d=>d.d.slice(0,7)==cm);return (has?addMon(cm,1):cm)+"-"+p2(day)}
   const fy=fyStart(),has=L.filter(d=>d.d>=fy).reduce((s,d)=>s+ +d.a,0)>=+x.plan.a;let d=fy.slice(0,4)+"-"+(x.plan.md||"04-05");if(d<fy)d=addM(d,12);return has?addM(d,12):d}
 const saAct=()=>S.sacc.filter(x=>!x.closedHide);
 /* reminders, net worth and payments link into the rest of the app */
 {const _up=upcoming;upcoming=function(from,to,inc){const L=_up(from,to,inc);
-  saAct().forEach(x=>{let d=saNext(x),n=0;const a=planAmt(x),end=saDepEnd(x),paid=deps(x).length;
-    for(let k=0;k<60&&d&&d<=to&&d<end;k++){if(d>=from||(inc&&k==0))L.push({d,n:SAS[x.type]+": "+x.name,t:"due",src:"sch",a,c:"INR",id:x.id});n++;if(x.type=="rd"&&paid+n>=60)break;d=x.type!="rd"&&x.plan&&x.plan.f=="y"?addM(d,12):addM(d,1)}});
+  saAct().forEach(x=>{let d=saNext(x),n=0;const a=planAmt(x),end=x.type=="rd"?addM(saMature(x),1):saDepEnd(x),paid=x.type=="rd"?rdStatus(x).paid:deps(x).length;
+    const ra=x.type=="rd"&&d&&d<today()?a*Math.max(1,rdStatus(x).miss):a;
+    for(let k=0;k<60&&d&&d<=to&&d<end;k++){if(d>=from||(inc&&k==0))L.push({d,n:SAS[x.type]+": "+x.name,t:"due",src:"sch",a:k?a:ra,c:"INR",id:x.id});n++;if(x.type=="rd"&&paid+n>=60)break;d=x.type=="rd"?rdDue(x,paid+n):x.plan&&x.plan.f=="y"?addM(d,12):addM(d,1)}});
   return L.sort((a,b)=>a.d.localeCompare(b.d))}}
 {const _nw=nwParts;nwParts=function(to){const p=_nw(to);p.inv+=S.sacc.reduce((s,x)=>s+cv(saState(x).now,"INR",to),0);return p}}
 {const _la=linkApply;linkApply=function(x,s){if(!x.link||x.link.t!="sch")return _la(x,s);const a=S.sacc.find(q=>q.id==x.link.id);if(!a)return;a.ut=Date.now();a.dep=a.dep||[];

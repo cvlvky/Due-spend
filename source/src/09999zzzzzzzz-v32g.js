@@ -32,7 +32,9 @@ function depInfo(x){if(!x||x.kind!="fd")return null;const P=+x.inv||0,dk=dkOf(x)
 /* value today: grows to the maturity amount; for schemes that pay interest out, the money plus the interest since the last payment */
 function depNow(x,on){const o=depInfo(x);if(!o||!o.P||!o.sd||x.closed)return 0;const d=on||today();if(d<o.sd)return 0;const t=Math.min(yrsBetween(o.sd,d),o.T||yrsBetween(o.sd,d));
   if(o.cum&&o.mat&&o.T>0)return Math.round(o.P*Math.pow(o.mat/o.P,Math.max(0,t)/o.T));
-  if(o.pay&&o.r){const per=o.pay.every=="year"?1:o.pay.every=="quarter"?0.25:1/12,f=(t%per)/per;return Math.round(o.P+o.pay.amt*f)}return 0}
+  if(o.pay&&o.r){const L=typeof poPays=="function"?poPays(x):[];if(L.length){let last=o.sd,nx=null;for(const p of L){if(p.d<=d)last=p.d;else{nx=p;break}}if(!nx)return o.P;
+      const span=(D(nx.d)-D(last))/864e5,el=(D(d)-D(last))/864e5;return Math.round(o.P+nx.a*Math.max(0,el)/(span||1))}
+    const per=o.pay.every=="year"?1:o.pay.every=="quarter"?0.25:1/12,f=(t%per)/per;return Math.round(o.P+o.pay.amt*f)}return 0}
 const EVERY={year:"a year",quarter:"a quarter",month:"a month"};
 function depSay(x,form){const o=depInfo(x);if(!o||!o.P)return "";const cur=x.cur||"INR",m=v=>fmx(Math.round(v),cur);
   if(!o.sd)return "Add the start date to work out the maturity.";if(!o.mat){if(o.r)return "Add the maturity date to work out the maturity amount.";
@@ -48,7 +50,8 @@ function depSay(x,form){const o=depInfo(x);if(!o||!o.P)return "";const cur=x.cur
 /* the form: what kind of deposit, the official rate, the maturity date and amount */
 {const _if=iForm;iForm=function(x){_if(x);try{const rt=$("#f_rt"),row=rt&&rt.closest(".two");if(!row)return;const dk=dkOf(x),guessed=!!(x&&!x.dk&&dk&&dk!="bank");
   const k2=$("#f_kind2"),trow=k2&&k2.closest(".two");
-  (trow||row).insertAdjacentHTML("afterend",`<div id="f_dkw">${SEL("f_dk","Kind of deposit",[["","Choose…"],...Object.entries(DK)],dk)}</div>`);
+  const nm=$("#f_name");if(nm)nm.insertAdjacentHTML("afterend",`<p class="note" id="f_pohint" style="display:none;margin:6px 0 0">This looks like a post office deposit. <button class="btn sm" data-act="poSwitch">Use the post office form</button></p>`);
+  (trow||row).insertAdjacentHTML("afterend",`<div id="f_dkw">${SEL("f_dk","Kind of deposit",[["","Choose…"],["bank",DK.bank],["bankp",DK.bankp],["po","Post office scheme (TD, NSC, KVP, MIS or SCSS)"]],DK_PO.has(dk)?"po":dk)}</div>`);
   row.insertAdjacentHTML("afterend",`<div id="f_depw">${F("f_mamt","Maturity amount, if your certificate shows it (optional)",x&&x.mamt||"","number")}<p class="note" id="f_depsum" style="margin-top:4px"></p></div>`);
   const w=$("#f_depw"),wk=$("#f_dkw"),sync=()=>{w.style.display=wk.style.display=k2.value=="fd"?"":"none";$("#f_rt").closest("div").querySelector("label")&&($("#f_rt").closest("div").querySelector("label").textContent=k2.value=="fd"?"Interest % per year":"Interest % per year (FDs)");depLive()};
   if(guessed)$("#f_dk").dataset.auto="1";k2.addEventListener("change",sync);sync();if(DK_PO.has(dk)&&!$("#f_rt").value)depLive("open")}catch(e){console.warn(e)}}}
@@ -58,14 +61,14 @@ function depAuto(changed){const f=depForm(),rt=$("#f_rt"),md=$("#f_md");if(f.kin
   if(f.kind!="fd"||!DK_PO.has(f.dk)||!f.sd)return;
   if(md&&(!md.value||md.dataset.auto=="1")&&(changed=="f_dk"||changed=="f_sd"||!md.value)){const d=poMature(f.dk,f.sd,f.dk=="potd"?md.value:"");if(d){md.value=d;md.dataset.auto="1"}}
   if(rt&&(!rt.value||rt.dataset.auto=="1")){const r=poRate(f.dk,f.sd,$("#f_md").value);if(r){rt.value=r;rt.dataset.auto="1"}}}
-function depLive(changed){if(!$("#f_depsum"))return;if(changed)depAuto(changed);const f=depForm(),s=$("#f_depsum");
+function depLive(changed){if(!$("#f_depsum")||$("#f_poform"))return;if(changed)depAuto(changed);const f=depForm(),s=$("#f_depsum");
   const k=$("#f_dk"),note=k&&k.dataset.auto=="1"&&f.dk?" <i>Kind picked from the name. Change it if your certificate shows another scheme.</i>":"";
-  s.innerHTML=f.kind!="fd"?"":!f.dk?(f.inv?"Choose the kind of deposit, and the app works out the maturity amount.":""):(depSay(f,true)||"")+note}
+  const po=!!(f.kind=="fd"&&k&&k.dataset.po&&(!f.dk||f.dk=="po")),ph=$("#f_pohint");if(ph)ph.style.display=po?"":"none";
+  s.innerHTML=f.kind!="fd"?"":!f.dk||f.dk=="po"?(f.inv&&!po?"Choose the kind of deposit, and the app works out the maturity amount.":""):(depSay(f,true)||"")+note}
 document.addEventListener("change",e=>{const id=e.target&&e.target.id;if(["f_dk","f_sd","f_md","f_rt","f_inv","f_mamt","f_cur"].includes(id)){if(id=="f_rt"||id=="f_md"||id=="f_dk"){e.target.dataset.auto=""}depLive(id)}});
 /* typing the name picks the kind, until you choose one yourself */
-document.addEventListener("input",e=>{if(!e.target||e.target.id!="f_name")return;const k=$("#f_dk"),k2=$("#f_kind2");if(!k||!k2||k2.value!="fd"||(k.value&&k.dataset.auto!="1"))return;
-  const g=dkGuess(e.target.value);if(g==k.value)return;
-  if(g){k.value=g;k.dataset.auto="1"}else{k.value="";k.dataset.auto="";["f_rt","f_md"].forEach(id=>{const q=$("#"+id);if(q&&q.dataset.auto=="1"){q.value="";q.dataset.auto=""}})}depLive("f_dk")});
+document.addEventListener("input",e=>{if(!e.target||e.target.id!="f_name"||$("#f_poform"))return;const k=$("#f_dk"),k2=$("#f_kind2");if(!k||!k2||k2.value!="fd")return;
+  k.dataset.po=dkGuess(e.target.value);depLive()});
 document.addEventListener("input",e=>{const id=e.target&&e.target.id;if(["f_inv","f_rt","f_mamt"].includes(id)){if(id=="f_rt")e.target.dataset.auto="";depLive()}});
 {const _si=ACT.saveInv;ACT.saveInv=function(id,...a){const has=!!$("#f_dk"),dk=has?v("f_dk"):"",mamt=has?+v("f_mamt")||0:0,before=new Set(S.inv.map(x=>x.id));const r=_si.call(this,id,...a);
   if(has){const x=id?S.inv.find(q=>q.id==id):S.inv.find(q=>!before.has(q.id));if(x&&((x.dk||"")!==dk||(+x.mamt||0)!==mamt)){put("inv",stamp({...x,dk,mamt},x));save();render()}}return r}}
