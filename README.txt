@@ -1,5 +1,15 @@
 PERSONAL DIARY (version 32, formerly Due & Spend)
 
+NEW IN VERSION 32.3
+- Cards match the bank by themselves: "Available Limit" in card alerts
+  (SMS, Gmail, Outlook) is compared with the app, counting payments still
+  waiting in review. The app also looks back for the latest alert once a
+  day and when a limit is set. A gap shows in Needs attention and on the
+  card page; one tap matches it.
+- The first match goes into the card's opening balance (money from before
+  the first entry); later ones add a dated correction.
+- "Check with the bank" on the card page, with a typed fallback.
+
 NEW IN VERSION 32.2
 - Credit cards show what is left to spend, like the bank app: add the
   card limit in Edit account and the card shows available to spend, what
