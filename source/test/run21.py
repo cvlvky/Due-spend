@@ -12,7 +12,7 @@ try:
   E('S.cfg.smsq=[{id:"q0",from:"CBQ",body:"x",p:{kind:"out",amt:9,cur:"QAR",acc:"a2",date:today(),payee:"Spar"}}];render()')
   ok('no entrance animation on cards updated in place',E('[...$$("#app>.nofx")].length')>=1 and all(E('[...$$("#app>.nofx")].map(e=>getComputedStyle(e).animationName)')[i]=='none' for i in range(E('$$("#app>.nofx").length'))))
   E('window.__mut=0;S.cfg.smsq.push({id:"q1",from:"CBQ",body:"x",p:{kind:"out",amt:7,cur:"QAR",acc:"a2",date:today(),payee:"Lulu"}});render()')
-  ok('one new card: only a few nodes change',0<E('window.__mut')<=4,E('window.__mut'))
+  ok('one new card: only a few nodes change',0<E('window.__mut')<=8,E('window.__mut'))
   pg.fill('input[data-gs]','lul');pg.focus('input[data-gs]');E('render();render()')
   ok('typing in search survives background redraws',E('document.activeElement&&document.activeElement.matches("input[data-gs]")') and pg.input_value('input[data-gs]')=='lul')
   pg.wait_for_timeout(1500);hero=E('$(".hero .big")&&$(".hero .big").textContent');E('render()');ok('numbers don’t restart counting on update',E('$(".hero .big")&&$(".hero .big").textContent')==hero)

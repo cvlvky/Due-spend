@@ -1,4 +1,27 @@
-PERSONAL DIARY (version 35, formerly Due & Spend)
+PERSONAL DIARY (version 36, formerly Due & Spend)
+
+NEW IN VERSION 36
+- Quick review: payments that are waiting, one at a time on a big card.
+  Swipe right (or tap ✓) to approve, left (or ✕) to ignore. Change the
+  account, pick the category, or tick "It went to my own account" to save
+  a transfer. Undo on every step, and "All done" with the counts at the
+  end. The Review button on Home opens it when payments wait.
+- Type it: write "45 lulu", "salary 12000 qar", "250 petrol yesterday",
+  "1.5k rent" or "2000 from qnb to sbi" and it's saved: amount, kind,
+  currency, account, payee, category and date are filled in, with a
+  preview first and Undo after. Also in the add form.
+- Quick actions on Home under the top card: Expense, Income, Transfer,
+  Review (with the number waiting) and Type it.
+- Spending: Select many entries, then change their category, account or
+  tag, or delete them, all at once, with Undo.
+- Month in review: the month in a few pictures — what you spent against
+  last month, where it went, your favourite place, your biggest day,
+  no-spend days and how much of your income you kept. On Home in the
+  first week of the month, and on Reports.
+- A fresher look: a richer top card, colour accents (Teal, Blue, Violet,
+  Rose, Amber, Graphite) under Settings → Look, category icons in their
+  own colours, a highlighted tab in the bottom bar, and smoother sheets.
+  Payment review and Look now sit at the top of Settings.
 
 NEW IN VERSION 35.1
 - Opening Payment review looks for new payments first (bank SMS and
