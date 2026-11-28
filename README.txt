@@ -1,4 +1,26 @@
-PERSONAL DIARY (version 34, formerly Due & Spend)
+PERSONAL DIARY (version 35, formerly Due & Spend)
+
+NEW IN VERSION 35
+- Payment review works as one flow: a payment found in SMS, a bank app,
+  a wallet or email waits in Waiting; approve it and it moves to
+  Approved, skip it and it moves to Ignored.
+- In Approved you can correct it right there: change the account it was
+  paid from (a different currency is converted at your rate), tap
+  Transfer if the money went to one of your own accounts, Edit it, or
+  Undo it (it moves to Ignored, where Add it brings it back).
+- The app learns from your choices:
+  - the account for each bank and card ending, from every payment you
+    approve or correct;
+  - transfers to your own accounts, by who the money went to;
+  - payments you keep skipping.
+  Waiting shows the guess ("Learned: Doha Savings, 2 of 3"). After the
+  same choice 3 times the app does it for you: it saves the payment, or
+  the transfer, or ignores it, and the phone stops asking for those
+  banks and cards. "What the app has learned" lists every rule with
+  Forget, and Save for me when sure can be turned off.
+- An empty Waiting tab shows where the app looks (bank SMS, bank apps
+  and wallets, email) with Check now, Last 30 days, Turn on or fix and
+  Messages checked.
 
 NEW IN VERSION 34
 - Payment review: one page with three tabs, Waiting, Approved and Ignored,

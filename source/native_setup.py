@@ -218,6 +218,18 @@ public class DueNativePlugin extends Plugin {
         call.resolve();
     }
 
+    /** Banks and cards the app is sure about, from the person's own choices. */
+    @PluginMethod
+    public void payLearn(PluginCall call) {
+        JSArray keys = call.getArray("keys");
+        StringBuilder b = new StringBuilder();
+        try {
+            if (keys != null) for (int i = 0; i < keys.length(); i++) { String k = keys.getString(i); if (k != null && !k.contains(",")) { if (b.length() > 0) b.append(','); b.append(k); } }
+        } catch (Exception e) {}
+        getContext().getSharedPreferences(DuePay.PREFS, Context.MODE_PRIVATE).edit().putString("learn", b.toString()).apply();
+        call.resolve();
+    }
+
     /** Apps that showed an amount but are not read (names only). */
     @PluginMethod
     public void appsSkipped(PluginCall call) {
@@ -1714,6 +1726,12 @@ public class DuePay {
             boolean trusted = false;
             String k = key(from);
             for (int i = 0; i < auto.length(); i++) if (!k.isEmpty() && k.equals(auto.optString(i))) trusted = true;
+            /* banks and cards the app learned from your choices are saved without asking too */
+            if (!trusted) {
+                String lk = (DueNotifListener.SMSAPP.contains(pkg) ? key(title) : k).replaceAll("^[a-z]{2}-(?=[a-z0-9]{3,})", "").replaceAll("-[a-z]$", "");
+                String learn = "," + p.getString("learn", "") + ",";
+                if (!lk.isEmpty() && learn.contains("," + lk + "|" + o.optString("l4", "") + ",")) trusted = true;
+            }
             if (trusted) decide(c, id, "add", o, false);
             post(c, id, nid, o, from, trusted);
         } catch (Exception ignored) {}
