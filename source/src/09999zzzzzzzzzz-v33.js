@@ -16,7 +16,7 @@ function walletNorm(m){const b=String((m&&m.body)||"");if(!m)return b;
 
 /* ---------- Add or Skip on the phone's notification ---------- */
 const payPopOn=()=>S.cfg.payPop!==false;
-async function payPopSync(){if(!isApp())return;try{if(payPopOn()&&S.cfg.ntfAuto&&!S.cfg.payAsked){S.cfg.payAsked=1;save();NP("LocalNotifications","requestPermissions").catch(()=>{})}}catch(e){}try{await NP("DueNative","payPop",{on:payPopOn(),apps:!!S.cfg.ntfAuto,auto:(S.cfg.autoFrom||[]).slice(0,40),hide:!!S.cfg.hide||!!(typeof META!="undefined"&&META.enc)})}catch(e){}}
+async function payPopSync(){if(!isApp())return;try{if(payPopOn()&&S.cfg.ntfAuto&&!S.cfg.payAsked){S.cfg.payAsked=1;save();NP("LocalNotifications","requestPermissions").catch(()=>{})}}catch(e){}try{if(typeof payPurge=="function"&&payPurge())render();await NP("DueNative","payPop",{on:payPopOn(),apps:!!S.cfg.ntfAuto,ign:(S.cfg.ignAdd||[]).join(","),allow:(S.cfg.readAdd||[]).join(","),auto:(S.cfg.autoFrom||[]).slice(0,40),hide:!!S.cfg.hide||!!(typeof META!="undefined"&&META.enc)})}catch(e){}}
 const payTrim=(o,n)=>Object.fromEntries(Object.entries(o||{}).slice(-n));
 /* ids already handled: read from alerts or email, so an answer that finds nothing is not kept waiting */
 const paySeen=id=>{id=String(id||"");return (S.cfg.ntfSeen||[]).includes(id)||(id.startsWith("m:")&&(S.cfg.mailSeen||[]).includes(id.slice(2)))};
@@ -75,15 +75,17 @@ async function trackHub(){const st=isApp()?await readStat(false):RD,gm=gmOn(),ms
   ${q?`<div class="card" style="margin:0 0 10px;cursor:pointer;border-color:var(--pri)" data-act="smsReview"><div class="hbl"><b>${q} ${q==1?"payment":"payments"} waiting for you</b><span class="chip">Review</span></div></div>`:""}
   <h3>Where it looks</h3><div class="card">
   ${row(app&&S.cfg.smsAuto?(st.sms===false?"bad":"on"):"off","Bank SMS",app?(S.cfg.smsAuto?(st.sms===false?"Allow the SMS permission to read them":"On · last read "+tAgo(S.cfg.smsLast)):"Off"):"Works in the phone app",app?b(!!S.cfg.smsAuto,"trkSms"):"")}
-  ${row(app&&S.cfg.ntfAuto?(st.on?"on":"bad"):"off","Bank apps, wallets and SMS alerts",app?(S.cfg.ntfAuto?(st.on?"On · Google Wallet, Google Pay, PhonePe, Paytm, Samsung Wallet and bank apps · last seen "+tAgo(st.seen):"Notification access is off"):"Off"):"Works in the phone app",app?(S.cfg.ntfAuto&&st.on===false?`<button class="btn sm" data-act="notifOpen">Fix</button>`:b(!!S.cfg.ntfAuto,"trkNotif")):"")}
+  ${row(app&&S.cfg.ntfAuto?(st.on?"on":"bad"):"off","Bank apps, wallets and SMS alerts",app?(S.cfg.ntfAuto?(st.on?"On · bank apps, Google Wallet, Google Pay, PhonePe, Paytm, Samsung Wallet, email and bank SMS only · last seen "+tAgo(st.seen):"Notification access is off"):"Off"):"Works in the phone app",app?(S.cfg.ntfAuto&&st.on===false?`<button class="btn sm" data-act="notifOpen">Fix</button>`:b(!!S.cfg.ntfAuto,"trkNotif")):"")}
   ${row(gm?"on":"off","Gmail",gm?"Connected"+(gmLS("acct")?": "+esc(gmLS("acct")):""):"Not connected",`<button class="btn sm ghost" data-act="gmSheet">${gm?"Manage":"Connect"}</button>`)}
   ${row(ms?(msLS("need")?"bad":"on"):"off","Outlook",ms?(msLS("need")?"Needs you to sign in again":"Connected")+(msLS("acct")?": "+esc(msLS("acct")):""):"Not connected",`<button class="btn sm ghost" data-act="msSheet">${ms?"Manage":"Connect"}</button>`)}
   ${app&&(gm||ms)?row(mailBgOn()?"on":"off","Check email every hour","Even when the app is closed",b(mailBgOn(),"trkMail")):""}</div>
   <h3>How it asks you</h3><div class="card">
   ${row(app&&payPopOn()?(S.cfg.ntfAuto||(gm||ms)&&mailBgOn()?"on":"warn"):"off","A notification for each payment",app?(payPopOn()&&!S.cfg.ntfAuto&&!((gm||ms)&&mailBgOn())?"Turn on <b>Bank apps, wallets and SMS alerts</b> above, so the app sees payments as they happen.":"Tap Add or Skip right on the notification. The same payment from SMS, the bank app, a wallet and email is asked about once."):"Works in the phone app",app?b(payPopOn(),"payPopT"):"")}
   ${app&&payPopOn()?`<div class="acts" style="margin-top:6px"><button class="btn sm ghost" data-act="payTest">Show me an example</button></div>`:""}
-  ${row(q?"warn":"off","Payments to review on Home",q?q+" waiting":"Nothing waiting","")}</div>
+  ${row(q?"warn":"off","Payments to review on Home",q?q+" waiting":"Nothing waiting","")}
+  ${row((S.cfg.payLog||[]).length?"on":"off","Review history",(S.cfg.payLog||[]).length?(S.cfg.payLog||[]).length+" payments added or skipped, kept apart from your entries":"Payments you add or skip are listed here",`<button class="btn sm ghost" data-act="revSheet">Open</button>`)}</div>
   ${auto.length?`<h3>Saved without asking</h3><div class="card">${auto.map(k=>row(true,esc(k),"Added straight away; the notification offers Undo",`<button class="btn sm ghost" data-act="autoOff" data-id="${esc(k)}">Stop</button>`)).join("")}</div>`:""}
+  <h3>Apps read</h3><div class="card" style="cursor:pointer" data-act="appsSheet"><div class="hbl"><b>Only banks, wallets, payment apps, email and bank SMS</b><span class="chip">See</span></div><small style="color:var(--mute)">Telegram, WhatsApp, other chat apps and SMS from people are never read.</small></div>
   <div class="acts"><button class="btn ghost" data-act="readCheck">Last messages checked</button>${app?`<button class="btn ghost" data-act="smsScan30">Read SMS from 30 days</button>`:""}</div>`)}
 Object.assign(ACT,{
   trackHub(){trackHub()},

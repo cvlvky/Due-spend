@@ -128,3 +128,4 @@ details.rinfo{margin:8px 0 0}details.rinfo>summary{font-size:13.5px;font-weight:
 .trow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.trow:last-child{border-bottom:0}
 .tmain{flex:1;min-width:0}.tmain b{display:block;font-size:14.5px}.tmain small{display:block;color:var(--mute);font-size:12.5px;line-height:1.35}
 .tdot{flex:0 0 12px;width:12px;height:12px;border-radius:50%;background:var(--line)}.tdot.good{background:#1f9d6b}.tdot.bad{background:var(--late)}.tdot.warn{background:var(--soon)}
+.rvic{flex:0 0 28px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}

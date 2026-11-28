@@ -209,10 +209,25 @@ public class DueNativePlugin extends Plugin {
         e.putBoolean("on", call.getBoolean("on", false));
         e.putBoolean("hide", call.getBoolean("hide", false));
         e.putBoolean("apps", call.getBoolean("apps", true));
+        e.putString("ign", call.getString("ign", ""));
+        e.putString("allow", call.getString("allow", ""));
         JSArray auto = call.getArray("auto");
         e.putString("auto", auto == null ? "[]" : auto.toString());
         e.apply();
+        DueNotifListener.purge(getContext());
         call.resolve();
+    }
+
+    /** Apps that showed an amount but are not read (names only). */
+    @PluginMethod
+    public void appsSkipped(PluginCall call) {
+        try {
+            JSObject r = new JSObject();
+            r.put("items", new JSArray(DueNotifListener.getSkipped(getContext())));
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("Could not read the list");
+        }
     }
 
     @PluginMethod
@@ -1283,6 +1298,7 @@ public class DueNotifListener extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification sbn) {
         try {
             if (sbn == null || getPackageName().equals(sbn.getPackageName())) return;
+            if (chatLike(sbn.getPackageName())) return;
             Notification n = sbn.getNotification();
             if (n == null || n.extras == null) return;
             if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
@@ -1300,6 +1316,11 @@ public class DueNotifListener extends NotificationListenerService {
             String all = (title + ". " + text + (sub.isEmpty() ? "" : ". " + sub)).trim();
             if (all.length() > 1500) all = all.substring(0, 1500);
             String pkg = sbn.getPackageName();
+            if (!readApp(this, pkg)) {
+                if (MONEY.matcher(all).find() && (WORDS.matcher(all).find() || BANKY.matcher(all).find())) skipped(this, pkg, label(pkg));
+                return;
+            }
+            if (SMSAPP.contains(pkg) && smsPerson(title, text)) return;
             boolean mail = MAIL.contains(pkg), money = MONEY.matcher(all).find(), words = WORDS.matcher(all).find(), bank = BANKY.matcher(all).find();
             boolean wallet = DuePay.WALLETS.contains(pkg), payapp = DuePay.PAYAPPS.contains(pkg);
             if (!mail && !money && !bank) return;
@@ -1310,7 +1331,7 @@ public class DueNotifListener extends NotificationListenerService {
             else if (mail && bank) why = "noamt";
             else why = money ? "nowords" : "noamt0";
             String app = label(pkg);
-            log(this, app, all, sbn.getPostTime(), why);
+            log(this, pkg, app, all, sbn.getPostTime(), why);
             if (why.equals("kept") || why.equals("noamt")) {
                 String id = pkg + ":" + Integer.toHexString(all.hashCode());
                 save(this, pkg, app, all, sbn.getPostTime());
@@ -1318,6 +1339,96 @@ public class DueNotifListener extends NotificationListenerService {
                 DueNativePlugin.payEvent("", "new");
             }
         } catch (Exception ignored) {}
+    }
+
+    /* Chat and social apps: a friend's message about money is not a payment, so these are never read
+       unless the person turns one back on. Telegram copies (Telegram X, Plus, Nekogram) count as Telegram. */
+    static final java.util.Set<String> CHAT = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.whatsapp", "com.whatsapp.w4b", "org.thoughtcrime.securesms", "com.facebook.orca", "com.facebook.mlite", "com.facebook.katana",
+        "com.facebook.lite", "com.instagram.android", "com.instagram.barcelona", "com.snapchat.android", "com.viber.voip", "com.imo.android.imoim",
+        "im.thebot.messenger", "com.skype.raider", "com.microsoft.teams", "com.Slack", "com.discord", "com.twitter.android", "com.tencent.mm",
+        "jp.naver.line.android", "com.google.android.apps.dynamite", "com.linkedin.android", "com.google.android.youtube"));
+    private static final Pattern CHAT_LABEL = Pattern.compile(
+        "(?i).*telegram.*|whatsapp( business)?|signal|messenger|instagram|facebook|snapchat|viber|imo|botim|skype|(microsoft )?teams|slack|discord|wechat|line|google chat|linkedin|threads|youtube|nekogram|plus messenger");
+
+    static boolean chatLike(String pkg) {
+        String l = pkg.toLowerCase(java.util.Locale.ROOT);
+        return CHAT.contains(pkg) || l.contains("telegram") || l.contains("challegram") || l.contains("nekogram") || l.contains("cherrygram");
+    }
+
+    /* Only payment sources are read: bank apps, wallets and payment apps, email apps and SMS from banks.
+       Telegram, WhatsApp and other chat apps, and every other app, are never read. */
+    static final java.util.Set<String> EMAIL = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.google.android.gm", "com.microsoft.office.outlook", "com.samsung.android.email.provider", "com.yahoo.mobile.client.android.mail"));
+    static final java.util.Set<String> SMSAPP = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.google.android.apps.messaging", "com.samsung.android.messaging", "com.android.mms", "com.truecaller"));
+    private static final Pattern PAYPKG = Pattern.compile(
+        "(?i)bank|banking|wallet|upi|yono|sbi|hdfc|icici|imobile|axis|kotak|fedmobile|federal|canara|iob|indianbank|pnb|baroda|unionbank|idfc|indusind|yesbank|rbl|kvb|karurvysya|southindian|dhanlaxmi|aubank|equitas|ujjivan|"
+        + "qnb|cbq|dohabank|dukhan|qiib|alrayan|rayan|hsbc|ahli|masraf|mashreq|emiratesnbd|adcb|citi|amex|americanexpress|stanchart|creditcard|onecard|exchange|remit|westernunion|lulumoney|paytm|phonepe|mobikwik|freecharge|bhim|"
+        + "(^|[._])[a-z]*pay[a-z]*($|[._])");
+    /* who sent an SMS: a bank's sender name, or a person */
+    private static final Pattern BANKISH = Pattern.compile("(?i)bank|bnk|card|pay|upi|wallet|exchange|remit|sbi|hdfc|icici|axis|kotak|qnb|cbq|qiib|hsbc|ahli|dukhan|rayan|doha|amex|citi");
+    private static final Pattern BANKMARK = Pattern.compile(
+        "(?i)(a/c|acct|account|card)\\s*(no\\.?)?\\s*(ending\\s*(in|with)?\\s*)?(x+|\\*+|\\u2022+)?\\s*[0-9]{3,6}\\b|avl\\.?\\s*bal|available\\s+(bal|balance|limit)|debited\\s+from|credited\\s+to\\s+(your\\s+)?a|upi\\s*ref|ref\\.?\\s*no|txn\\s*(id|no)|imps|neft|rtgs|\\bbank\\b");
+
+    static boolean readApp(Context c, String pkg) {
+        if (pkg == null || pkg.isEmpty() || chatLike(pkg)) return false;
+        SharedPreferences p = c.getSharedPreferences(DuePay.PREFS, Context.MODE_PRIVATE);
+        String k = "," + pkg + ",";
+        if (("," + p.getString("ign", "") + ",").contains(k)) return false;
+        if (("," + p.getString("allow", "") + ",").contains(k)) return true;
+        return EMAIL.contains(pkg) || SMSAPP.contains(pkg) || DuePay.PAYAPPS.contains(pkg) || PAYPKG.matcher(pkg).find();
+    }
+
+    /** An SMS from a person (a saved contact, or a phone number with no bank details) is not read. */
+    static boolean smsPerson(String from, String text) {
+        String t = from == null ? "" : from.trim();
+        if (BANKISH.matcher(t).find()) return false;
+        if (t.matches("[A-Za-z]{2}-[A-Za-z0-9]{3,9}(-[A-Za-z])?")) return false;
+        if (t.isEmpty() || t.matches("\\+?[0-9 ()-]{6,}")) return !BANKMARK.matcher(text == null ? "" : text).find();
+        if (t.matches(".*\\s.*") && t.matches(".*[a-z].*")) return true;
+        return t.matches("[A-Z][a-z]+");
+    }
+
+    /** Apps that showed an amount but aren't read: only the app's name is kept, so you can choose to read it. */
+    private static synchronized void skipped(Context c, String pkg, String app) {
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONArray a = new JSONArray(p.getString("skipped", "[]")), out = new JSONArray();
+            for (int i = 0; i < a.length(); i++) if (!pkg.equals(a.getJSONObject(i).optString("pkg"))) out.put(a.getJSONObject(i));
+            JSONObject o = new JSONObject();
+            o.put("pkg", pkg);
+            o.put("app", app);
+            o.put("t", String.valueOf(System.currentTimeMillis()));
+            out.put(o);
+            JSONArray keep = new JSONArray();
+            for (int i = Math.max(0, out.length() - 20); i < out.length(); i++) keep.put(out.get(i));
+            p.edit().putString("skipped", keep.toString()).apply();
+        } catch (Exception e) {}
+    }
+
+    static String getSkipped(Context c) {
+        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("skipped", "[]");
+    }
+
+    /** Forgets what was kept from apps that are no longer read: waiting alerts, the list of last messages and their questions. */
+    static synchronized void purge(Context c) {
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONArray q = new JSONArray(p.getString("q", "[]")), q2 = new JSONArray();
+            for (int i = 0; i < q.length(); i++) {
+                JSONObject o = q.getJSONObject(i);
+                if (readApp(c, o.optString("pkg", o.optString("id").split(":")[0]))) q2.put(o);
+            }
+            JSONArray l = new JSONArray(p.getString("log", "[]")), l2 = new JSONArray();
+            for (int i = 0; i < l.length(); i++) {
+                JSONObject o = l.getJSONObject(i);
+                String pk = o.optString("pkg", "");
+                if (pk.isEmpty() ? !CHAT_LABEL.matcher(o.optString("app", "")).matches() : readApp(c, pk)) l2.put(o);
+            }
+            p.edit().putString("q", q2.toString()).putString("log", l2.toString()).apply();
+        } catch (Exception e) {}
+        DuePay.drop(c);
     }
 
     @Override
@@ -1335,12 +1446,13 @@ public class DueNotifListener extends NotificationListenerService {
     }
 
     /** The last 40 notifications that looked money-related, with what happened to each. Stays on the phone. */
-    private static synchronized void log(Context c, String app, String body, long time, String why) {
+    private static synchronized void log(Context c, String pkg, String app, String body, long time, String why) {
         try {
             SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             JSONArray a = new JSONArray(p.getString("log", "[]"));
             JSONObject o = new JSONObject();
             o.put("app", app);
+            o.put("pkg", pkg);
             o.put("body", body.length() > 220 ? body.substring(0, 220) : body);
             o.put("time", String.valueOf(time));
             o.put("why", why);
@@ -1440,6 +1552,20 @@ public class DuePay {
         "(?i)(INR|Rs\\.?|\\u20B9|QAR|QR|USD|AED|SAR|\\$)\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)|([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(INR|QAR|QR|Rs)\\b");
     private static final Pattern BALW = Pattern.compile("(?i)(bal|balance|limit|avl|avail|available|outstanding|total due|min due)[\\s.:\\-]*(is|of|:)?\\s*$");
     private static final Pattern CRED = Pattern.compile("(?i)credited|received|deposited|refund|cashback|reversed|added to your");
+    /* A card bill paid from a bank account is a transfer, not spending. Both the bank's message and the card's "payment received" count. */
+    private static final Pattern CC_YES = Pattern.compile("(?i)credit\\s*card|\\bcc\\b|card\\s*(bill|a/c|account)|\\bcred\\b");
+    private static final Pattern CC_SURE = Pattern.compile("(?i)payment\\s+(of\\s+\\S+\\s*[0-9,.]+\\s+)?(has\\s+been\\s+|is\\s+)?received|thank\\s+you\\s+for\\s+(your\\s+|the\\s+)?payment|towards\\s+(your\\s+)?([\\w&]+\\s+){0,3}credit\\s*card|credited\\s+to\\s+(your\\s+)?([\\w&]+\\s+){0,3}(credit\\s*)?card|(paid|transferred)\\s+to\\s+(your\\s+)?([\\w&]+\\s+){0,3}credit\\s*card|credit\\s*card\\s+(bill\\s+)?payment\\s+(of|for)|\\bto\\s+cred\\b");
+    private static final Pattern CC_PAY = Pattern.compile("(?i)payment|repayment|\\bpaid\\b|settle|transferred to|thank you for");
+    private static final Pattern CC_NO = Pattern.compile("(?i)\\bspent\\b|purchase|used\\s+(for|at)|\\bpos\\b|withdraw|\\bdue\\b|minimum amount|statement|outstanding|reminder|\\bemi\\b");
+    private static final Pattern CC_HARD = Pattern.compile("(?i)declined|failed|unsuccessful|will be|reversed|refund|please pay|pay by|is due");
+    private static final Pattern CC_AT = Pattern.compile("\\bat\\s+[A-Z][A-Za-z]");
+    private static final Pattern CC_CARD = Pattern.compile("(?i)card\\s*(no\\.?\\s*)?(ending\\s*(in|with)?\\s*)?(x+|\\*+|\\u2022+)?\\s*([0-9]{4})\\b");
+
+    static boolean cardBill(String s) {
+        if (!CC_YES.matcher(s).find() || CC_HARD.matcher(s).find()) return false;
+        return CC_SURE.matcher(s).find() || (CC_PAY.matcher(s).find() && !CC_NO.matcher(s).find() && !CC_AT.matcher(s).find());
+    }
+
     /* "Ravi paid you" is money in; these settle it before the weaker words do */
     private static final Pattern IN_SURE = Pattern.compile("(?i)paid you|sent you|received from|you received|you've received|credited to your|added to your|refund|cashback");
     private static final Pattern OUT_SURE = Pattern.compile("(?i)you paid|you sent|paid to|sent to|payment to|debited|deducted|spent|withdrawn");
@@ -1490,9 +1616,15 @@ public class DuePay {
             JSONObject o = new JSONObject();
             o.put("amt", amt);
             o.put("cur", cur);
+            o.put("l4", l.find() ? l.group(1) : "");
+            if (cardBill(s)) {
+                kind = "tr";
+                Matcher cd = CC_CARD.matcher(s);
+                o.put("card", cd.find() ? cd.group(5) : "");
+                payee = "";
+            }
             o.put("kind", kind);
             o.put("payee", payee);
-            o.put("l4", l.find() ? l.group(1) : "");
             return o;
         } catch (Exception e) {
             return null;
@@ -1508,6 +1640,34 @@ public class DuePay {
     private static String key(String s) {
         String k = s == null ? "" : s.replaceAll("(?i)^(Email|Gmail|Outlook|SMS)\\s*·\\s*", "").replaceAll("<.*>", "").trim().toLowerCase(Locale.US);
         return k.length() > 40 ? k.substring(0, 40) : k;
+    }
+
+    /** Takes back the questions for payments from apps that are no longer read. */
+    static synchronized void drop(Context c) {
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject nids = new JSONObject(p.getString("nids", "{}")), info = new JSONObject(p.getString("info", "{}")), done = new JSONObject(p.getString("done", "{}"));
+            java.util.List<String> gone = new java.util.ArrayList<>();
+            java.util.Iterator<String> it = nids.keys();
+            while (it.hasNext()) {
+                String id = it.next();
+                int cut = id.indexOf(':');
+                String pk = cut > 0 ? id.substring(0, cut) : "";
+                if (pk.isEmpty() || "m".equals(pk) || "test".equals(pk) || DueNotifListener.readApp(c, pk)) continue;
+                gone.add(id);
+            }
+            if (gone.isEmpty()) return;
+            androidx.core.app.NotificationManagerCompat nm = androidx.core.app.NotificationManagerCompat.from(c);
+            JSONArray rec = new JSONArray(p.getString("rec", "[]")), keep = new JSONArray();
+            for (String id : gone) {
+                nm.cancel(nids.optInt(id, 0));
+                nids.remove(id);
+                info.remove(id);
+                done.put(id, "skip");
+            }
+            for (int i = 0; i < rec.length(); i++) if (!gone.contains(rec.getJSONObject(i).optString("id"))) keep.put(rec.getJSONObject(i));
+            p.edit().putString("nids", nids.toString()).putString("info", info.toString()).putString("done", trim(done, 200)).putString("rec", keep.toString()).apply();
+        } catch (Exception e) {}
     }
 
     /** A payment was found: ask once, even when the same payment comes by SMS, bank app, wallet and email. */
@@ -1532,7 +1692,7 @@ public class DuePay {
                 String rl4 = r.optString("l4", "");
                 if (dupOf == null && Math.abs(r.optDouble("a") - amt) < 0.005 && r.optString("k").equals(kind)
                     && (cur.isEmpty() || r.optString("c").isEmpty() || r.optString("c").equals(cur))
-                    && (l4.isEmpty() || rl4.isEmpty() || rl4.equals(l4)) && !r.optString("pkg").equals(pkg)) dupOf = r.optString("id");
+                    && ("tr".equals(kind) || ((l4.isEmpty() || rl4.isEmpty() || rl4.equals(l4)) && !r.optString("pkg").equals(pkg)))) dupOf = r.optString("id");
             }
             if (dupOf != null) {
                 JSONObject links = new JSONObject(p.getString("dup", "{}"));
@@ -1544,7 +1704,7 @@ public class DuePay {
             JSONObject r = new JSONObject();
             r.put("id", id); r.put("a", amt); r.put("c", cur); r.put("k", kind); r.put("t", now); r.put("l4", l4); r.put("pkg", pkg == null ? "" : pkg);
             keep.put(r);
-            int nid = 8100 + (p.getInt("n", 0) % 800);
+            int nid = 41000 + (p.getInt("n", 0) % 800);
             JSONObject nids = new JSONObject(p.getString("nids", "{}"));
             nids.put(id, nid);
             JSONObject info = new JSONObject(p.getString("info", "{}"));
@@ -1575,12 +1735,14 @@ public class DuePay {
             ch.setDescription("Asks you to add each payment the app finds");
             nm.createNotificationChannel(ch);
         }
-        boolean in = "in".equals(o.optString("kind"));
+        boolean in = "in".equals(o.optString("kind")), tr = "tr".equals(o.optString("kind"));
         boolean hide = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("hide", false);
-        String m = hide ? "" : money(o.optString("cur"), o.optDouble("amt")), payee = o.optString("payee", ""), l4 = o.optString("l4", "");
-        String title = (added ? "Added: " : "") + (hide ? (in ? "Money received" : "Payment") : (in ? "Received " : "Paid ") + m) + (payee.isEmpty() ? "" : (in ? " from " : " at ") + payee);
-        String src = (from == null ? "" : from) + (l4.isEmpty() ? "" : " · ending " + l4);
-        String text = src + (added ? ". Saved in your " + (in ? "income" : "expenses") + " the next time Personal Diary opens." : ". Add it to your " + (in ? "income?" : "expenses?"));
+        String m = hide ? "" : money(o.optString("cur"), o.optDouble("amt")), payee = o.optString("payee", ""), l4 = o.optString("l4", ""), card = o.optString("card", "");
+        String title = (added ? "Added: " : "") + (tr ? "Card bill paid" + (hide ? "" : " " + m) + (card.isEmpty() ? "" : " · card ending " + card)
+            : (hide ? (in ? "Money received" : "Payment") : (in ? "Received " : "Paid ") + m) + (payee.isEmpty() ? "" : (in ? " from " : " at ") + payee));
+        String src = (from == null ? "" : from) + (l4.isEmpty() || tr ? "" : " · ending " + l4);
+        String text = src + (tr ? (added ? ". Saved as a transfer to the card the next time Personal Diary opens." : ". Save it as a transfer from your bank account to the card, not as spending?")
+            : added ? ". Saved in your " + (in ? "income" : "expenses") + " the next time Personal Diary opens." : ". Add it to your " + (in ? "income?" : "expenses?"));
         Intent open = new Intent(c, MainActivity.class);
         open.setAction("com.personaldiary.app.PAY_OPEN");
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -1609,7 +1771,7 @@ public class DuePay {
             b.setSilent(true);
             b.addAction(0, "Undo", act(c, id, nid, "skip"));
         } else {
-            b.addAction(0, in ? "Add income" : "Add expense", act(c, id, nid, "add"));
+            b.addAction(0, tr ? "Add transfer" : in ? "Add income" : "Add expense", act(c, id, nid, "add"));
             b.addAction(0, "Skip", act(c, id, nid, "skip"));
         }
         NotificationManagerCompat.from(c).notify(nid, b.build());
@@ -1661,7 +1823,7 @@ public class DuePay {
         try {
             JSONObject o = new JSONObject();
             o.put("amt", 12.5); o.put("cur", "QAR"); o.put("kind", "out"); o.put("payee", "Test cafe"); o.put("l4", "");
-            post(c, "test:" + System.currentTimeMillis(), 8099, o, "Personal Diary test", false);
+            post(c, "test:" + System.currentTimeMillis(), 40999, o, "Personal Diary test", false);
         } catch (Exception ignored) {}
     }
 
