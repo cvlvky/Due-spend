@@ -82,7 +82,7 @@ try:
   E('__calls.length=0;window.__n.say="Karak 3 riyal food";window.__n.launch=JSON.stringify({add:"voice"})');E('nativeLaunch()');pg.wait_for_timeout(1500)
   ok('widget mic opens add form and starts voice',E('__calls.some(c=>c[1]=="listen")') and pg.locator('#over #f_line').count()==1 and pg.input_value('#over #f_line')=='Karak 3 riyal food')
   pg.click('#over .x');E('S.cfg.smsq=[{id:"r1",from:"SMS · X",body:"INR 5 debited",p:{kind:"out",amt:5,cur:"INR",acc:"",date:today()},src:"s"}];save();window.__n.launch=JSON.stringify({add:"review"})');E('nativeLaunch()');pg.wait_for_timeout(1500)
-  ok('notification opens payments to review',pg.locator('#over h2').first.inner_text()=='Payments to review')
+  ok('notification opens payments to review',pg.locator('#over h2').first.inner_text()=='Payment review')
   ok('version 29 or later',int(E('VER'))>=29)
 finally:
   h.done()
