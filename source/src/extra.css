@@ -205,3 +205,10 @@ nav button{position:relative;padding:10px 2px 12px}nav button svg{display:block;
 .rvhint{text-align:center;margin:0}.rvdone{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 0 10px;text-align:center}.rvdone span{font-size:54px}.rvdone b{font-size:22px}.rvdone small{color:var(--mute);font-size:15px}
 body:has(.selbar) .fab2{display:none}
 .setpay{margin-top:4px}
+/* v37: statement check */
+.stsum{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}.stchip{font-size:12.5px;padding:4px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--mute)}.stchip b{color:var(--ink);font-weight:700}
+.stchip.ok b{color:#1f9d6b}.stchip.bad b{color:var(--late)}.stproj{margin:6px 0 0}
+.stsec{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.stsec>b{display:block;margin-bottom:2px}
+.stonly{margin:10px 0;padding:8px 10px;border:1px solid var(--line);border-radius:12px}.stonly select{margin-top:6px;width:100%}
+.stmiss{margin:10px 0;padding:8px 10px;border:1px solid var(--line);border-radius:12px}.stmiss>span{display:block;font-size:14px}.stmiss small{display:block;color:var(--mute);margin-top:2px}.stmiss .acts{align-items:center;flex-wrap:wrap}.stmiss select{flex:1;min-width:120px;width:auto}
+.stok{border-color:#1f9d6b;border-width:1.5px}.stok>b{color:#1f9d6b;font-size:16px}.stok.warn{border-color:var(--soon)}.stok.warn>b{color:var(--ink)}

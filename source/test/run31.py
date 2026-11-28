@@ -11,7 +11,7 @@ def cont(t,full=False):return ln(t,[{'x':100,'s':t,'w':(118 if full else len(t)*
 L=[ln("Date   Details   Amount   Balance",[{'x':36,'s':'Date','w':20},{'x':100,'s':'Details','w':30},{'x':300,'s':'Amount','w':30},{'x':380,'s':'Balance','w':35}]),
  row("22/11/2026","ATM CASH","-40.00","2,960.50"),cont("WITHDRAWAL,111122223333"),cont(",|1234 567890|,CITY MART"),cont("DOHA,11111XXXXXXX9999"),
  row("10/11/2026","TRANSFER TO OWN","-1,000.00","3,000.50"),cont("ACCOUNT,101126W00001,Tr",True),cont("ansfer To"),cont("4010XXXXX7007,TEST USER"),
- row("10/11/2026","CARD BILL","-20.00","4,000.50"),cont("PAYMENT,101126K00002,CA",True),cont("RD NO 4550XXXXXXXX0808"),cont("XXX3012,Paid using"),cont("bankDirect"),
+ row("10/11/2026","CARD BILL","-20.00","4,000.50"),cont("PAYMENT,101126K00002,CA",True),cont("RD NO 4111XXXXXXXX0808"),cont("XXX9999,Paid using"),cont("bankDirect"),
  row("10/11/2026","SALARY TRANSFER,CIB-","4,000.00","4,020.50"),cont("00000001,SALARY FOR"),cont("XXX999,ACME TRADING"),
  row("03/11/2026","TRANSFER -","-80.00","20.50"),cont("DEBIT,031126L00003,oct,RAJ",True),cont("ESH KUMARAN"),
  row("01/11/2026","TRANSFER -","-900.00","100.50"),cont("DEBIT,011126L00004,NOV"),cont("rent,ABDUL RAHMAN AL"),cont("SAYED")]

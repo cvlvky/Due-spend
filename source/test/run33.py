@@ -73,6 +73,6 @@ try:
   ok('what you owe kept after fixes',abs(E('bal(ac("tc"))')+150)<0.005,E('bal(ac("tc"))'))
   # older names from earlier imports
   ok('old raw names cleaned',E('stmtClean("UNBILLED SPICE GARDEN REST DOH DOHA QA QAR AUTH NO. 069000").payee')=='Spice Garden Rest' and E('stmtClean("WOQOD - AL SADD PS DOHA 634 AUTH QAR NO. 023000").payee')=='Woqod - Al Sadd PS')
-  ok('bank-style names unchanged',E('stmtClean("TRANSFER - DEBIT,021126L02076,oct,ARUN KUMAR").payee')=='Arun Kumar')
+  ok('bank-style names unchanged',E('stmtClean("TRANSFER - DEBIT,010126L00001,oct,ARUN KUMAR").payee')=='Arun Kumar')
 finally:
   h.done()
