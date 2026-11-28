@@ -1,4 +1,41 @@
-PERSONAL DIARY (version 36, formerly Due & Spend)
+PERSONAL DIARY (version 37, formerly Due & Spend)
+
+NEW IN VERSION 37
+- Bank statements make the app match the bank exactly. Choose the PDF in
+  the account's "Import PDF"; the check shows what is already in the app,
+  what is new, what needs putting right, what was saved twice, what the
+  bank doesn't have, and old corrections. "Make it match the bank" does
+  all of it in one tap, with Undo, and shows the result: "✓ Matches the
+  bank" with the balance on the statement's last day.
+- Every line keeps its own description. Statements that list the newest
+  first with the details under the date (and words broken across lines)
+  were sometimes read with part of the next line's text; that is fixed,
+  so names, notes and account numbers come out right.
+- Transfers to your own accounts and card bills are read from the number
+  after "Transfer To" or "CARD NO", not from another number in the text.
+  A short saved number no longer catches every account ending in it. If
+  that account isn't in the app yet, the check says so: "Add the account"
+  or pick which one it is, and the transfers are put right.
+- Saved twice: a payment noted from an alert and again from the statement
+  is found even when the amount was typed a little differently (the
+  bank's amount is kept), and a card payment that was saved on the card
+  and as "Card bill" spending on the bank account becomes one transfer.
+- In the app but not in the statement: move it to the account or card
+  that paid it, remove it (it goes to the bin), or keep it if the bank
+  hasn't posted it yet.
+- Old balance corrections in the statement's time come out; the opening
+  balance comes from the bank instead.
+- Cards: statements without a balance column are set from the bank's
+  "Available Limit" alert (you owe = limit − available). The card page
+  shows "✓ The app matches it" when it does, even when you spent more
+  later that day, and warns when the card shows a credit that shouldn't
+  be there, with "Find entries saved twice".
+- Payments waiting in Payment review that the statement already has are
+  marked done, so they can't be saved twice.
+- Shop names on card statements are tidier ("CITY FRESH MARKET W CITY
+  FRESH MA" is "City Fresh Market"), and vague names like "Spent" get the
+  shop's name.
+- Each account shows the statements you checked and whether they matched.
 
 NEW IN VERSION 36
 - Quick review: payments that are waiting, one at a time on a big card.
