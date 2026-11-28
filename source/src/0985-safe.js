@@ -40,7 +40,7 @@ function notifHelp(){sheet(`<h2>Read payment alerts</h2><p class="sub">The app c
   <div class="acts"><button class="btn" data-act="notifOpen">Open notification access</button></div><p class="note">Only notifications that arrive after this is on can be read, and only while they are shown. Email alerts need Gmail or Outlook notifications turned on for that inbox.</p>`)}
 async function notifScan(){if(!isApp()||!S.cfg.ntfAuto)return;
   try{const r=await NP("DueNative","readNotifs"),L=(r&&r.items)||[];if(!L.length)return;const q=S.cfg.smsq=S.cfg.smsq||[],seen=new Set(S.cfg.ntfSeen||[]);let add=0;
-    L.forEach(m=>{if(seen.has(m.id))return;seen.add(m.id);const body=String(m.body||"");if(/\botp\b|one.time password|verification code/i.test(body))return;const p=parseSms(body);if(!p){noAmt(m);return}
+    L.forEach(m=>{if(seen.has(m.id))return;seen.add(m.id);const body=typeof walletNorm=="function"?walletNorm(m):String(m.body||"");if(/\botp\b|one.time password|verification code/i.test(body))return;const p=parseSms(body);if(!p){noAmt(m);return}
       const at=+m.time||Date.now();if(!p.date||Math.abs(dl(p.date))>3)p.date=iso(new Date(at));
       if(q.some(x=>x.p.amt==p.amt&&x.p.kind==p.kind&&x.p.date==p.date))return;q.push({id:m.id,from:m.app||m.pkg||"",body:body.slice(0,300),p,src:"n"});add++});
     S.cfg.ntfSeen=[...seen].slice(-300);S.cfg.smsq=q.slice(-40);S.cfg.ntfLast=Date.now();dedupeQ();save();if(add&&tab=="home")render()}catch(e){console.warn("alerts",e)}}

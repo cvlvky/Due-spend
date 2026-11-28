@@ -61,7 +61,7 @@ try:
     c,pg=mk(NATIVE.replace('notifs:[]','notifs:[],launch:%s'%json.dumps(json.dumps({"text":code})))+SEED); pg.wait_for_selector('#over #f_scode'); ok('shared setup code opens sync',pg.input_value('#f_scode')==code); c.close()
     # ---- payment alerts in the phone app
     c,pg=mk(NATIVE+SEED); E=pg.evaluate
-    pg.click('button[data-act="settings"]'); pg.click('#over button[data-act="notifAuto"]'); pg.wait_for_selector('#over button[data-act="notifOpen"]'); ok('explains how to allow access','restricted' in pg.inner_text('#over'))
+    pg.click('button[data-act="settings"]'); pg.click('#over [data-act="trackHub"]'); pg.click('#over button[data-act="trkNotif"]'); pg.wait_for_selector('#over button[data-act="notifOpen"]'); ok('explains how to allow access','restricted' in pg.inner_text('#over'))
     pg.click('#over button[data-act="notifOpen"]'); ok('opens the phone setting',E('window.__n.opened')==1)
     E('window.__n.nstat=true'); pg.evaluate('document.dispatchEvent(new Event("visibilitychange"))'); pg.wait_for_function('S.cfg.ntfAuto===true',timeout=5000); ok('turns on when access is given',True)
     now=int(time.time()*1000)
