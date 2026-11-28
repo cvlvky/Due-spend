@@ -1,5 +1,30 @@
 PERSONAL DIARY (version 33, formerly Due & Spend)
 
+NEW IN VERSION 33.1
+- Only payment sources are read: bank and card apps, wallets and payment
+  apps (Google Wallet, Google Pay, PhonePe, Paytm, Samsung Wallet, CRED,
+  BHIM), email apps and SMS from banks. Telegram, WhatsApp and other chat
+  apps are never read, and neither is any other app. SMS from people (a
+  contact, or a number with no bank details) are passed over.
+- Payment tracking → Apps read: what is read and never read. An app that
+  showed an amount but isn't known is listed by name only, with Read it,
+  in case it's your bank's app. Anything already picked up from apps that
+  aren't read is cleared, with its question on the phone.
+- Review history: every payment added, skipped, saved without asking or
+  undone, on the phone or in the app, kept apart from your entries. Filter
+  by Added or Skipped; Add it brings a skipped payment back; Open shows the
+  saved entry.
+- A credit card bill paid from a bank account is saved as a transfer from
+  the account to the card, not as spending. The bank's "debited towards
+  your credit card" and the card's "payment received" count as one. The
+  phone asks "Card bill paid" with Add transfer. Save all never saves a
+  card bill as an expense; Expense instead is still there.
+- Bill reminders ("minimum amount due", "payment due date") are not taken
+  as payments.
+- "Not paid yet" alert the morning after a due or EMI date, and 3 days
+  after, with Mark paid, if it isn't marked paid. Document expiry alerts
+  are no longer crowded out when there are many dues.
+
 NEW IN VERSION 33
 - A notification for each payment. When a bank SMS, a bank app, Google
   Wallet, Google Pay, PhonePe, Paytm, Samsung Wallet or a bank email shows
