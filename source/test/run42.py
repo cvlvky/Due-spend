@@ -87,7 +87,7 @@ try:
   E('window.__n.items=[%s]'%json.dumps(PH));E('notifScan()');E('window.__n.acts=[{id:%s,act:"add",t:Date.now(),amt:18,cur:"QAR",kind:"out"}]'%json.dumps(PH['id']));E('payNow()')
   L=E('S.cfg.payLog');acts=[x['act'] for x in L];vias=[x['via'] for x in L]
   ok('every decision is recorded apart from the entries',"transfer" in acts and "skip" in acts and "add" in acts and "phone" in vias and "app" in vias,list(zip(acts,vias)))
-  E('payReview("ok")');pg.wait_for_selector('#rev_sheet');t=pg.inner_text('#over')
+  E('prChecked=Date.now();payReview("ok")');pg.wait_for_selector('#rev_sheet');t=pg.inner_text('#over')
   ok('Approved lists them by day',all(k in t for k in ["Today","Saved as a transfer","Added on the phone","Approved","Ignored","Waiting"]) and "Skipped in the app" not in t,t[:700])
   pg.click('#over [data-act="prTab"][data-id="no"]');pg.wait_for_timeout(150);t=pg.inner_text('#over')
   ok('the Ignored tab shows only skipped',"Skipped in the app" in t and "Added on the phone" not in t)

@@ -1377,7 +1377,7 @@ public class DueNotifListener extends NotificationListenerService {
     private static final Pattern PAYPKG = Pattern.compile(
         "(?i)bank|banking|wallet|upi|yono|sbi|hdfc|icici|imobile|axis|kotak|fedmobile|federal|canara|iob|indianbank|pnb|baroda|unionbank|idfc|indusind|yesbank|rbl|kvb|karurvysya|southindian|dhanlaxmi|aubank|equitas|ujjivan|"
         + "qnb|cbq|dohabank|dukhan|qiib|alrayan|rayan|hsbc|ahli|masraf|mashreq|emiratesnbd|adcb|citi|amex|americanexpress|stanchart|creditcard|onecard|exchange|remit|westernunion|lulumoney|paytm|phonepe|mobikwik|freecharge|bhim|"
-        + "(^|[._])[a-z]*pay[a-z]*($|[._])");
+        + "(^|[._])[a-z]*pay[a-z]*($|[._])|(^|[._])qib([._]|$)|masrafalrayan|lulu|transferwise|revolut|alansari|alfardan|alzaman");
     /* who sent an SMS: a bank's sender name, or a person */
     private static final Pattern BANKISH = Pattern.compile("(?i)bank|bnk|card|pay|upi|wallet|exchange|remit|sbi|hdfc|icici|axis|kotak|qnb|cbq|qiib|hsbc|ahli|dukhan|rayan|doha|amex|citi");
     private static final Pattern BANKMARK = Pattern.compile(

@@ -1,5 +1,16 @@
 PERSONAL DIARY (version 35, formerly Due & Spend)
 
+NEW IN VERSION 35.1
+- Opening Payment review looks for new payments first (bank SMS and
+  bank app or wallet alerts on this phone), so a payment the app found
+  shows in Waiting straight away. Check now also looks in email.
+- When Waiting is empty it says why: each place the app reads from, with
+  Turn on, Allow or Fix next to anything that is off, and the apps that
+  showed an amount but aren't read, with Read it, in case one is your
+  bank's app.
+- More apps are read: Qatar Islamic Bank (QIB), Masraf Al Rayan, LuLu,
+  Al Ansari, Al Fardan and Al Zaman exchange, Wise and Revolut.
+
 NEW IN VERSION 35
 - Payment review works as one flow: a payment found in SMS, a bank app,
   a wallet or email waits in Waiting; approve it and it moves to
