@@ -41,8 +41,8 @@ function notifHelp(){sheet(`<h2>Read payment alerts</h2><p class="sub">The app c
 async function notifScan(){if(!isApp()||!S.cfg.ntfAuto)return;
   try{const r=await NP("DueNative","readNotifs"),L=(r&&r.items)||[];if(!L.length)return;const q=S.cfg.smsq=S.cfg.smsq||[],seen=new Set(S.cfg.ntfSeen||[]);let add=0;
     L.forEach(m=>{if(seen.has(m.id))return;seen.add(m.id);if(typeof ntfSkip=="function"&&ntfSkip(m))return;const body=typeof walletNorm=="function"?walletNorm(m):String(m.body||"");if(/\botp\b|one.time password|verification code/i.test(body))return;const p=parseSms(body);if(!p){noAmt(m);return}
-      const at=+m.time||Date.now();if(!p.date||Math.abs(dl(p.date))>3)p.date=iso(new Date(at));
-      if(q.some(x=>x.p.amt==p.amt&&x.p.kind==p.kind&&x.p.date==p.date))return;q.push({id:m.id,from:m.app||m.pkg||"",body:body.slice(0,300),p,src:"n"});add++});
+      const at=+m.time||Date.now();if(!p.date||Math.abs(dl(p.date))>3||!pdHasDate(body))p.date=iso(new Date(at));
+      if(q.some(x=>String(x.id)==String(m.id)))return;q.push({id:m.id,from:m.app||m.pkg||"",body:body.slice(0,300),p,src:"n",t:at});add++});
     S.cfg.ntfSeen=[...seen].slice(-300);S.cfg.smsq=q.slice(-40);S.cfg.ntfLast=Date.now();dedupeQ();save();if(add&&tab=="home")render()}catch(e){console.warn("alerts",e)}}
 
 /* a full backup with attachments, saved monthly by the phone app */

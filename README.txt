@@ -1,4 +1,31 @@
-PERSONAL DIARY (version 37, formerly Due & Spend)
+PERSONAL DIARY (version 38, formerly Due & Spend)
+
+NEW IN VERSION 38
+- One payment, one entry. The same payment told by the bank's app, Google
+  Wallet, SMS and email, even hours apart, is asked about once. Two
+  payments of the same amount at one shop from the same app stay two.
+- Already saved: a message about a payment that is already in the app
+  (saved from another app, typed by you, or from a bank statement) isn't
+  asked about again. It shows as "Already saved" with the approved ones
+  in Payment review, with "Not the same: add it" if it was a different
+  payment after all. A message read twice is dropped.
+- A message without a date of its own is dated when it arrived, so last
+  night's payment read in the morning keeps last night's date.
+- Pop-ups: payment questions and dues, documents and budget alerts now
+  pop up on the screen (new notification channels at high importance).
+  Settings → Pop-ups shows whether each can pop up, opens the phone's
+  setting to turn it on, and has a test for each. Home says so when
+  pop-ups are off. On OnePlus and Oppo the setting is called Banners.
+  The evening summary stays quiet.
+- Cards are checked strictly against the bank's latest "Available Limit"
+  alert: a payment saved twice is never taken as "after the alert". A
+  payment the bank account dates a day later counts on the card's day.
+  When they differ, the card page says by how much and offers "Find
+  entries saved twice" and "Check a statement".
+- Long card statements: card payments from before your bank account's
+  records in the app are noted on the card only, so the bank account
+  stays right. Service charges, food delivery and travel agents get
+  their categories.
 
 NEW IN VERSION 37
 - Bank statements make the app match the bank exactly. Choose the PDF in

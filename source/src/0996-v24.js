@@ -7,7 +7,7 @@ async function mailTake(ref,d){const L=Array.isArray(d.items)?d.items.filter(Boo
   L.forEach(m=>{if(!m.id||seen.has(m.id))return;seen.add(m.id);const text=normMsg((m.subject?m.subject+". ":"")+(m.body||""));S.cfg.mailN=(S.cfg.mailN||0)+1;S.cfg.mailLast=+m.time||Date.now();
     if(/\botp\b|one.time password|verification code/i.test(text))return;const p=parseSms(text);
     if(!p||p.weak){if(/debit|credit|transaction|payment|spent|purchase|txn|transfer/i.test(text))noAmt({id:"m:"+m.id,app:"Email · "+String(m.from||"").replace(/<.*>/,"").trim(),body:text.slice(0,200),time:m.time});return}
-    if(!p.date||Math.abs(dl(p.date))>5)p.date=iso(new Date(+m.time||Date.now()));q.push({id:"m:"+m.id,from:"Email · "+String(m.from||"").replace(/<.*>/,"").trim().slice(0,40),body:text.slice(0,300),p,src:"m"});add++});
+    if(!p.date||Math.abs(dl(p.date))>5)p.date=iso(new Date(+m.time||Date.now()));q.push({id:"m:"+m.id,from:"Email · "+String(m.from||"").replace(/<.*>/,"").trim().slice(0,40),body:text.slice(0,300),p,src:"m",t:+m.time||Date.now()});add++});
   S.cfg.mailSeen=[...seen].slice(-500);S.cfg.smsq=q.slice(-60);dedupeQ();save();if(add||(S.cfg.ntfNo||[]).length!=na)render();if(add)toast(add+(add==1?" payment":" payments")+" from your email to review");
   try{await ref.update({items:firebase.firestore.FieldValue.arrayRemove(...L)})}catch(e){console.warn("mail clear",e)}}
 function gmailGuide(){const code=setupCode();sheet(`<h2>Read bank emails from Gmail</h2><p class="sub">A small script in your own Google account checks for bank emails every 15 minutes, even when the phone is off, and sends them here to review. Your email password isn’t needed.</p>
@@ -234,6 +234,11 @@ function stmtShow(){const p=stPend,o=$("#csvout");if(!o||!p||!p.M)return;const A
   ${app!=null?`<p class="note">Balance on ${fmt(p.M.to)}: statement ${fmx(p.P.close,A.cur)} · app ${fmx(app,A.cur)}${Math.abs(app-p.P.close)>0.009?" (after adding the new ones it is checked again)":" ✓"}</p>`:""}
   ${stPeople(p,A)}${stFixList(p,A)}${p.M.only.length?`<details><summary>${p.M.only.length} in the app but not in the statement</summary>${p.M.only.map(x=>`<div class="hbl" style="margin:6px 0"><span>${fmt(x.date)} · ${esc(x.payee||x.cat||KIND[x.kind])}</span><b>${fmx(Math.abs(sgn(x,p.acc)),A.cur)}</b></div>`).join("")}<p class="note">These may be cash, typed twice, or from another account.</p></details>`:""}</div>
   ${nw.length?`<div class="acts"><button class="btn" data-act="stImportGo">Add the ticked ones</button></div>`:""}${app!=null?`<div class="acts"><button class="btn ghost" data-act="stFixBal">Make the balance match the statement</button></div>`:""}${p.P.nobal?stOweBox(p,A):""}`}
+/* From when an account's own records in the app are complete: the first statement checked for it, or its first entry.
+   A transfer dated before that would change the other account's past, which its own opening balance already covers,
+   so such a line is noted on this account only. */
+function stCpStart(B){if(!B||!B.id)return "";const H=(S.cfg.stmts||[]).filter(h=>h.acc==B.id).map(h=>h.from).sort()[0]||"",E=S.tx.filter(x=>x.kind!="adj"&&(x.acc==B.id||x.to==B.id)).map(x=>x.date).sort()[0]||"";return [H,E].filter(Boolean).sort()[0]||""}
+const stBefore=(B,d)=>{const s=stCpStart(B);return !!s&&d<s};
 /* the same money already noted on the other account: a payment received on the card, "Card bill" spending on the bank account,
    or a transfer that names the wrong account. dirB: "in" when B receives it, "out" when B pays it. */
 function stMirror(B,A,amt,date,dirB,ref,skip){if(!B||!B.id)return null;const dd=x=>Math.abs(dl(x.date)-dl(date)),refd=x=>!!ref&&String(x.raw||"").includes(ref),
@@ -250,16 +255,18 @@ function stFixRows(p,A){const out=[],M=p.M,used=new Set();M.res.forEach(r=>{cons
   if(r.dup){const x=S.tx.find(t=>t.id==r.dup);if(x)out.push({x,k,r,op:"dup"})}
   if(!r.match)return;const x=S.tx.find(t=>t.id==r.match);if(!x)return;
   if(r.near&&Math.abs((r.appAmt||0)-r.amt)>=0.005)out.push({x,k,r,op:"amt"});
+  if(x.kind=="tr"&&r.date<x.date)out.push({x,k,r,op:"date"});
   if(x.kind=="tr"){
-    if(x.acc==A.id&&r.dir=="out"){const B=stmtTarget(k,A);if(B&&x.to!=B.id){const e=stMirror(B,A,trGot(r.amt,A,B),r.date,"in",ref,used);if(e)used.add(e.id);out.push({x,k,B,r,e,op:"retr"})}
+    if(x.acc==A.id&&r.dir=="out"){const B=stmtTarget(k,A);if(B&&x.to!=B.id){const e=stMirror(B,A,trGot(r.amt,A,B),r.date,"in",ref,used);if(e)used.add(e.id);out.push(e||!stBefore(B,x.date)?{x,k,B,r,e,op:"retr"}:{x,k,B,r,op:"one"})}
       else if(!B&&!k.hint&&x.imp&&!stSame(x.raw,r.desc))out.push({x,k,r,op:"untr"})}
-    else if(x.to==A.id&&r.dir=="in"){const Src=stmtSource(k,A,r);if(Src&&x.acc!=Src.id){const e=stMirror(Src,A,trGot(r.amt,A,Src),r.date,"out",ref,used);if(e)used.add(e.id);out.push({x,k,B:Src,r,e,op:"resrc"})}}
+    else if(x.to==A.id&&r.dir=="in"){const Src=stmtSource(k,A,r);if(Src&&x.acc!=Src.id){const e=stMirror(Src,A,trGot(r.amt,A,Src),r.date,"out",ref,used);if(e)used.add(e.id);out.push(e||!stBefore(Src,x.date)?{x,k,B:Src,r,e,op:"resrc"}:{x,k,B:Src,r,op:"one"})}}
     return}
   if(x.acc!=A.id||(x.kind!="out"&&x.kind!="in"))return;
   const B=x.kind=="out"?stmtTarget(k,A):null,Src=x.kind=="in"?stmtSource(k,A,r):null,moved=!!x.raw&&!stSame(x.raw,r.desc),raw=moved||/\d{5,}|,/.test(x.payee||"")||(x.note||"")==r.desc.slice(0,80)||(!!x.raw&&/[A-Z]{3,} [A-Z]{2,}/.test(x.payee||""));
   const recat=!!x.imp&&!!k.cat&&(x.cat||"")!=k.cat;
-  if(B){const e=stMirror(B,A,trGot(r.amt,A,B),r.date,"in",ref,used);if(e)used.add(e.id);out.push({x,k,B,r,e,op:"tr"})}
-  else if(Src){const e=stMirror(Src,A,trGot(r.amt,A,Src),r.date,"out",ref,used);if(e)used.add(e.id);out.push({x,k,B:Src,r,e,op:"trin"})}
+  const eB=B?stMirror(B,A,trGot(r.amt,A,B),r.date,"in",ref,used):null,eS=Src?stMirror(Src,A,trGot(r.amt,A,Src),r.date,"out",ref,used):null;
+  if(B&&(eB||!stBefore(B,x.date))){if(eB)used.add(eB.id);out.push({x,k,B,r,e:eB,op:"tr"})}
+  else if(Src&&(eS||!stBefore(Src,x.date))){if(eS)used.add(eS.id);out.push({x,k,B:Src,r,e:eS,op:"trin"})}
   else if((raw||recat)&&k.payee&&(k.payee!=x.payee||(moved||recat)&&(x.cat||"")!=stEff(k,r,A,x)))out.push({x,k,r,op:"name",moved:moved||recat});
   else if(!k.hint&&k.payee&&k.payee.length>=3&&k.payee!=x.payee&&(!x.payee||STWEAK.test(String(x.payee).trim())||(!!x.cat&&x.payee==x.cat)))out.push({x,k,r,op:"name",moved:false,weak:true})});
   (M.dups||[]).forEach(d=>{const r=M.res[d.i];out.push({x:d.x,k:stmtClean(r.desc),r,op:"dup2"})});
@@ -269,7 +276,9 @@ const stFixLab=f=>{const amt=(v,c)=>fmx(v,c||ac(f.x.acc).cur),mg=f.e?` (the ${es
     :f.op=="flip"?(f.x.kind=="in"?"Saved as money in, but the statement shows money out. Change it":"Saved as money out, but the statement shows money in. Change it")
     :f.op=="dup"?"Saved twice: the statement has this as "+(f.r.dir=="in"?"money in":"money out")+", already in the app. Remove this one"
     :f.op=="dup2"?"Saved twice: the bank has it once ("+fmt(f.r.date)+", "+amt(f.r.amt)+"), already matched. Remove this one"
+    :f.op=="date"?"Date "+fmt(f.x.date)+" → "+fmt(f.r.date)+", the day the bank shows it here"
     :f.op=="amt"?"Amount "+amt(f.r.appAmt)+" → "+amt(f.r.amt)+", as the bank shows"
+    :f.op=="one"?"Transfer "+(f.r.dir=="out"?"to "+(ac(f.x.to).name||"another account"):"from "+(ac(f.x.acc).name||"another account"))+" → noted on this account only: the app’s records for "+f.B.name+" start on "+fmt(stCpStart(f.B))
     :f.op=="retr"?"Transfer to "+(ac(f.x.to).id?ac(f.x.to).name:"another account")+" → transfer to "+f.B.name+mg
     :f.op=="resrc"?"Payment from "+(ac(f.x.acc).id?ac(f.x.acc).name:"another account")+" → payment from "+f.B.name+mg
     :f.op=="trin"?"Money in → "+(ac(f.x.acc).type=="card"?"payment from ":"transfer from ")+f.B.name+mg
@@ -292,20 +301,23 @@ function stUndoLog(log){if(!log)return;log.add.forEach(i=>removeTx(i));S.bin=S.b
    becomes that entry, so the money is never counted twice */
 function stAddRow(p,A,r,batch,log,skip){const k=stmtClean(r.desc),ref=stRef(r.desc),B=r.dir=="out"?stmtTarget(k,A):null,Src=r.dir=="in"?stmtSource(k,A,r):null,nt=[k.note,r.fx].filter(Boolean).join(" · "),raw=r.desc.slice(0,160);
   const conv=(e,o)=>{skip.add(e.id);stMod(log,e);const n={...e,...o,fee:0,raw,imp:batch};delete n.cat;delete n.payee;if(e.date<n.date)n.date=e.date;put("tx",stamp(n,e));return n};
-  if(B){const got=trGot(r.amt,A,B),e=stMirror(B,A,got,r.date,"in",ref,skip);if(e)return conv(e,{kind:"tr",acc:A.id,to:B.id,amt:r.amt,got,cur:A.cur,date:r.date,note:k.payee});
+  const one=O=>{const t=addTx({kind:r.dir=="in"?"in":"out",acc:A.id,amt:r.amt,cur:A.cur,date:r.date,cat:stCat(k,r,A),payee:r.dir=="in"&&A.type=="card"?"Payment from "+O.name:k.payee,note:"Before the app’s records for "+O.name,raw,imp:batch});log.add.push(t.id);return t};
+  if(B){const got=trGot(r.amt,A,B),e=stMirror(B,A,got,r.date,"in",ref,skip);if(e)return conv(e,{kind:"tr",acc:A.id,to:B.id,amt:r.amt,got,cur:A.cur,date:r.date,note:k.payee});if(stBefore(B,r.date))return one(B);
     const t=addTx({kind:"tr",acc:A.id,to:B.id,amt:r.amt,got,fee:0,cur:A.cur,date:r.date,note:k.payee,raw,imp:batch});log.add.push(t.id);return t}
-  if(Src){const amt=trGot(r.amt,A,Src),e=stMirror(Src,A,amt,r.date,"out",ref,skip),note=A.type=="card"?"Card payment":k.payee;if(e)return conv(e,{kind:"tr",acc:Src.id,to:A.id,amt,got:r.amt,cur:Src.cur,date:r.date,note});
+  if(Src){const amt=trGot(r.amt,A,Src),e=stMirror(Src,A,amt,r.date,"out",ref,skip),note=A.type=="card"?"Card payment":k.payee;if(e)return conv(e,{kind:"tr",acc:Src.id,to:A.id,amt,got:r.amt,cur:Src.cur,date:r.date,note});if(stBefore(Src,r.date))return one(Src);
     const t=addTx({kind:"tr",acc:Src.id,to:A.id,amt,got:r.amt,fee:0,cur:Src.cur,date:r.date,note,raw,imp:batch});log.add.push(t.id);return t}
   const t=addTx({kind:r.dir=="in"?"in":"out",acc:A.id,amt:r.amt,cur:A.cur,date:r.date,cat:stCat(k,r,A),payee:k.payee,note:nt,raw,imp:batch});log.add.push(t.id);return t}
 /* put one entry right, as listed by stFixRows */
 function stFixOne(f,A,log){const {k,B,r,e}=f,cur=S.tx.find(t=>t.id==f.x.id);if(!cur)return false;
   if(f.op=="dup"||f.op=="dup2"){stDel(log,cur.id);return true}
   stMod(log,cur);const o={...cur},raw=r.desc.slice(0,160),merge=()=>{if(e&&e.id!=cur.id&&S.tx.some(t=>t.id==e.id))stDel(log,e.id)};
+  if(f.op=="date"){o.date=r.date;put("tx",stamp(o,cur));return true}
   if(f.op=="amt"){if(o.kind=="tr"){const same=ac(o.acc).cur==ac(o.to).cur;if(o.acc==A.id){o.amt=r.amt;if(same)o.got=r.amt}else{o.got=r.amt;if(same)o.amt=r.amt}}else o.amt=r.amt;put("tx",stamp(o,cur));return true}
   if(f.op=="untr"){Object.assign(o,{kind:"out",payee:k.payee,cat:stCat(k,r,A),note:k.note||"",raw});delete o.to;delete o.got;delete o.fee;put("tx",stamp(o,cur));return true}
   if(f.op=="name"&&f.moved){Object.assign(o,{payee:k.payee,cat:stEff(k,r,A,cur),note:k.note||"",raw});put("tx",stamp(o,cur));return true}
   if(f.op=="tr"){Object.assign(o,{kind:"tr",to:B.id,got:trGot(+cur.amt,A,B),fee:0,note:k.payee,raw:cur.raw||raw});delete o.cat;delete o.payee;if(e&&e.date<o.date)o.date=e.date;put("tx",stamp(o,cur));merge();return true}
   if(f.op=="trin"){Object.assign(o,{kind:"tr",acc:B.id,to:A.id,got:+cur.amt,amt:trGot(+cur.amt,A,B),cur:B.cur,fee:0,note:A.type=="card"?"Card payment":k.payee,raw:cur.raw||raw});delete o.cat;delete o.payee;if(e&&e.date<o.date)o.date=e.date;put("tx",stamp(o,cur));merge();return true}
+  if(f.op=="one"){const inA=cur.to==A.id&&cur.acc!=A.id,amt=inA?(+cur.got||r.amt):(+cur.amt||r.amt);Object.assign(o,{kind:inA?"in":"out",acc:A.id,amt,cur:A.cur,cat:stCat(k,r,A),payee:inA&&A.type=="card"?"Payment from "+B.name:k.payee,note:"Before the app’s records for "+B.name,raw:cur.raw||raw});delete o.to;delete o.got;delete o.fee;put("tx",stamp(o,cur));return true}
   if(f.op=="retr"){o.to=B.id;o.got=trGot(+cur.amt,A,B);put("tx",stamp(o,cur));merge();return true}
   if(f.op=="resrc"){o.acc=B.id;o.amt=trGot(+cur.got||r.amt,A,B);o.cur=B.cur;put("tx",stamp(o,cur));merge();return true}
   if(f.op=="flip"){o.kind=cur.kind=="in"?"out":"in";if(k.payee&&(!o.payee||/[A-Z]{3,} [A-Z]{2,}/.test(o.payee)))o.payee=k.payee;if(!o.cat)o.cat=o.kind=="out"?(k.cat||catFor(k.payee)||catGuess(k.note+" "+k.payee)||""):A.type=="card"?(stPayLike(k)?"Card payment":"Refund"):""}

@@ -4,9 +4,10 @@
 
 /* the figure a statement without a running balance is checked against: what you typed for "now", else (cards) the bank's latest
    "Available Limit" alert inside the statement's time. The alert counts everything up to the end of its day. */
-function stAnchor(p,A){if(!p||!p.M||!A||!p.P||!p.P.nobal||!p.M.from)return null;if(p.T!=null)return {kind:"now",T:p.T,d:today()};if(A.type!="card")return null;
+function stAnchor(p,A){if(!p||!p.M||!A||!p.P||!p.P.nobal||!p.M.from)return null;if(p.T!=null)return {kind:"now",T:p.T,Tb:p.T,d:today()};if(A.type!="card")return null;
   const b=(S.cfg.cardBank||{})[A.id],L=cardLim(A);if(!b||!L||b.avl==null)return null;const d=iso(new Date(b.t));if(d<p.M.from||d>today())return null;
-  return {kind:"alert",T:Math.round((b.avl-L)*100)/100,d,b}}
+  /* payments still waiting in Payment review are in the bank's figure but not yet in the app */
+  const Tb=Math.round((b.avl-L)*100)/100;return {kind:"alert",T:Math.round((Tb-cardPendSum(A,d)-cardFut(A,d))*100)/100,Tb,d,b}}
 const stTime=t=>new Date(t).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
 /* old balance corrections in the statement's time: once every entry matches they only hide differences */
 function stCorr(p,A){const M=p.M;if(!M||!M.day0)return [];const an=stAnchor(p,A);if(p.P.nobal&&!an)return [];const end=an&&an.d>M.to?an.d:M.to;
@@ -52,7 +53,7 @@ function stProj(p,A){const M=p.M;if(!M||!M.from)return null;const q=s=>$$("#csvo
   const now=Math.round((bal(A)+ch.reduce((s,c)=>s+c[1],0)+od)*100)/100;return {close:Math.round((at(M.to)+od)*100)/100,now,an}}
 function stProjHtml(p,A){const P=stProj(p,A);if(!P)return "";const card=A.type=="card"&&cardLim(A),nowT=card?`you’ll owe ${fmx(Math.max(0,-P.now),A.cur)} · ${fmx(cardLim(A)+P.now,A.cur)} available`:fmx(P.now,A.cur);
   if(p.P.close!=null&&!p.P.nobal){const d=Math.round((P.close-p.P.close)*100)/100;return `<p class="note stproj">After this, balance on ${fmt(p.M.to)}: ${fmx(P.close,A.cur)} · the bank says ${fmx(p.P.close,A.cur)}${Math.abs(d)<0.005?" ✓":`<span style="color:var(--late)"> · ${fmx(Math.abs(d),A.cur)} apart: what you keep that the bank doesn’t have</span>`}</p>`}
-  if(P.an)return `<p class="note stproj">${P.an.kind=="alert"?`Set from the bank’s alert (${esc(P.an.b.src||"alert")}, ${fmt(P.an.d)} ${stTime(P.an.b.t)}): ${fmx(P.an.b.avl,A.cur)} available, so you owed ${fmx(Math.max(0,-P.an.T),A.cur)} then.`:`Set from what you typed for now.`} After this, now: ${nowT}.</p>`;
+  if(P.an)return `<p class="note stproj">${P.an.kind=="alert"?`Set from the bank’s alert (${esc(P.an.b.src||"alert")}, ${fmt(P.an.d)} ${stTime(P.an.b.t)}): ${fmx(P.an.b.avl,A.cur)} available, so you owed ${fmx(Math.max(0,-P.an.Tb),A.cur)} then.`:`Set from what you typed for now.`} After this, now: ${nowT}.</p>`;
   return ""}
 
 /* ---------- the statement check ---------- */
@@ -80,7 +81,7 @@ function stDoneCard(p,A){const d=p.done,M=p.M,an=stAnchor(p,A),nw=M.res.filter(r
   const card=A.type=="card"&&cardLim(A),nowT=card?`${cardOwe(A)>0?"you owe "+fmx(cardOwe(A),A.cur):bal(A)>0.004?fmx(bal(A),A.cur)+" in credit":"nothing owed"} · ${fmx(cardAv(A),A.cur)} available`:fmx(bal(A),A.cur);
   return `<div class="card stok${ok?"":" warn"}" style="margin-top:10px"><b>${ok?"✓ Matches the bank":!run&&!an?"Done. One more step":"Almost: not exact yet"}</b><p class="note" style="margin:4px 0 0">${esc(L||"Nothing needed changing")}.</p>
   ${run?`<p class="note">Balance on ${fmt(M.to)}: statement ${fmx(p.P.close,A.cur)} · app ${fmx(cl,A.cur)}${Math.abs(cl-p.P.close)<0.005?" ✓":""}</p>`:""}
-  ${an?`<p class="note">${an.kind=="alert"?`Bank’s alert of ${fmt(an.d)} ${stTime(an.b.t)}: you owed ${fmx(Math.max(0,-an.T),A.cur)} · the app: ${fmx(Math.max(0,-ab),A.cur)}`:`You typed ${fmx(an.T,A.cur)} for now · the app: ${fmx(ab,A.cur)}`}${Math.abs(ab-an.T)<0.005?" ✓":""}</p>`:!run?`<p class="note">Type what the bank app shows now (below), so the balance is right too.</p>`:""}
+  ${an?`<p class="note">${an.kind=="alert"?`Bank’s alert of ${fmt(an.d)} ${stTime(an.b.t)}: you owed ${fmx(Math.max(0,-an.Tb),A.cur)} · the app: ${fmx(Math.max(0,-(ab+an.Tb-an.T)),A.cur)}`:`You typed ${fmx(an.T,A.cur)} for now · the app: ${fmx(ab,A.cur)}`}${Math.abs(ab-an.T)<0.005?" ✓":""}</p>`:!run?`<p class="note">Type what the bank app shows now (below), so the balance is right too.</p>`:""}
   <p class="note"><b>Now: ${nowT}</b></p>${(()=>{const L=stMissRows(p,A);return L.length?`<p class="note">Next: add ${L.map(g=>(g.hint=="card"?"the card":"your own account")+" ending "+esc(g.l4)).join(" and ")} (below), so ${L.reduce((s,g)=>s+g.n,0)==1?"that payment counts as a transfer":"those payments count as transfers"}, not spending.</p>`:""})()}
   ${ok||(!run&&!an)?"":`<p class="note" style="color:var(--late)">${[nw&&nw+" new left unticked",F&&F+" left to fix",O&&O+" kept that the bank doesn’t show"].filter(Boolean).join(" · ")||"The balance still differs: check the lines below."}</p>`}
   <div class="acts"><button class="btn ghost sm" data-act="stUndoAll">Undo all of it</button></div></div>`}
@@ -129,15 +130,11 @@ Object.assign(ACT,{
 {const _rl=stRowLab;stRowLab=function(r,A){try{const c=stmtClean(r.desc);if(r.dir=="in"&&A.type!="card"&&c.hint=="own"){const S0=stmtSource(c,A,r);return S0?"Transfer from "+S0.name:"From your own account"+(c.l4?" ending "+c.l4:"")+" (add it to track transfers)"}}catch(e){}return _rl(r,A)}}
 /* cards: say which alert the card is set from */
 {const _ob=stOweBox;stOweBox=function(p,A){const base=_ob(p,A),an=stAnchor(p,A);if(!an||an.kind!="alert")return base;
-  return `<div class="card" style="margin-top:10px"><b>Checked against the bank’s alert</b><p class="note" style="margin:4px 0 0">${esc(an.b.src||"Alert")}, ${fmt(an.d)} ${stTime(an.b.t)}: ${fmx(an.b.avl,A.cur)} available of ${fmx(cardLim(A),A.cur)}, so you owed ${fmx(Math.max(0,-an.T),A.cur)} then. “Make it match the bank” sets the card from it. If the bank app shows something else now, type it below instead.</p></div>${base}`}}
+  return `<div class="card" style="margin-top:10px"><b>Checked against the bank’s alert</b><p class="note" style="margin:4px 0 0">${esc(an.b.src||"Alert")}, ${fmt(an.d)} ${stTime(an.b.t)}: ${fmx(an.b.avl,A.cur)} available of ${fmx(cardLim(A),A.cur)}, so you owed ${fmx(Math.max(0,-an.Tb),A.cur)} then. “Make it match the bank” sets the card from it. If the bank app shows something else now, type it below instead.</p></div>${base}`}}
 /* a new file starts a fresh check */
 {const _sf=stmtFile;stmtFile=async function(...a){if(stPend)stPend.done=null;return _sf.apply(this,a)}}
 
 /* ---------- cards: the latest alert box always fresh, and an alert in the middle of a day counts ---------- */
-/* the alert came at a time of day: entries later that day are not in the bank's figure yet. If leaving some of that day's entries out explains the gap, it matches. */
-function cardDayOK(k,diff){const b=(S.cfg.cardBank||{})[k.id];if(!b)return false;const d=iso(new Date(b.t)),L=S.tx.filter(x=>x.kind!="adj"&&x.date==d).map(x=>sgn(x,k.id)).filter(v=>Math.abs(v)>0.004);if(!L.length||L.length>14)return false;
-  for(let m=1;m<(1<<L.length);m++){let s=0;for(let i=0;i<L.length;i++)if(m&(1<<i))s+=L[i];if(Math.abs(s+diff)<0.011)return true}return false}
-{const _cr=cardRecon;cardRecon=function(k,...a){const r=_cr(k,...a);try{if(r!=null&&Math.abs(r)>=1&&cardDayOK(k,r)){const W={...(S.cfg.balWarn||{})};delete W[k.id];S.cfg.balWarn=W;return 0}}catch(e){}return r}}
 {const _am=accMenu;accMenu=function(id,...a){try{const k=ac(id);if(k&&k.type=="card"&&cardLim(k)&&(S.cfg.cardBank||{})[id])cardRecon(k)}catch(e){}const r=_am(id,...a);
   try{const k=ac(id),g=$("#over .mgrid");if(!k||!k.id||!g)return r;let h="";
     if(k.type=="card"&&bal(k)>0.004)h+=`<div class="card" style="margin:0 0 12px;border-color:var(--soon)"><b>${fmx(bal(k),k.cur)} in credit on this card</b><p class="note" style="margin:4px 0 0">Unless the bank shows a credit too, a payment was saved twice or a correction is wrong.</p><div class="acts"><button class="btn sm" data-act="dupScan" data-id="${id}">Find entries saved twice</button><button class="btn sm ghost" data-act="stImport" data-id="${id}">Check a statement</button></div></div>`;

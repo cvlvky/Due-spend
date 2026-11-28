@@ -37,7 +37,7 @@ const SMSRE=/debit|credit|spent|withdrawn|withdrawal|received|purchase|paid|paym
 async function smsScan(ask){if(!isApp()||!S.cfg.smsAuto)return;
   try{const since=S.cfg.smsAt||Date.now()-3*864e5,r=await NP("DueNative","readSms",{since:String(since),max:S.cfg.smsMax||150}),L=(r&&r.messages)||[];if(!L.length)return;let mx=since;const q=S.cfg.smsq=S.cfg.smsq||[];
     L.forEach(m=>{mx=Math.max(mx,+m.date||0);if(typeof smsPerson=="function"&&smsPerson(m.address,m.body))return;const why=/\botp\b|one time password|verification code/i.test(m.body||"")?"code":!SMSRE.test(m.body||"")?"nowords":null,p=why?null:parseSms(m.body);smsLog(m,why||(p?"kept":"noamt"),p);if(!p||q.some(x=>x.id==m.id))return;
-      if(!p.date||Math.abs(dl(p.date))>3)p.date=iso(new Date(+m.date));q.push({id:m.id,from:m.address||"",body:String(m.body).slice(0,300),p})});
+      if(!p.date||Math.abs(dl(p.date))>3||!pdHasDate(m.body))p.date=iso(new Date(+m.date||Date.now()));q.push({id:m.id,from:m.address||"",body:String(m.body).slice(0,300),p,src:"s",t:+m.date||Date.now()})});
     S.cfg.smsq=q.slice(-40);S.cfg.smsAt=mx;S.cfg.smsLast=Date.now();dedupeQ();save();if(tab=="home")render()}
   catch(e){if(ask)toast("Couldn’t read messages. Allow the SMS permission in phone settings.");if(ask){S.cfg.smsAuto=false;save();render()}}}
 let smsCard=()=>{const q=S.cfg.smsq||[];return q.length?`<div class="card" style="margin:0 0 12px;cursor:pointer" data-act="smsReview"><div class="hbl"><b>${q.length} ${q.length==1?"payment":"payments"} to review</b><span class="chip">Review</span></div></div>`:""};

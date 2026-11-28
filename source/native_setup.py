@@ -292,6 +292,7 @@ public class DueNativePlugin extends Plugin {
     @Override
     public void load() {
         inst = this;
+        DuePay.channels(getContext());
         try {
             authL = getActivity().registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), r -> {
                 PluginCall c = authCall;
@@ -829,6 +830,42 @@ public class DueNativePlugin extends Plugin {
         } catch (Exception ignored) {}
         r.put("text", t.length() > 2000 ? t.substring(0, 2000) : t);
         call.resolve(r);
+    }
+
+    /** Can notifications pop up on the screen? Notifications on, and each channel at high importance. */
+    @PluginMethod
+    public void popStatus(PluginCall call) {
+        try {
+            call.resolve(JSObject.fromJSONObject(DuePay.popState(getContext())));
+        } catch (Exception e) {
+            call.reject("Could not read the notification settings");
+        }
+    }
+
+    /** Opens the phone's settings for one channel (where "Pop on screen" / "Banners" is), or for the app's notifications. */
+    @PluginMethod
+    public void popSettings(PluginCall call) {
+        try {
+            DuePay.channels(getContext());
+            String ch = call.getString("channel", "");
+            android.content.Intent i;
+            boolean on = androidx.core.app.NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+            if (Build.VERSION.SDK_INT >= 26 && on && ch != null && !ch.isEmpty()) {
+                i = new android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+                i.putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, ch);
+            } else if (Build.VERSION.SDK_INT >= 26) {
+                i = new android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            } else {
+                i = new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                i.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+            }
+            if (Build.VERSION.SDK_INT >= 26) i.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+            i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open the settings");
+        }
     }
 
     @PluginMethod
@@ -1553,7 +1590,54 @@ import org.json.JSONObject;
 /** Asks about each payment the app finds: a notification with Add and Skip. Answers wait here until the app reads them. */
 public class DuePay {
     static final String PREFS = "due_pay";
-    static final String CH = "pd_pay";
+    static final String CH = "pd_pay2";
+    static final String CH_ALERTS = "pd_alerts";
+
+    /** Channels that pop up on the screen. A channel's importance can't be raised once made, so the old "pd_pay" is replaced. */
+    static void channels(Context c) {
+        if (Build.VERSION.SDK_INT < 26) return;
+        try {
+            NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm.getNotificationChannel(CH) == null) {
+                NotificationChannel ch = new NotificationChannel(CH, "Payment confirmations", NotificationManager.IMPORTANCE_HIGH);
+                ch.setDescription("Pops up for each payment the app finds, so you can add or skip it");
+                ch.enableVibration(true);
+                ch.setVibrationPattern(new long[]{0, 250, 120, 250});
+                ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PRIVATE);
+                ch.setShowBadge(true);
+                nm.createNotificationChannel(ch);
+            }
+            if (nm.getNotificationChannel(CH_ALERTS) == null) {
+                NotificationChannel ch = new NotificationChannel(CH_ALERTS, "Dues and alerts", NotificationManager.IMPORTANCE_HIGH);
+                ch.setDescription("Pops up for bills and dues, expiring documents and budget warnings");
+                ch.enableVibration(true);
+                ch.setVibrationPattern(new long[]{0, 250, 120, 250});
+                ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PRIVATE);
+                ch.setShowBadge(true);
+                nm.createNotificationChannel(ch);
+            }
+            if (nm.getNotificationChannel("pd_pay") != null) nm.deleteNotificationChannel("pd_pay");
+        } catch (Exception ignored) {}
+    }
+
+    /** Whether notifications are on, and whether each channel can pop up (importance high). */
+    static JSONObject popState(Context c) {
+        JSONObject r = new JSONObject();
+        try {
+            channels(c);
+            r.put("on", NotificationManagerCompat.from(c).areNotificationsEnabled());
+            if (Build.VERSION.SDK_INT >= 26) {
+                NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+                for (String id : new String[]{CH, CH_ALERTS, "pd_daily"}) {
+                    NotificationChannel ch = nm.getNotificationChannel(id);
+                    r.put(id, ch == null ? -1 : ch.getImportance());
+                }
+            } else {
+                r.put(CH, 4); r.put(CH_ALERTS, 4);
+            }
+        } catch (Exception ignored) {}
+        return r;
+    }
     static final Set<String> WALLETS = new HashSet<>(Arrays.asList(
         "com.google.android.apps.walletnfcrel", "com.samsung.android.spay", "com.samsung.android.samsungpay.gear"));
     static final Set<String> PAYAPPS = new HashSet<>(Arrays.asList(
@@ -1697,14 +1781,15 @@ public class DuePay {
             long now = System.currentTimeMillis();
             JSONArray rec = new JSONArray(p.getString("rec", "[]")), keep = new JSONArray();
             String dupOf = null;
+            String py = o.optString("payee", "");
             for (int i = 0; i < rec.length(); i++) {
                 JSONObject r = rec.getJSONObject(i);
-                if (now - r.optLong("t") > 15 * 60000L) continue;
+                if (now - r.optLong("t") > 36 * 3600000L) continue;
                 keep.put(r);
                 String rl4 = r.optString("l4", "");
                 if (dupOf == null && Math.abs(r.optDouble("a") - amt) < 0.005 && r.optString("k").equals(kind)
                     && (cur.isEmpty() || r.optString("c").isEmpty() || r.optString("c").equals(cur))
-                    && ("tr".equals(kind) || ((l4.isEmpty() || rl4.isEmpty() || rl4.equals(l4)) && !r.optString("pkg").equals(pkg)))) dupOf = r.optString("id");
+                    && ("tr".equals(kind) || ((l4.isEmpty() || rl4.isEmpty() || rl4.equals(l4)) && !r.optString("pkg").equals(pkg) && sameShop(py, r.optString("py", ""))))) dupOf = r.optString("id");
             }
             if (dupOf != null) {
                 JSONObject links = new JSONObject(p.getString("dup", "{}"));
@@ -1714,8 +1799,9 @@ public class DuePay {
                 return;
             }
             JSONObject r = new JSONObject();
-            r.put("id", id); r.put("a", amt); r.put("c", cur); r.put("k", kind); r.put("t", now); r.put("l4", l4); r.put("pkg", pkg == null ? "" : pkg);
+            r.put("id", id); r.put("a", amt); r.put("c", cur); r.put("k", kind); r.put("t", now); r.put("l4", l4); r.put("pkg", pkg == null ? "" : pkg); r.put("py", py);
             keep.put(r);
+            while (keep.length() > 80) keep.remove(0);
             int nid = 41000 + (p.getInt("n", 0) % 800);
             JSONObject nids = new JSONObject(p.getString("nids", "{}"));
             nids.put(id, nid);
@@ -1737,6 +1823,22 @@ public class DuePay {
         } catch (Exception ignored) {}
     }
 
+    /** Two names for the same shop share a word ("CITY GRILL DOH" and "City Grill"); an empty name could be anything. */
+    static boolean sameShop(String a, String b) {
+        Set<String> A = words(a), B = words(b);
+        if (A.isEmpty() || B.isEmpty()) return true;
+        for (String w : A) if (B.contains(w)) return true;
+        return false;
+    }
+
+    private static Set<String> words(String s) {
+        Set<String> out = new HashSet<>();
+        if (s == null) return out;
+        for (String w : s.toLowerCase(Locale.US).split("[^a-z]+"))
+            if (w.length() >= 3 && !w.matches("the|and|doh|doha|qatar|llc|wll|ltd|pvt|card|bank|payment|purchase|from|with|your")) out.add(w);
+        return out;
+    }
+
     private static PendingIntent act(Context c, String id, int nid, String what) {
         Intent i = new Intent(c, DuePayAction.class);
         i.setAction("com.personaldiary.app.PAY_" + what.toUpperCase(Locale.US));
@@ -1747,12 +1849,7 @@ public class DuePay {
     }
 
     private static void post(Context c, String id, int nid, JSONObject o, String from, boolean added) throws Exception {
-        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CH) == null) {
-            NotificationChannel ch = new NotificationChannel(CH, "Payment confirmations", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Asks you to add each payment the app finds");
-            nm.createNotificationChannel(ch);
-        }
+        channels(c);
         boolean in = "in".equals(o.optString("kind")), tr = "tr".equals(o.optString("kind"));
         boolean hide = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("hide", false);
         String m = hide ? "" : money(o.optString("cur"), o.optDouble("amt")), payee = o.optString("payee", ""), l4 = o.optString("l4", ""), card = o.optString("card", "");
@@ -1778,7 +1875,8 @@ public class DuePay {
             .setContentText(text)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(added ? NotificationCompat.PRIORITY_DEFAULT : NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setDefaults(added ? 0 : NotificationCompat.DEFAULT_ALL)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(pub)
             .setOnlyAlertOnce(true)

@@ -67,11 +67,12 @@ try:
     now=int(time.time()*1000)
     E('window.__n.notifs=%s'%json.dumps([{"id":"gm:1","app":"Gmail","body":"HDFC Bank. Your payment of ₹499 to Netflix was successful.","time":str(now)},{"id":"ol:1","app":"Outlook","body":"QNB. Transaction alert: QAR 45.00 was spent at TALABAT","time":str(now)},
       {"id":"sms:1","app":"Messages","body":"QNB. QAR 45.00 was spent at TALABAT on your card ending 5566","time":str(now)},{"id":"x:1","app":"Bank","body":"Your OTP is 4455 for payment of QAR 10","time":str(now)}]))
-    E('notifScan()'); pg.wait_for_function('(S.cfg.smsq||[]).length>=2',timeout=5000); time.sleep(.3)
-    q=E('S.cfg.smsq'); ok('alerts queued, same payment from two apps kept once, OTP skipped',len(q)==2 and {x['from'] for x in q}=={'Gmail','Outlook'},[(x['from'],x['p']['amt']) for x in q])
-    ok('Home shows payments to review','2 payments to review' in pg.inner_text('#app'))
-    E('window.__n.notifs=[{"id":"gm:1","app":"Gmail","body":"HDFC Bank. Your payment of ₹499 to Netflix was successful.","time":"%d"}]'%now); E('notifScan()'); time.sleep(.3); ok('same alert not added twice',len(E('S.cfg.smsq'))==2)
-    pg.click('[data-act="smsReview"]'); ok('review shows the app name','Gmail:' in pg.inner_text('#over'))
+    E('notifScan()'); pg.wait_for_function('(S.cfg.smsq||[]).length>=1',timeout=5000); time.sleep(.3)
+    q=E('S.cfg.smsq'); ok('alerts queued, same payment from two apps kept once, OTP skipped',len(q)==1 and q[0]['p']['amt']==45 and q[0]['from']=='Messages',[(x['from'],x['p']['amt']) for x in q])
+    ok('the ₹499 already in the app (this month’s Netflix) is not asked again',any(e['id']=='gm:1' and e['act']=='same' and e.get('tx') for e in E('S.cfg.payLog||[]')))
+    ok('Home shows payments to review','1 payment to review' in pg.inner_text('#app'))
+    E('window.__n.notifs=[{"id":"gm:1","app":"Gmail","body":"HDFC Bank. Your payment of ₹499 to Netflix was successful.","time":"%d"}]'%now); E('notifScan()'); time.sleep(.3); ok('same alert not added twice',len(E('S.cfg.smsq'))==1)
+    pg.click('[data-act="smsReview"]'); ok('review shows the app name','Messages:' in pg.inner_text('#over'))
     pg.click('#over button[data-act="smsAdd"] >> nth=0'); pg.wait_for_selector('#over #f_amt'); ok('Add opens a filled entry',pg.input_value('#f_amt') in ('499','45'))
     # monthly full backup with files
     E('S.dates[0].att=[{id:"att1",name:"a.png",size:70,type:"image/png"}];return 1') if False else None
