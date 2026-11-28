@@ -41,7 +41,7 @@ try:
     # automatic SMS
     now=int(time.time()*1000)
     E('ac("a2").l4="5566";window.__n.sms=%s'%json.dumps([{"id":"11","address":"QNB","body":"QAR 84.50 spent on card ending 5566 at CARREFOUR DOHA","date":str(now-1000)},{"id":"12","address":"QNB","body":"Your OTP is 123456 for payment of QAR 10","date":str(now-900)},{"id":"13","address":"Friend","body":"See you at 5","date":str(now-800)},{"id":"14","address":"SBI","body":"Rs.2,000.00 credited to A/c XX1234 by NEFT from ACME","date":str(now-700)}]))
-    pg.click('button[data-act="settings"]'); pg.click('#over button[data-act="smsAuto"]'); pg.wait_for_function('(S.cfg.smsq||[]).length==2',timeout=8000); ok('bank messages queued, OTP and chats ignored',True)
+    pg.click('button[data-act="settings"]'); pg.click('#over [data-act="trackHub"]'); pg.wait_for_selector('#over button[data-act="trkSms"]'); pg.click('#over button[data-act="trkSms"]'); pg.wait_for_function('(S.cfg.smsq||[]).length==2',timeout=8000); ok('bank messages queued, OTP and chats ignored',True)
     pg.click('#over .x'); pg.click('[data-act="smsReview"]'); ok('review list shows them',pg.locator('#over button[data-act="smsAdd"]').count()==2)
     pg.click('#over button[data-act="smsAdd"] >> nth=0'); pg.wait_for_selector('#over #f_amt'); ok('Add opens a filled entry',pg.input_value('#f_amt')=='84.5' and pg.input_value('#f_acc')=='a2' and pg.input_value('#f_date')==E('today()'))
     n=E('S.tx.length'); pg.click('#over button[data-act="saveTx"]'); pg.wait_for_timeout(150); ok('entry saved, queue shrinks',E('S.tx.length')==n+1 and E('S.cfg.smsq.length')==1)

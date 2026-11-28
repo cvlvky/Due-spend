@@ -22,14 +22,14 @@ try:
     pg.click('#over .row[data-act="editDoc"]'); pg.click('#over button[data-act="delDoc"]'); pg.wait_for_timeout(100); pg.click('#toast button[data-act="undo"]'); pg.wait_for_timeout(100); ok('delete and undo',E('S.docs.length')==1)
     ok('document is in backup and survives reload',len(json.loads(E('bk()'))['docs'])==1)
     # reports additions
-    pg.click('#nav button[data-id="rep"]'); pg.wait_for_timeout(300); t=pg.inner_text('#app')
+    pg.click('#nav button[data-id="rep"]'); pg.wait_for_timeout(300); E('ACT.rSeg("spend")'); t=pg.inner_text('#app'); E('ACT.rSeg("tools")'); t+=pg.inner_text('#app')
     ok('subscriptions, streaks and reports sections',all(s in t for s in ['Subscriptions and fixed payments','Streaks and challenge','Reports to keep']))
     rc=E('recurringCosts()'); ok('recurring costs include premium, EMI and subscription',any('LIC' in x[0] for x in rc) and any('EMI' in x[0] for x in rc) and any('Subscriptions' in x[0] for x in rc),rc[:4])
     st=E('streaks()'); ok('streak numbers sane',st['cur']>=1 and st['best']>=st['cur'] and st['mdays']>=1,st)
     E('addTx({kind:"out",acc:"a1",amt:10,cur:"INR",date:today(),cat:"Tea"})'); ok('spending today resets the streak',E('streaks().cur')==0)
     pg.fill('#f_chal','20000'); pg.click('button[data-act="setChal"]'); pg.wait_for_timeout(100); ok('savings challenge shows progress','Savings challenge' in pg.inner_text('#app') and E('S.cfg.chal')==20000)
     # by person
-    E('S.tx.slice(-6).forEach((x,i)=>{x.by=i%2?"wife@example.com":"me@example.com"});render()'); ok('spending by person appears','Spending by person' in pg.inner_text('#app'))
+    E('S.tx.slice(-6).forEach((x,i)=>{x.by=i%2?"wife@example.com":"me@example.com"});ACT.rSeg("spend")'); ok('spending by person appears','Spending by person' in pg.inner_text('#app')); E('ACT.rSeg("tools")')
     # PDF
     with pg.expect_download() as dl: pg.click('button[data-act="pdfMonth"]')
     data=open(dl.value.path(),'rb').read()
@@ -48,7 +48,7 @@ try:
     # in the phone app, exports go to Downloads through the native side
     c=b.new_context(viewport={'width':360,'height':740}); c.add_init_script('''window.__n={};window.Capacitor={isNativePlatform:()=>true,addListener(){},nativePromise:async(p,m,o)=>{if(m=="saveDownload"){window.__n[o.name.split(".").pop()]=o;return {}}if(p=="LocalNotifications")return m=="getPending"?{notifications:[]}:{display:"granted"};return {}}};'''+"if(!localStorage.getItem('seeded')){localStorage.setItem('due-and-spend.v1',%s);localStorage.setItem('seeded','1')}"%json.dumps(json.dumps(legacy)))
     pg=c.new_page(); pg.goto('http://localhost:8765/due-and-spend.html'); pg.wait_for_selector('#nav button')
-    pg.click('button[data-act="settings"]'); pg.click('#over button[data-act="csv"]'); pg.wait_for_function('!!window.__n.csv'); pg.click('#over .x'); pg.click('#nav button[data-id="rep"]'); pg.click('button[data-act="pdfMonth"]'); pg.wait_for_function('!!window.__n.pdf')
+    pg.click('button[data-act="settings"]'); pg.click('#over button[data-act="csv"]'); pg.wait_for_function('!!window.__n.csv'); pg.click('#over .x'); pg.click('#nav button[data-id="rep"]'); pg.click('button[data-act="rSeg"][data-id="tools"]'); pg.click('button[data-act="pdfMonth"]'); pg.wait_for_function('!!window.__n.pdf')
     ok('phone app saves CSV and PDF to Downloads',pg.evaluate('window.__n.csv.mime')=='text/csv' and pg.evaluate('window.__n.pdf.mime')=='application/pdf' and pg.evaluate('window.__n.pdf.text.startsWith("%PDF")'))
     c.close(); b.close()
 finally: srv.terminate()

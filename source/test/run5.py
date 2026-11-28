@@ -65,11 +65,11 @@ try:
     pg.click('#nav button[data-id="rep"]'); pg.fill('#ask_q','How much did I send to India?'); pg.click('button[data-act="ask"]'); pg.wait_for_function('document.querySelector("#ask_out").textContent.includes("7,500")')
     q=E('window.__asked[0]'); ok('question sends a data summary',('ACCOUNTS:' in q) and ('QAR-INR TRANSFERS' in q) and ('How much did I send' in q) and len(q)<200000,len(q))
     # ---- planning
-    pg.fill('#wi_inc','10000'); pg.fill('#wi_emi','4000'); pg.click('button[data-act="whatIf"]'); ok('what-if shows result','After 12 months' in pg.inner_text('#wi_out'))
+    E('ACT.rSeg("tools")'); pg.fill('#wi_inc','10000'); pg.fill('#wi_emi','4000'); pg.click('button[data-act="whatIf"]'); ok('what-if shows result','After 12 months' in pg.inner_text('#wi_out'))
     w=E('whatIf(10000,4000,0,12)'); ok('what-if arithmetic',abs((w[11]['bal']-w[11]['base'])-6000*11)<1e-6 and w[0]['bal']==w[0]['base'],w[11])
     w2=E('whatIf(0,0,30,12)'); ok('what-if rate change raises rupee value of QAR',w2[11]['bal']>w2[11]['base'] and E('S.cfg.rate')==26.1)
     g=E('goalPlan()'); ok('goal planner gives monthly amount',g[0]['need']>0 and g[0]['mo']>=1 and g[1]['need'] is None,g)
-    cv=E('coverView()'); ok('cover and yearly totals',cv['cover']==500000 and cv['lifeYr']==28450 and 'Goal planner' in pg.inner_text('#app') and 'Cover and yearly totals' in pg.inner_text('#app'),cv)
+    cv=E('coverView()'); ok('cover and yearly totals',cv['cover']==500000 and cv['lifeYr']==28450 and 'Goal planner' in pg.inner_text('#app') and (E('ACT.rSeg("wealth")') or 1) and 'Cover and yearly totals' in pg.inner_text('#app'),cv)
     ok('reports still render','couldn’t be shown' not in pg.inner_text('#app'))
     # ---- family sharing (simulated): two different people, one shared set
     pg.click('#nav button[data-id="home"]'); pg.click('button[data-act="settings"]'); pg.click('#over button[data-act="cloudOpen"]'); pg.click('#over button[data-act="cloudShareOn"]'); pg.wait_for_function('CLS.shared&&!!CLS.seen',timeout=20000)

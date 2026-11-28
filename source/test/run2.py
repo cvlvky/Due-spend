@@ -102,11 +102,14 @@ try:
     E('removeTx(linked("inv","i2").find(x=>x.kind=="save").id)'); i2=E('S.inv.find(x=>x.id=="i2")'); ok('deleting linked entry takes it back',abs(i2['inv']-134000)<1e-6,i2)
     # --- reports: explain every key, prepay
     tabto(pg,'rep')
-    keys=E('[...document.querySelectorAll("#app [data-act=explain]")].map(e=>e.getAttribute("data-id"))')
+    keys=[]
+    for sg in ['sum','spend','flow','wealth','tools']:
+        E('ACT.rSeg(%s)'%json.dumps(sg)); keys+=E('[...document.querySelectorAll("#app [data-act=explain]")].map(e=>e.getAttribute("data-id"))')
+    E('ACT.rSeg("sum")')
     bad=[k for k in keys+['nw','due30','emer','emi','chk:uncat','chk:dup','chk:acc','chk:noamt','chk:both','m:fixed:'+E('mon'),'m:flex:'+E('mon')] if not E('(()=>{const d=explainData(%s);return !!d&&Array.isArray(d.rows)})()'%json.dumps(k))]
     ok('every explanation builds',not bad,bad)
     pg.click('#app [data-act="explain"][data-id^="m:out"]'); ok('explain sheet lists entries',pg.locator('#over .row').count()>3); close(pg)
-    pg.fill("#pp_amt","10000"); pg.click('button[data-act="prepay"]'); ok('prepay without rate',"fewer EMIs" in pg.inner_text('#pp_out'),pg.inner_text('#pp_out'))
+    E('ACT.rSeg("wealth")'); pg.fill("#pp_amt","10000"); pg.click('button[data-act="prepay"]'); ok('prepay without rate',"fewer EMIs" in pg.inner_text('#pp_out'),pg.inner_text('#pp_out'))
     E('S.loans.find(x=>x.id=="l2").rate=8.5'); pg.select_option('#pp_loan','l2'); pg.click('button[data-act="prepay"]'); t=pg.inner_text('#pp_out'); ok('prepay with rate',"months sooner" in t and "saves about" in t,t)
     for t in ['home','dates','invest','acc','spend','rep']:
         tabto(pg,t); ok('tab '+t+' renders','couldn’t be shown' not in pg.inner_text('#app'))

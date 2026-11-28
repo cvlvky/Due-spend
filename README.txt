@@ -1,4 +1,36 @@
-PERSONAL DIARY (version 32, formerly Due & Spend)
+PERSONAL DIARY (version 33, formerly Due & Spend)
+
+NEW IN VERSION 33
+- A notification for each payment. When a bank SMS, a bank app, Google
+  Wallet, Google Pay, PhonePe, Paytm, Samsung Wallet or a bank email shows
+  a payment, the phone asks "Paid QAR 45 at Saffron Cafe" with Add expense
+  and Skip. Add saves it to your expenses, even with the app closed; the
+  app files it the next time it opens. The same payment seen in SMS, the
+  bank app and email is asked about once.
+- Add saves straight away when the account is clear (the card or account
+  ending matches, you used that account for the payee before, or you
+  have one bank account in that currency). Otherwise it waits in Payments
+  to review, marked "You tapped Add", and the account you pick is
+  remembered for that bank next time.
+- Senders you trust ("Always save without asking") are added at once,
+  with Undo on the notification. With amounts hidden or the app locked,
+  the notification doesn't show the amount.
+- Google Wallet and Samsung Wallet: the shop name in the title is used as
+  the payee, and refunds count as money in. Google Pay, PhonePe and Paytm:
+  "Ravi paid you ₹500" is now income, not an expense.
+- Emails: the hourly check reads the sender, asks about each payment with
+  Add or Skip, and skips emails the app already has.
+- Payment tracking (Settings): one screen for bank SMS, app and wallet
+  alerts, Gmail, Outlook, the hourly email check and the notification
+  question, with a green, grey or red dot for each, an example
+  notification and the senders saved without asking.
+- Reports in five pages: Summary, Spending, Cash flow, Wealth and Tools.
+  Summary is pictures first: the month at a glance with a ring for income
+  kept, and Money health as green, amber and red badges. Budgets show as
+  bars, investment returns as bars, and tables and long explanations fold
+  under "See the numbers" and "How this works".
+- Home: the month card shows a bar of budgets used (or spending against a
+  usual month), with a line for today.
 
 NEW IN VERSION 32.9
 - Gold prices use the live international price. The free daily rates file
