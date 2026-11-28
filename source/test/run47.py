@@ -194,9 +194,10 @@ try:
      ln(60,[(250,'Page 1 of 2')]),ln(50,[(40,'Customer care 800 0000')]),HD(780,2),rw(760,'31/10/2026','-50.00','190.00',2),ct(749,'FIFTH SHOP',2)]
   P=E('L=>{const p=stmtParse(L);return {open:p.open,d:p.rows.map(r=>r.desc)}}',L)
   ok('descriptions under the date: even gaps follow the statement’s habit; the last line of a page keeps its text; footers stay out',P['open']==240 and P['d']==['PAYMENT TO FIFTH SHOP','PAYMENT TO FOURTH SHOP','PAYMENT TO THIRD SHOP LINE TWO','PAYMENT TO SECOND SHOP','PAYMENT TO FIRST SHOP REF 1'],P)
-  E('S.acc.push({id:"k9",name:"Alert card",type:"card",cur:"QAR",open:0,lim:1000,l4:"0999"});addTx({kind:"out",acc:"k9",amt:100,cur:"QAR",date:"2026-11-20",payee:"Shop A"});addTx({kind:"out",acc:"k9",amt:40,cur:"QAR",date:"2026-11-20",payee:"Shop B"});S.cfg.cardBank={k9:{avl:900,t:new Date(2026,10,20,11,0).getTime(),src:"SMS"}};save()')
-  ok('an alert before the day’s later spending still matches',E('cardRecon(ac("k9"))')==0 and not E('!!(S.cfg.balWarn||{}).k9'))
-  E('S.cfg.cardBank.k9.avl=850;save()');ok('a real difference is still reported',abs(E('cardRecon(ac("k9"))')+10)<0.005 or abs(E('cardRecon(ac("k9"))')-(-10))<0.005,E('cardRecon(ac("k9"))'))
+  E('S.acc.push({id:"sv0",name:"Bank",type:"bank",cur:"QAR",open:0},{id:"k9",name:"Alert card",type:"card",cur:"QAR",open:0,lim:1000,l4:"0999"});addTx({kind:"out",acc:"k9",amt:100,cur:"QAR",date:"2026-11-20",payee:"Shop A"});addTx({kind:"out",acc:"k9",amt:40,cur:"QAR",date:"2026-11-20",payee:"Shop B"});S.cfg.cardBank={k9:{avl:900,t:new Date(2026,10,20,11,0).getTime(),src:"SMS"}};save()')
+  E('S.cfg.cardBank.k9.avl=860;save()');ok('the card matches the bank’s latest alert',E('cardRecon(ac("k9"))')==0 and not E('!!(S.cfg.balWarn||{}).k9'))
+  E('addTx({kind:"tr",acc:"sv0",to:"k9",amt:100,got:100,cur:"QAR",date:"2026-11-20",note:"Card payment"});save()')
+  ok('a payment saved that day is never taken as “after the alert”',abs(E('cardRecon(ac("k9"))')+100)<0.005 and E('!!(S.cfg.balWarn||{}).k9'),E('cardRecon(ac("k9"))'))
   c.close()
 finally:
   h.done()

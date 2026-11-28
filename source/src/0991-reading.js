@@ -22,7 +22,7 @@ const l4Acc=l4=>l4?S.acc.find(a=>(a.l4&&l4.endsWith(String(a.l4)))||(a.l4s||[]).
   p.cat=p.cat||catFor(p.payee);p.weak=!p.l4&&!PAYW.test(s);return p}}
 /* the same payment often arrives by SMS, email and app alert: keep one */
 function dedupeQ(){const q=S.cfg.smsq||[],out=[];
-  q.forEach(m=>{if(!m.p||(m.src=="n"&&m.p.weak))return;const d=out.find(o=>o.p.kind==m.p.kind&&Math.abs(o.p.amt-m.p.amt)<.005&&Math.abs(dl(o.p.date)-dl(m.p.date))<=1&&(!o.p.l4||!m.p.l4||o.p.l4.slice(-4)==m.p.l4.slice(-4)));
+  q.forEach(m=>{if(!m.p||(m.src=="n"&&m.p.weak))return;const d=out.find(o=>o.p.kind==m.p.kind&&Math.abs(o.p.amt-m.p.amt)<.005&&Math.abs(dl(o.p.date)-dl(m.p.date))<=1&&(!o.p.l4||!m.p.l4||o.p.l4.slice(-4)==m.p.l4.slice(-4))&&pdShop(o.p.payee,m.p.payee)&&(pdKey(o)!=pdKey(m)||pdEcho(o,m)));
     if(d){if(!d.p.payee&&m.p.payee)d.p.payee=m.p.payee;return}out.push(m)});S.cfg.smsq=out}
 function smsLog(m,why,p){const b=String(m.body||"");if(why=="nowords"&&!/(INR|Rs\.?|QAR|QR|₹|ر\.?\s?ق)\s?\d/i.test(b))return;
   const L=S.cfg.smsLog=S.cfg.smsLog||[];if(L.some(x=>x.id==m.id))return;L.push({id:m.id,t:+m.date||Date.now(),app:"SMS "+(m.address||""),body:b.slice(0,220),why});S.cfg.smsLog=L.slice(-30)}

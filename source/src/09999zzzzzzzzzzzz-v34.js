@@ -1,7 +1,7 @@
 /* ===== Version 34: one Payment review page, password import from CSV, a day calendar, entry filters, insights, a cleaner password list ===== */
 
 /* ---------- Payment review: Waiting, Approved and Ignored on one page ---------- */
-const PROK=/^(add|auto|transfer)$/;
+const PROK=/^(add|auto|transfer|same)$/;
 function prCount(){const L=S.cfg.payLog||[],m0=today().slice(0,7),mo=L.filter(x=>iso(new Date(x.t)).slice(0,7)==m0);
   return {wait:(S.cfg.smsq||[]).length,ok:L.filter(x=>PROK.test(x.act)).length,no:L.filter(x=>x.act=="skip").length,okM:mo.filter(x=>PROK.test(x.act)).length,noM:mo.filter(x=>x.act=="skip").length}}
 function prTabs(cur){const c=prCount();return `<div class="segs prtabs">${[["wait","Waiting",c.wait],["ok","Approved",c.ok],["no","Ignored",c.no]].map(([k,l,n])=>`<button class="${k==cur?"on":""}" data-act="prTab" data-id="${k}">${l} <span class="cnt">${n}</span></button>`).join("")}</div>`}
