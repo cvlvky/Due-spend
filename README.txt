@@ -1,4 +1,31 @@
-PERSONAL DIARY (version 33, formerly Due & Spend)
+PERSONAL DIARY (version 34, formerly Due & Spend)
+
+NEW IN VERSION 34
+- Payment review: one page with three tabs, Waiting, Approved and Ignored,
+  each with its count. It opens from a card on Home (with a bar of waiting,
+  approved and ignored this month), from the top of Spending and from the
+  top of Settings. Approved shows what you added on the phone or in the
+  app, with Open; Ignored shows what you skipped, with Add it.
+- Passwords: import from a CSV file exported by Google Password Manager,
+  Chrome, Bitwarden, LastPass, 1Password, Proton Pass, Dashlane, Firefox,
+  Edge, KeePass or Apple Passwords. A preview shows new, already saved and
+  different-password logins; a changed password is updated only if you
+  tick it. Folders become kinds, notes and 2-step keys are kept. The app
+  reminds you to delete the CSV file afterwards.
+- Passwords: an A to Z list with letters and a coloured initial for each
+  login, weak passwords marked, and a checkup with Weak, Used twice and
+  Over a year old.
+- Spending: the heatmap is now a calendar showing what you spent and
+  received on each day and the days a bill is due. Tap a day to see its
+  entries or add one for that day.
+- Spending: chips above the entries filter by Spent, Income, Saved or one
+  of your top categories, with the count and total.
+- Insights on Home: the category that went up or down against last
+  month, the shop you spent most at, no-spend days, the biggest expense
+  and this week against last week. Hide them in Choose what Home shows.
+- Ideas taken from popular Play Store apps: the day calendar (Money
+  Manager, Bluecoins), filters (Bluecoins), insight cards (Wallet), and
+  the password checkup and CSV import (Google Password Manager, Bitwarden).
 
 NEW IN VERSION 33.1
 - Only payment sources are read: bank and card apps, wallets and payment

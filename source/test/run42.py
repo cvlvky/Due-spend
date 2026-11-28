@@ -47,7 +47,7 @@ try:
   E('ACT.appAgain(%s)'%json.dumps(GP['pkg']));ok('and it can be read again',GP['pkg'] not in E('S.cfg.ignAdd'))
   # Payment tracking links to it
   E('trackHub()');pg.wait_for_selector('#trk_hub');t=pg.inner_text('#over')
-  ok('Payment tracking shows what is read and the review history',"Apps read" in t and "never read" in t and "Review history" in t,t[-600:])
+  ok('Payment tracking shows what is read and the review history',"Apps read" in t and "never read" in t and "Payment review" in t,t[-600:])
   pg.click('#over .x')
   # ---------- 3. card bill paid from savings: a transfer ----------
   E('ac("a1").l4="1234";S.acc.push({id:"c1",name:"HDFC Card",type:"card",cur:"INR",open:0,l4:"5678"});S.cfg.smsq=[];save()')
@@ -87,12 +87,12 @@ try:
   E('window.__n.items=[%s]'%json.dumps(PH));E('notifScan()');E('window.__n.acts=[{id:%s,act:"add",t:Date.now(),amt:18,cur:"QAR",kind:"out"}]'%json.dumps(PH['id']));E('payNow()')
   L=E('S.cfg.payLog');acts=[x['act'] for x in L];vias=[x['via'] for x in L]
   ok('every decision is recorded apart from the entries',"transfer" in acts and "skip" in acts and "add" in acts and "phone" in vias and "app" in vias,list(zip(acts,vias)))
-  E('revSheet("all")');pg.wait_for_selector('#rev_sheet');t=pg.inner_text('#over')
-  ok('Review history lists them by day',all(k in t for k in ["Today","Saved as a transfer","Skipped in the app","Added on the phone","Added this month"]),t[:700])
-  pg.click('#over [data-act="revF"][data-id="skip"]');pg.wait_for_timeout(150);t=pg.inner_text('#over')
-  ok('the Skipped filter shows only skipped',"Skipped" in t and "Added on the phone" not in t)
+  E('payReview("ok")');pg.wait_for_selector('#rev_sheet');t=pg.inner_text('#over')
+  ok('Approved lists them by day',all(k in t for k in ["Today","Saved as a transfer","Added on the phone","Approved","Ignored","Waiting"]) and "Skipped in the app" not in t,t[:700])
+  pg.click('#over [data-act="prTab"][data-id="no"]');pg.wait_for_timeout(150);t=pg.inner_text('#over')
+  ok('the Ignored tab shows only skipped',"Skipped in the app" in t and "Added on the phone" not in t)
   pg.click('#over [data-act="revAdd"]');pg.wait_for_selector('#over #f_amt');ok('Add it brings a skipped payment back',pg.input_value('#f_amt')=="33")
-  pg.click('#over .x');E('revSheet("add")');pg.wait_for_selector('#over [data-act="revOpen"]');pg.click('#over [data-act="revOpen"]');pg.wait_for_selector('#over #f_amt');ok('Open shows the saved entry',pg.locator('#over #f_amt').count()==1)
+  pg.click('#over .x');E('payReview("ok")');pg.wait_for_selector('#over [data-act="revOpen"]');pg.click('#over [data-act="revOpen"]');pg.wait_for_selector('#over #f_amt');ok('Open shows the saved entry',pg.locator('#over #f_amt').count()==1)
   pg.click('#over .x')
   # ---------- 4. overdue alerts ----------
   E('window.__calls=[]');E('S.docs.push({id:"d9",name:"Test permit",type:"Permit",exp:plus(40),rem:30});nativeNotify()');pg.wait_for_timeout(300)
